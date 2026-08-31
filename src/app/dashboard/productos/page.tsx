@@ -245,7 +245,41 @@ export default function ProductsPage() {
                       <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>
                         {p.code}
                       </td>
-                      <td className="primary">{p.name}</td>
+                      <td className="primary">
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          {p.image_url ? (
+                            <img
+                              src={p.image_url}
+                              alt={p.name}
+                              style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: "var(--radius-sm)",
+                                objectFit: "cover",
+                                flexShrink: 0,
+                                border: "1px solid var(--surface-border)",
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: "var(--radius-sm)",
+                                background: "var(--bg-tertiary)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                                border: "1px solid var(--surface-border)",
+                              }}
+                            >
+                              <Package size={18} style={{ color: "var(--text-muted)" }} />
+                            </div>
+                          )}
+                          <span>{p.name}</span>
+                        </div>
+                      </td>
                       <td>
                         {p.category && (
                           <span

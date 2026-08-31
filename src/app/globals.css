@@ -1,48 +1,48 @@
 /* ============================================================
    CotiGrafix — Design System
-   Premium Dark Theme with Glassmorphism
+   Light Corporate Theme — Limpio & Profesional
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* ── Tokens ─────────────────────────────────────────────────── */
 :root {
-  /* Background */
-  --bg-primary: #060611;
-  --bg-secondary: #0c0c1d;
-  --bg-tertiary: #12122a;
-  --bg-elevated: #181836;
-  --bg-card: rgba(255, 255, 255, 0.03);
-  --bg-card-hover: rgba(255, 255, 255, 0.06);
-  --bg-glass: rgba(255, 255, 255, 0.04);
+  /* Background — Clean whites & grays */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --bg-elevated: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.9);
+  --bg-card-hover: rgba(255, 255, 255, 1);
+  --bg-glass: rgba(241, 245, 249, 0.8);
 
-  /* Surface */
-  --surface-border: rgba(255, 255, 255, 0.08);
-  --surface-border-hover: rgba(255, 255, 255, 0.15);
-  --surface-divider: rgba(255, 255, 255, 0.06);
+  /* Surface — Steel borders */
+  --surface-border: #e2e8f0;
+  --surface-border-hover: #cbd5e1;
+  --surface-divider: #e2e8f0;
 
-  /* Text */
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-disabled: #475569;
+  /* Text — Charcoal & slate */
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-disabled: #cbd5e1;
 
-  /* Accent — Violet to Blue gradient */
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-light: rgba(99, 102, 241, 0.15);
-  --accent-gradient: linear-gradient(135deg, #6366f1, #3b82f6);
-  --accent-gradient-hover: linear-gradient(135deg, #818cf8, #60a5fa);
+  /* Accent — Slate Blue (serio, corporativo) */
+  --accent: #4f6d92;
+  --accent-hover: #3d5a80;
+  --accent-light: rgba(79, 109, 146, 0.1);
+  --accent-gradient: linear-gradient(135deg, #4f6d92, #3d5a80);
+  --accent-gradient-hover: linear-gradient(135deg, #3d5a80, #2c4a6e);
 
   /* Semantic colors */
-  --success: #10b981;
-  --success-light: rgba(16, 185, 129, 0.15);
-  --warning: #f59e0b;
-  --warning-light: rgba(245, 158, 11, 0.15);
-  --error: #ef4444;
-  --error-light: rgba(239, 68, 68, 0.15);
-  --info: #3b82f6;
-  --info-light: rgba(59, 130, 246, 0.15);
+  --success: #2d8659;
+  --success-light: rgba(45, 134, 89, 0.08);
+  --warning: #b8860b;
+  --warning-light: rgba(184, 134, 11, 0.08);
+  --error: #c0392b;
+  --error-light: rgba(192, 57, 43, 0.08);
+  --info: #2874a6;
+  --info-light: rgba(40, 116, 166, 0.08);
 
   /* Spacing */
   --space-xs: 4px;
@@ -64,7 +64,7 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+  --shadow-glow: 0 0 20px rgba(13, 148, 136, 0.12);
 
   /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -162,11 +162,11 @@ button:disabled, .btn:disabled {
 .btn-primary, button[type="submit"] {
   background: var(--accent-gradient);
   color: white;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 8px rgba(79, 109, 146, 0.25);
 }
 .btn-primary:hover:not(:disabled), button[type="submit"]:hover:not(:disabled) {
   background: var(--accent-gradient-hover);
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 4px 16px rgba(79, 109, 146, 0.3);
   transform: translateY(-1px);
 }
 
@@ -401,7 +401,7 @@ table {
 }
 
 thead {
-  background: rgba(255, 255, 255, 0.03);
+  background: #f8fafc;
 }
 
 th {
@@ -428,7 +428,7 @@ tr:last-child td {
 }
 
 tr:hover td {
-  background: rgba(255, 255, 255, 0.02);
+  background: #fafbfd;
 }
 
 td.primary {
@@ -812,7 +812,7 @@ td.primary {
   right: -50%;
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(79,109,146,0.05) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -1053,7 +1053,7 @@ td.primary {
   font-size: 0.78rem;
   color: var(--accent);
   background: var(--accent-light);
-  border: 1px dashed rgba(99, 102, 241, 0.3);
+  border: 1px dashed rgba(79, 109, 146, 0.3);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -1203,9 +1203,9 @@ td.primary {
 .skeleton {
   background: linear-gradient(
     90deg,
-    var(--bg-glass) 25%,
-    rgba(255,255,255,0.06) 50%,
-    var(--bg-glass) 75%
+    #e2e8f0 25%,
+    #f1f5f9 50%,
+    #e2e8f0 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
@@ -1306,12 +1306,12 @@ td.primary {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: #cbd5e1;
   border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: #94a3b8;
 }
 
 /* ── Responsive ─────────────────────────────────────────────── */
@@ -1324,15 +1324,54 @@ td.primary {
 @media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
+    z-index: 1000;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: var(--sidebar-width);
+    transition: transform var(--transition-base);
   }
   .sidebar.open {
     transform: translateX(0);
+  }
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 999;
+  }
+  .sidebar-overlay.visible {
+    display: block;
+  }
+  .mobile-menu-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
+    border: 1px solid var(--surface-border);
+    color: var(--text-primary);
+    cursor: pointer;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 998;
+    transition: all var(--transition-fast);
+  }
+  .mobile-menu-btn:hover {
+    background: var(--accent-light);
+    color: var(--accent);
   }
   .main-content {
     margin-left: 0;
   }
   .page-header {
     padding: var(--space-lg);
+    padding-left: 60px;
   }
   .page-body {
     padding: var(--space-lg);

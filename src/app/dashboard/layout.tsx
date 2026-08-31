@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import LogoutButton from "@/components/LogoutButton";
+import MobileShell from "@/components/MobileShell";
 
 export default async function DashboardLayout({
   children,
@@ -23,21 +24,24 @@ export default async function DashboardLayout({
 
   return (
     <div className="app-layout">
-      <Sidebar userName={userName} userEmail={userEmail} />
-      <main className="main-content">
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            padding: "12px 32px",
-            borderBottom: "1px solid var(--surface-divider)",
-          }}
-        >
-          <LogoutButton />
-        </div>
-        {children}
-      </main>
+      <MobileShell
+        sidebar={<Sidebar userName={userName} userEmail={userEmail} />}
+      >
+        <main className="main-content">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              padding: "12px 32px",
+              borderBottom: "1px solid var(--surface-divider)",
+            }}
+          >
+            <LogoutButton />
+          </div>
+          {children}
+        </main>
+      </MobileShell>
     </div>
   );
 }

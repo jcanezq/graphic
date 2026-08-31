@@ -35,6 +35,24 @@ export async function middleware(request: NextRequest) {
   const isRootPath = pathname === "/";
   const isDashboardRoute = pathname.startsWith("/dashboard");
 
+  // Email whitelist — only allowed emails can access the app
+  const allowedEmails = (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (user && allowedEmails.length > 0) {
+    const userEmail = user.email?.toLowerCase() || "";
+    if (!allowedEmails.includes(userEmail)) {
+      // Unauthorized: sign out and redirect to login
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("error", "unauthorized");
+      return NextResponse.redirect(url);
+    }
+  }
+
   // If there's an OAuth code at root, redirect to callback
   if (isRootPath) {
     const code = request.nextUrl.searchParams.get("code");
@@ -45,8 +63,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Not authenticated → trying to access protected routes → login
-  if (!user && isDashboardRoute) {
+  // Not authenticated → trying to access protected routes or root → login
+  if (!user && (isDashboardRoute || isRootPath)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

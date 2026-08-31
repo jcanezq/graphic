@@ -120,12 +120,13 @@ export default function NewQuotationPage() {
 
     setSaving(true);
 
-    // Get next quotation number
-    const { data: stg } = await supabase.from("company_settings").select("*").limit(1).single();
-    const prefix = stg?.quotation_prefix || "COT";
-    const nextNum = stg?.quotation_next_number || 1;
-    const year = new Date().getFullYear();
-    const number = `${prefix}-${year}-${String(nextNum).padStart(4, "0")}`;
+    // Atomic quotation number generation (prevents race condition)
+    const { data: number, error: rpcError } = await supabase.rpc("generate_quotation_number");
+    if (rpcError || !number) {
+      showToast("Error generando número: " + (rpcError?.message || "sin respuesta"), "error");
+      setSaving(false);
+      return;
+    }
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
@@ -159,7 +160,7 @@ export default function NewQuotationPage() {
 
     // Insert items
     if (quotation) {
-      await supabase.from("quotation_items").insert(
+      const { error: itemsError } = await supabase.from("quotation_items").insert(
         items.map((item, idx) => ({
           quotation_id: quotation.id,
           product_id: item.product_id || null,
@@ -179,11 +180,13 @@ export default function NewQuotationPage() {
         }))
       );
 
-      // Increment counter
-      await supabase
-        .from("company_settings")
-        .update({ quotation_next_number: nextNum + 1 })
-        .eq("id", stg.id);
+      if (itemsError) {
+        // Rollback: delete the quotation without items
+        await supabase.from("quotations").delete().eq("id", quotation.id);
+        showToast("Error guardando ítems: " + itemsError.message, "error");
+        setSaving(false);
+        return;
+      }
 
       if (exportPdf && settings) {
         generatePDF({ ...quotation, items } as never, settings);

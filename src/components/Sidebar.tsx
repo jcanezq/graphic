@@ -41,9 +41,10 @@ const navItems = [
 interface SidebarProps {
   userName?: string;
   userEmail?: string;
+  className?: string;
 }
 
-export default function Sidebar({ userName, userEmail }: SidebarProps) {
+export default function Sidebar({ userName, userEmail, className }: SidebarProps) {
   const pathname = usePathname();
 
   function isActive(href: string) {
@@ -61,7 +62,7 @@ export default function Sidebar({ userName, userEmail }: SidebarProps) {
     : "U";
 
   return (
-    <nav className="sidebar">
+    <nav className={`sidebar ${className || ""}`}>
       <div className="sidebar-brand">
         <div className="sidebar-brand-icon">📊</div>
         <span className="sidebar-brand-name">CotiGrafix</span>
