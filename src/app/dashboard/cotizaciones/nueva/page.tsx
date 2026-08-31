@@ -41,6 +41,10 @@ export default function NewQuotationPage() {
   const [productSearch, setProductSearch] = useState("");
   const [showProductDropdown, setShowProductDropdown] = useState(false);
 
+  // Client autocomplete
+  const [clients, setClients] = useState<{id: string; name: string; ruc?: string; address?: string; phone?: string; email?: string}[]>([]);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+
   useEffect(() => {
     fetchInitialData();
   }, []);
@@ -56,6 +60,13 @@ export default function NewQuotationPage() {
     setSettings(stg);
     if (stg) setValidityDays(15);
     setCategories((catRes.data as Category[]) || []);
+
+    // Fetch clients for autocomplete
+    const { data: clientsData } = await supabase
+      .from("clients")
+      .select("*")
+      .order("name");
+    if (clientsData) setClients(clientsData);
 
     // Load products with costs
     if (productsRes.data) {
@@ -109,12 +120,23 @@ export default function NewQuotationPage() {
   );
 
   async function handleSave(exportPdf = false) {
+    const errors: string[] = [];
+
     if (!clientName.trim()) {
-      showToast("Nombre del cliente es obligatorio", "error");
-      return;
+      errors.push("Nombre del cliente es obligatorio");
+    }
+    if (clientRuc && !/^\d{11}$/.test(clientRuc.replace(/\s/g, ""))) {
+      errors.push("RUC debe tener exactamente 11 dígitos");
+    }
+    if (clientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+      errors.push("Email no tiene formato válido");
     }
     if (items.length === 0) {
-      showToast("Agrega al menos un producto", "error");
+      errors.push("Agrega al menos un producto");
+    }
+
+    if (errors.length > 0) {
+      showToast(errors.join(" · "), "error");
       return;
     }
 
@@ -194,6 +216,18 @@ export default function NewQuotationPage() {
     }
 
     showToast("Cotización " + number + " creada exitosamente");
+
+    // Save/update client for future autocomplete
+    if (clientName.trim()) {
+      await supabase.from("clients").upsert({
+        name: clientName.trim(),
+        ruc: clientRuc || null,
+        address: clientAddress || null,
+        phone: clientPhone || null,
+        email: clientEmail || null,
+      }, { onConflict: "name" }).select();
+    }
+
     setSaving(false);
     router.push("/dashboard/cotizaciones");
   }
@@ -222,23 +256,81 @@ export default function NewQuotationPage() {
                 👤 Datos del Cliente
               </h3>
               <div className="form-row">
-                <div className="form-group">
+                <div className="form-group" style={{ position: "relative" }}>
                   <label>Nombre / Razón Social *</label>
                   <input
                     value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    placeholder="Empresa SAC"
+                    onChange={(e) => {
+                      setClientName(e.target.value);
+                      setShowClientDropdown(e.target.value.length >= 2);
+                    }}
+                    onFocus={() => clientName.length >= 2 && setShowClientDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowClientDropdown(false), 200)}
+                    placeholder="Buscar o escribir nombre..."
                     required
                   />
+                  {showClientDropdown && (() => {
+                    const matches = clients.filter((c) =>
+                      c.name.toLowerCase().includes(clientName.toLowerCase())
+                    ).slice(0, 5);
+                    if (matches.length === 0) return null;
+                    return (
+                      <div style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        background: "var(--bg-elevated)",
+                        border: "1px solid var(--surface-border)",
+                        borderRadius: "var(--radius-md)",
+                        boxShadow: "var(--shadow-lg)",
+                        zIndex: 50,
+                        maxHeight: 200,
+                        overflowY: "auto",
+                      }}>
+                        {matches.map((c) => (
+                          <div
+                            key={c.id}
+                            style={{
+                              padding: "8px 12px",
+                              cursor: "pointer",
+                              borderBottom: "1px solid var(--surface-divider)",
+                              fontSize: "0.85rem",
+                            }}
+                            onMouseDown={() => {
+                              setClientName(c.name);
+                              setClientRuc(c.ruc || "");
+                              setClientAddress(c.address || "");
+                              setClientPhone(c.phone || "");
+                              setClientEmail(c.email || "");
+                              setShowClientDropdown(false);
+                            }}
+                          >
+                            <div style={{ fontWeight: 600 }}>{c.name}</div>
+                            {c.ruc && (
+                              <div style={{ color: "var(--text-muted)", fontSize: "0.78rem" }}>
+                                RUC: {c.ruc}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="form-group">
                   <label>RUC</label>
                   <input
                     value={clientRuc}
-                    onChange={(e) => setClientRuc(e.target.value)}
+                    onChange={(e) => setClientRuc(e.target.value.replace(/\D/g, "").slice(0, 11))}
                     placeholder="20123456789"
                     maxLength={11}
                   />
+                  {clientRuc && clientRuc.length > 0 && clientRuc.length !== 11 && (
+                    <span style={{ fontSize: "0.75rem", color: "var(--warning)", marginTop: 4 }}>
+                      {11 - clientRuc.length} dígitos restantes
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="form-group">
