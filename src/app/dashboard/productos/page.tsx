@@ -24,6 +24,8 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
     fetchData();
@@ -153,6 +155,12 @@ export default function ProductsPage() {
     });
   }, [products, search, categoryFilter]);
 
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [search, categoryFilter]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginatedProducts = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   return (
     <div className="animate-fadeIn">
       <div className="page-header">
@@ -222,6 +230,7 @@ export default function ProductsPage() {
             )}
           </div>
         ) : (
+          <>
           <div className="table-container">
             <table>
               <thead>
@@ -237,7 +246,7 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => {
+                {paginatedProducts.map((p) => {
                   const unitCost = p.computed_unit_cost || 0;
                   const salePrice = unitCost * (1 + p.default_margin / 100);
                   return (
@@ -331,6 +340,62 @@ export default function ProductsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px 16px",
+              borderTop: "1px solid var(--surface-divider)",
+              fontSize: "0.85rem",
+              color: "var(--text-secondary)",
+            }}>
+              <span>
+                {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} de {filtered.length} productos
+              </span>
+              <div style={{ display: "flex", gap: 4 }}>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                >
+                  ← Anterior
+                </button>
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                  let page: number;
+                  if (totalPages <= 7) {
+                    page = i + 1;
+                  } else if (currentPage <= 4) {
+                    page = i + 1;
+                  } else if (currentPage >= totalPages - 3) {
+                    page = totalPages - 6 + i;
+                  } else {
+                    page = currentPage - 3 + i;
+                  }
+                  return (
+                    <button
+                      key={page}
+                      className={`btn btn-sm ${page === currentPage ? "btn-primary" : "btn-ghost"}`}
+                      onClick={() => setCurrentPage(page)}
+                      style={{ minWidth: 36 }}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+                <button
+                  className="btn btn-ghost btn-sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                >
+                  Siguiente →
+                </button>
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
     </div>

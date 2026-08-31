@@ -302,11 +302,11 @@ select {
 
 /* ── Cards ──────────────────────────────────────────────────── */
 .card {
-  background: var(--bg-glass);
+  background: var(--bg-elevated);
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
-  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-sm);
   transition: all var(--transition-base);
 }
 
@@ -328,11 +328,11 @@ select {
 
 /* ── Metric Cards ───────────────────────────────────────────── */
 .metric-card {
-  background: var(--bg-glass);
+  background: var(--bg-elevated);
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
-  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-sm);
   transition: all var(--transition-base);
   position: relative;
   overflow: hidden;
@@ -465,7 +465,7 @@ td.primary {
 
 .sidebar {
   width: var(--sidebar-width);
-  background: var(--bg-secondary);
+  background: #ffffff;
   border-right: 1px solid var(--surface-border);
   display: flex;
   flex-direction: column;
@@ -476,6 +476,7 @@ td.primary {
   z-index: 100;
   transition: width var(--transition-base);
   overflow: hidden;
+  box-shadow: 1px 0 4px rgba(0, 0, 0, 0.04);
 }
 
 .sidebar-brand {
@@ -541,7 +542,7 @@ td.primary {
 }
 
 .sidebar-link:hover {
-  background: var(--bg-glass);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
