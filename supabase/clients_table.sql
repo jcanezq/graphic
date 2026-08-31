@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS clients (
 );
 
 -- Índice para búsqueda rápida
-CREATE INDEX IF NOT EXISTS idx_clients_name ON clients USING gin (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_clients_name ON clients (name);
 CREATE INDEX IF NOT EXISTS idx_clients_ruc ON clients (ruc);
 
 -- RLS
@@ -23,6 +23,15 @@ CREATE POLICY "Authenticated can manage clients"
   TO authenticated
   USING (true)
   WITH CHECK (true);
+
+-- Función para updated_at
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 -- Trigger de updated_at
 CREATE TRIGGER set_clients_updated_at
