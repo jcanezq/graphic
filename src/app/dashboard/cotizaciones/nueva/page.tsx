@@ -143,7 +143,7 @@ export default function NewQuotationPage() {
     setSaving(true);
 
     // Upsert client
-    await supabase.from("clients").upsert(
+    const { error: clientError } = await supabase.from("clients").upsert(
       {
         name: clientName.trim(),
         ruc: clientRuc || null,
@@ -153,6 +153,10 @@ export default function NewQuotationPage() {
       },
       { onConflict: "name" }
     );
+    if (clientError) {
+      console.error("Error upserting client:", clientError);
+      showToast("No se pudo guardar el cliente (¿falta crear la tabla?): " + clientError.message, "error");
+    }
 
     // Atomic quotation number generation with safe fallback
     let number: string | null = null;
@@ -247,16 +251,7 @@ export default function NewQuotationPage() {
 
     showToast("Cotización " + number + " creada exitosamente");
 
-    // Save/update client for future autocomplete
-    if (clientName.trim()) {
-      await supabase.from("clients").upsert({
-        name: clientName.trim(),
-        ruc: clientRuc || null,
-        address: clientAddress || null,
-        phone: clientPhone || null,
-        email: clientEmail || null,
-      }, { onConflict: "name" }).select();
-    }
+    // Save/update client for future autocomplete is handled at the start of handleSave
 
     setSaving(false);
     router.push("/dashboard/cotizaciones");
@@ -286,6 +281,20 @@ export default function NewQuotationPage() {
                 👤 Datos del Cliente
               </h3>
               <div className="form-row">
+                <div className="form-group">
+                  <label>RUC</label>
+                  <input
+                    value={clientRuc}
+                    onChange={(e) => setClientRuc(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                    placeholder="20123456789"
+                    maxLength={11}
+                  />
+                  {clientRuc && clientRuc.length > 0 && clientRuc.length !== 11 && (
+                    <span style={{ fontSize: "0.75rem", color: "var(--warning)", marginTop: 4 }}>
+                      {11 - clientRuc.length} dígitos restantes
+                    </span>
+                  )}
+                </div>
                 <div className="form-group" style={{ position: "relative" }}>
                   <label>Nombre / Razón Social *</label>
                   <input
@@ -347,20 +356,6 @@ export default function NewQuotationPage() {
                       </div>
                     );
                   })()}
-                </div>
-                <div className="form-group">
-                  <label>RUC</label>
-                  <input
-                    value={clientRuc}
-                    onChange={(e) => setClientRuc(e.target.value.replace(/\D/g, "").slice(0, 11))}
-                    placeholder="20123456789"
-                    maxLength={11}
-                  />
-                  {clientRuc && clientRuc.length > 0 && clientRuc.length !== 11 && (
-                    <span style={{ fontSize: "0.75rem", color: "var(--warning)", marginTop: 4 }}>
-                      {11 - clientRuc.length} dígitos restantes
-                    </span>
-                  )}
                 </div>
               </div>
               <div className="form-group">
@@ -624,16 +619,7 @@ export default function NewQuotationPage() {
                   style={{ width: "100%" }}
                 >
                   <Save size={16} />
-                  {saving ? "Guardando..." : "Guardar Borrador"}
-                </button>
-                <button
-                  className="btn-secondary"
-                  disabled={saving}
-                  onClick={() => handleSave(true)}
-                  style={{ width: "100%" }}
-                >
-                  <FileDown size={16} />
-                  Guardar y Exportar PDF
+                  {saving ? "Guardando..." : "Guardar Cotización"}
                 </button>
               </div>
             </div>

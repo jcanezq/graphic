@@ -274,12 +274,12 @@ export default function QuotationDetailPage() {
               </h3>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Nombre / Razón Social *</label>
-                  <input value={clientName} onChange={(e) => setClientName(e.target.value)} />
+                  <label>RUC</label>
+                  <input value={clientRuc} onChange={(e) => setClientRuc(e.target.value.replace(/\D/g, "").slice(0, 11))} maxLength={11} placeholder="20123456789" />
                 </div>
                 <div className="form-group">
-                  <label>RUC</label>
-                  <input value={clientRuc} onChange={(e) => setClientRuc(e.target.value)} maxLength={11} />
+                  <label>Nombre / Razón Social *</label>
+                  <input value={clientName} onChange={(e) => setClientName(e.target.value)} />
                 </div>
               </div>
               <div className="form-group">
