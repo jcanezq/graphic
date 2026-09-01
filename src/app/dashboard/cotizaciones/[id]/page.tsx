@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
 import { formatCurrency, formatDate, formatDateLong, getStatusLabel, getStatusColor } from "@/lib/formatters";
 import { recalcQuotationItem, calcQuotationTotals } from "@/lib/calculations";
-import { ArrowLeft, Save, FileDown, Trash2, Search, Plus } from "lucide-react";
+import { ArrowLeft, Save, FileDown, Trash2, Search, Plus, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { generatePDF } from "@/lib/pdf-export";
 import { generateExcel } from "@/lib/excel-export";
@@ -161,6 +161,40 @@ export default function QuotationDetailPage() {
     showToast("Excel generado");
   }
 
+  function handleSendWhatsApp() {
+    if (!quotation || !settings) return;
+    if (!clientPhone) {
+      showToast("El cliente no tiene un teléfono configurado", "error");
+      return;
+    }
+
+    // Export PDF locally first
+    handleExportPDF();
+
+    // Format phone number: remove non-digits
+    let phone = clientPhone.replace(/\D/g, "");
+    
+    // Si asumes que tus clientes locales son de Perú (9 dígitos), agrega el +51. 
+    // Cámbialo si es otro país por defecto.
+    if (phone.length === 9) {
+      phone = `51${phone}`;
+    }
+
+    const message = `Hola ${clientName}, adjunto la cotización ${quotation.number} por los servicios solicitados a ${settings.company_name}. El total es de ${formatCurrency(totals.total)}. ¡Quedo atento a tus comentarios!`;
+    const encodedMessage = encodeURIComponent(message);
+    
+    window.open(`https://wa.me/${phone}?text=${encodedMessage}`, "_blank");
+    
+    if (status === "borrador") {
+      setStatus("enviada");
+      supabase
+        .from("quotations")
+        .update({ status: "enviada" })
+        .eq("id", quotationId)
+        .then();
+    }
+  }
+
   if (loading) {
     return (
       <div className="page-body">
@@ -207,6 +241,13 @@ export default function QuotationDetailPage() {
           </button>
           <button className="btn btn-secondary" onClick={handleExportPDF}>
             <FileDown size={16} /> PDF
+          </button>
+          <button 
+            className="btn" 
+            onClick={handleSendWhatsApp}
+            style={{ backgroundColor: "#25D366", color: "#fff", borderColor: "#25D366" }}
+          >
+            <MessageCircle size={16} /> WhatsApp
           </button>
         </div>
       </div>
