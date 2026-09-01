@@ -142,6 +142,18 @@ export default function NewQuotationPage() {
 
     setSaving(true);
 
+    // Upsert client
+    await supabase.from("clients").upsert(
+      {
+        name: clientName.trim(),
+        ruc: clientRuc || null,
+        address: clientAddress || null,
+        phone: clientPhone || null,
+        email: clientEmail || null,
+      },
+      { onConflict: "name" }
+    );
+
     // Atomic quotation number generation with safe fallback
     let number: string | null = null;
     const { data: rpcNumber, error: rpcError } = await supabase.rpc("generate_quotation_number");

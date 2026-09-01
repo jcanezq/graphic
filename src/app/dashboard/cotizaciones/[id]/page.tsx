@@ -96,6 +96,18 @@ export default function QuotationDetailPage() {
     }
     setSaving(true);
 
+    // Upsert client
+    await supabase.from("clients").upsert(
+      {
+        name: clientName.trim(),
+        ruc: clientRuc || null,
+        address: clientAddress || null,
+        phone: clientPhone || null,
+        email: clientEmail || null,
+      },
+      { onConflict: "name" }
+    );
+
     const { error } = await supabase
       .from("quotations")
       .update({
