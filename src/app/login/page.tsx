@@ -8,15 +8,22 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   async function handleGoogleLogin() {
-    setLoading(true);
-    setError("");
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-    if (error) {
-      setError("Error al iniciar sesión con Google");
+    try {
+      setLoading(true);
+      setError("");
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) {
+        console.error("Supabase Auth Error:", error);
+        setError(error.message || "Error al iniciar sesión con Google");
+        setLoading(false);
+      }
+    } catch (err: any) {
+      console.error("Network/Unexpected Error:", err);
+      setError("Error de conexión. Intenta nuevamente.");
       setLoading(false);
     }
   }
@@ -89,6 +96,7 @@ export default function LoginPage() {
           {error && <div className="msg-err">{error}</div>}
 
           <button
+            type="button"
             className="oauth-btn"
             onClick={handleGoogleLogin}
             disabled={loading}
