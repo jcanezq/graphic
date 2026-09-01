@@ -12,6 +12,17 @@ export interface Category {
   created_at?: string;
 }
 
+export interface Client {
+  id: string;
+  name: string;
+  ruc?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export type ProductUnit = 'm²' | 'unidad' | 'kit' | 'servicio' | 'ml' | 'metro';
 
 export interface ProductMaterial {

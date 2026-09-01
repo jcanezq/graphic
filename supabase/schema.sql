@@ -149,6 +149,23 @@ CREATE POLICY "auth_all_indirects" ON product_indirect_costs FOR ALL TO authenti
 CREATE POLICY "auth_all_quotations" ON quotations FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_all_items" ON quotation_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
+-- 9) Clientes
+CREATE TABLE IF NOT EXISTS clients (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  ruc VARCHAR(11),
+  address TEXT,
+  phone VARCHAR(20),
+  email TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_clients_name ON clients(name);
+
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "auth_all_clients" ON clients FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
 -- ============================================================
 -- Storage: bucket para imágenes de productos
 -- ============================================================

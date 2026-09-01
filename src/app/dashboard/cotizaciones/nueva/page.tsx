@@ -142,12 +142,30 @@ export default function NewQuotationPage() {
 
     setSaving(true);
 
-    // Atomic quotation number generation (prevents race condition)
-    const { data: number, error: rpcError } = await supabase.rpc("generate_quotation_number");
-    if (rpcError || !number) {
-      showToast("Error generando número: " + (rpcError?.message || "sin respuesta"), "error");
-      setSaving(false);
-      return;
+    // Atomic quotation number generation with safe fallback
+    let number: string | null = null;
+    const { data: rpcNumber, error: rpcError } = await supabase.rpc("generate_quotation_number");
+    if (!rpcError && rpcNumber) {
+      number = rpcNumber;
+    } else {
+      console.warn("RPC generate_quotation_number error, executing client fallback:", rpcError);
+      const { data: settingsData } = await supabase
+        .from("company_settings")
+        .select("id, quotation_prefix, quotation_next_number")
+        .limit(1)
+        .single();
+
+      const prefix = settingsData?.quotation_prefix || "COT";
+      const nextNum = settingsData?.quotation_next_number || 1;
+      const year = new Date().getFullYear();
+      number = `${prefix}-${year}-${String(nextNum).padStart(4, "0")}`;
+
+      if (settingsData?.id) {
+        await supabase
+          .from("company_settings")
+          .update({ quotation_next_number: nextNum + 1 })
+          .eq("id", settingsData.id);
+      }
     }
 
     // Get current user

@@ -8,6 +8,7 @@ import {
   FileText,
   Settings,
   Images,
+  Users,
 } from "lucide-react";
 
 const navItems = [
@@ -25,6 +26,11 @@ const navItems = [
     label: "Cotizaciones",
     href: "/dashboard/cotizaciones",
     icon: FileText,
+  },
+  {
+    label: "Clientes",
+    href: "/dashboard/clientes",
+    icon: Users,
   },
   {
     label: "Catálogo",

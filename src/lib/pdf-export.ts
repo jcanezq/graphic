@@ -123,14 +123,26 @@ export function generatePDF(quotation: Quotation, settings: CompanySettings) {
   autoTable(doc, {
     startY: 78,
     head: [["#", "Descripción", "Und.", "Cant.", "P.U.", "Subtotal"]],
-    body: items.map((item, i) => [
-      String(i + 1),
-      item.product_name + (item.product_description ? `\n${item.product_description}` : ""),
-      item.unit,
-      String(item.quantity),
-      formatCurrency(item.unit_price),
-      formatCurrency(item.subtotal),
-    ]),
+    body: items.map((item, i) => {
+      let desc = item.product_name;
+      // Filter out auto-generated line descriptions like "Product Name - Linea Category"
+      if (
+        item.product_description &&
+        !item.product_description.toLowerCase().includes("linea") &&
+        !item.product_description.toLowerCase().includes("línea") &&
+        !item.product_description.startsWith(item.product_name)
+      ) {
+        desc += `\n${item.product_description}`;
+      }
+      return [
+        String(i + 1),
+        desc,
+        item.unit,
+        String(item.quantity),
+        formatCurrency(item.unit_price),
+        formatCurrency(item.subtotal),
+      ];
+    }),
     theme: "plain",
     headStyles: {
       fillColor: [primary[0], primary[1], primary[2]],

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
 import { formatCurrency } from "@/lib/formatters";
@@ -19,40 +20,37 @@ import type { Product, Category } from "@/types";
 export default function ProductsPage() {
   const supabase = createClient();
   const { showToast } = useToast();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 20;
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data } = await supabase.from("categories").select("*").order("sort_order");
+      return (data as Category[]) || [];
+    }
+  });
 
-  async function fetchData() {
-    const [prodRes, catRes] = await Promise.all([
-      supabase
+  const { data: products = [], isLoading: loading } = useQuery({
+    queryKey: ['products'],
+    queryFn: async () => {
+      const { data: prodRes } = await supabase
         .from("products")
         .select("*, categories(id, name, color, slug)")
-        .order("created_at", { ascending: false }),
-      supabase.from("categories").select("*").order("sort_order"),
-    ]);
+        .order("created_at", { ascending: false });
 
-    if (prodRes.data) {
-      // Fetch materials, labor, indirects for cost calculation
-      const productIds = prodRes.data.map((p: Product) => p.id);
+      if (!prodRes) return [];
+
+      const productIds = prodRes.map((p: Product) => p.id);
       const [matRes, labRes, indRes] = await Promise.all([
         supabase.from("product_materials").select("*").in("product_id", productIds),
         supabase.from("product_labor").select("*").in("product_id", productIds),
         supabase.from("product_indirect_costs").select("*").in("product_id", productIds),
       ]);
 
-      const productsWithCosts = prodRes.data.map((p: Record<string, unknown>) => {
-        const materials = (matRes.data || []).filter((m: { product_id: string }) => m.product_id === p.id);
-        const labor = (labRes.data || []).filter((l: { product_id: string }) => l.product_id === p.id);
-        const indirect_costs = (indRes.data || []).filter((ic: { product_id: string }) => ic.product_id === p.id);
+      return prodRes.map((p: any) => {
+        const materials = (matRes.data || []).filter((m: any) => m.product_id === p.id);
+        const labor = (labRes.data || []).filter((l: any) => l.product_id === p.id);
+        const indirect_costs = (indRes.data || []).filter((ic: any) => ic.product_id === p.id);
 
         return {
           ...p,
@@ -67,82 +65,78 @@ export default function ProductsPage() {
             indirect_costs,
           }),
         };
-      });
-
-      setProducts(productsWithCosts as Product[]);
+      }) as Product[];
     }
+  });
 
-    setCategories((catRes.data as Category[]) || []);
-    setLoading(false);
-  }
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("products").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      showToast("Producto eliminado");
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: () => showToast("Error al eliminar producto", "error")
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: async (product: Product) => {
+      const newCode = product.code + "-COPIA";
+      const { data, error } = await supabase
+        .from("products")
+        .insert({
+          code: newCode,
+          name: product.name + " (Copia)",
+          category_id: product.category_id,
+          description: product.description,
+          unit: product.unit,
+          manual_unit_cost: product.manual_unit_cost,
+          default_margin: product.default_margin,
+          is_active: product.is_active,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data && product.materials?.length) {
+        await supabase.from("product_materials").insert(
+          product.materials.map((m) => ({ ...m, id: undefined, product_id: data.id }))
+        );
+      }
+      if (data && product.labor?.length) {
+        await supabase.from("product_labor").insert(
+          product.labor.map((l) => ({ ...l, id: undefined, product_id: data.id }))
+        );
+      }
+      if (data && product.indirect_costs?.length) {
+        await supabase.from("product_indirect_costs").insert(
+          product.indirect_costs.map((ic) => ({ ...ic, id: undefined, product_id: data.id }))
+        );
+      }
+    },
+    onSuccess: () => {
+      showToast("Producto duplicado correctamente");
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: (e: any) => showToast("Error al duplicar: " + e.message, "error")
+  });
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar este producto?")) return;
-    const { error } = await supabase.from("products").delete().eq("id", id);
-    if (error) {
-      showToast("Error al eliminar producto", "error");
-    } else {
-      showToast("Producto eliminado");
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-    }
+    deleteMutation.mutate(id);
   }
 
   async function handleDuplicate(product: Product) {
-    const newCode = product.code + "-COPIA";
-    const { data, error } = await supabase
-      .from("products")
-      .insert({
-        code: newCode,
-        name: product.name + " (Copia)",
-        category_id: product.category_id,
-        description: product.description,
-        unit: product.unit,
-        manual_unit_cost: product.manual_unit_cost,
-        default_margin: product.default_margin,
-        is_active: product.is_active,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      showToast("Error al duplicar: " + error.message, "error");
-      return;
-    }
-
-    if (data && product.materials?.length) {
-      await supabase.from("product_materials").insert(
-        product.materials.map((m) => ({
-          product_id: data.id,
-          name: m.name,
-          quantity: m.quantity,
-          unit_cost: m.unit_cost,
-          unit: m.unit,
-        }))
-      );
-    }
-    if (data && product.labor?.length) {
-      await supabase.from("product_labor").insert(
-        product.labor.map((l) => ({
-          product_id: data.id,
-          work_type: l.work_type,
-          hours: l.hours,
-          hourly_rate: l.hourly_rate,
-        }))
-      );
-    }
-    if (data && product.indirect_costs?.length) {
-      await supabase.from("product_indirect_costs").insert(
-        product.indirect_costs.map((ic) => ({
-          product_id: data.id,
-          concept: ic.concept,
-          cost: ic.cost,
-        }))
-      );
-    }
-
-    showToast("Producto duplicado correctamente");
-    fetchData();
+    duplicateMutation.mutate(product);
   }
+
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   const filtered = useMemo(() => {
     return products.filter((p) => {

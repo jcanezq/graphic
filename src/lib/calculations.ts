@@ -110,7 +110,13 @@ export function createQuotationItemFromProduct(
     sort_order: sortOrder,
     product_code: product.code,
     product_name: product.name,
-    product_description: product.description || '',
+    product_description:
+      product.description &&
+      !product.description.toLowerCase().includes("linea") &&
+      !product.description.toLowerCase().includes("línea") &&
+      !product.description.startsWith(product.name)
+        ? product.description
+        : '',
     unit: product.unit,
     material_cost: round2(materialCost),
     labor_cost: round2(laborCost),

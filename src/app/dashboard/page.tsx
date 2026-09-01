@@ -1,76 +1,38 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/server";
 import { formatCurrency, formatRelativeTime, getStatusLabel, getStatusColor } from "@/lib/formatters";
 import { FileText, Package, TrendingUp, Plus, DollarSign } from "lucide-react";
 import Link from "next/link";
 import type { Quotation } from "@/types";
 
-interface Metrics {
-  totalQuotations: number;
-  monthQuotations: number;
-  totalAmount: number;
-  totalProducts: number;
-}
+export const dynamic = 'force-dynamic';
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
   const supabase = createClient();
-  const [metrics, setMetrics] = useState<Metrics>({
-    totalQuotations: 0,
-    monthQuotations: 0,
-    totalAmount: 0,
-    totalProducts: 0,
-  });
-  const [recentQuotations, setRecentQuotations] = useState<Quotation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const now = new Date();
+  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-  useEffect(() => {
-    async function fetchData() {
-      const now = new Date();
-      const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const [quotRes, monthRes, productsRes, recentRes] = await Promise.all([
+    supabase.from("quotations").select("total", { count: "exact" }),
+    supabase.from("quotations").select("id", { count: "exact" }).gte("created_at", firstOfMonth),
+    supabase.from("products").select("id", { count: "exact" }).eq("is_active", true),
+    supabase.from("quotations").select("*").order("created_at", { ascending: false }).limit(5),
+  ]);
 
-      const [quotRes, monthRes, productsRes, recentRes] = await Promise.all([
-        supabase.from("quotations").select("total", { count: "exact" }),
-        supabase.from("quotations").select("id", { count: "exact" }).gte("created_at", firstOfMonth),
-        supabase.from("products").select("id", { count: "exact" }).eq("is_active", true),
-        supabase.from("quotations").select("*").order("created_at", { ascending: false }).limit(5),
-      ]);
+  const totalAmount = (quotRes.data || []).reduce(
+    (sum: number, q: { total: number }) => sum + Number(q.total),
+    0
+  );
 
-      const totalAmount = (quotRes.data || []).reduce(
-        (sum: number, q: { total: number }) => sum + Number(q.total),
-        0
-      );
+  const metrics = {
+    totalQuotations: quotRes.count || 0,
+    monthQuotations: monthRes.count || 0,
+    totalAmount,
+    totalProducts: productsRes.count || 0,
+  };
 
-      setMetrics({
-        totalQuotations: quotRes.count || 0,
-        monthQuotations: monthRes.count || 0,
-        totalAmount,
-        totalProducts: productsRes.count || 0,
-      });
+  const recentQuotations = (recentRes.data as Quotation[]) || [];
 
-      setRecentQuotations((recentRes.data as Quotation[]) || []);
-      setLoading(false);
-    }
 
-    fetchData();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="page-body animate-fadeIn">
-        <div className="metrics-grid">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="metric-card">
-              <div className="skeleton" style={{ width: 44, height: 44, marginBottom: 16 }} />
-              <div className="skeleton" style={{ width: 80, height: 28, marginBottom: 8 }} />
-              <div className="skeleton" style={{ width: 120, height: 14 }} />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="animate-fadeIn">
