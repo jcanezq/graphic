@@ -32,11 +32,7 @@ const navItems = [
     href: "/dashboard/clientes",
     icon: Users,
   },
-  {
-    label: "Catálogo",
-    href: "/dashboard/catalogo",
-    icon: Images,
-  },
+
   {
     label: "Configuración",
     href: "/dashboard/configuracion",
