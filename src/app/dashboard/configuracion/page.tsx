@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
-import { Save, Building2 } from "lucide-react";
+import { Save, Building2, Search } from "lucide-react";
 import type { CompanySettings } from "@/types";
+import { fetchRucData } from "@/lib/ruc";
 
 export default function SettingsPage() {
   const supabase = createClient();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [searchingRuc, setSearchingRuc] = useState(false);
   const [settingsId, setSettingsId] = useState("");
 
   const [companyName, setCompanyName] = useState("");
@@ -43,6 +45,21 @@ export default function SettingsPage() {
       setNextNumber(s.quotation_next_number);
     }
     setLoading(false);
+  }
+
+  async function handleRucSearch() {
+    if (ruc.length !== 11) return;
+    try {
+      setSearchingRuc(true);
+      const data = await fetchRucData(ruc);
+      setCompanyName(data.razonSocial);
+      setAddress(data.direccion);
+      showToast("Datos de Sunat obtenidos");
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setSearchingRuc(false);
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -120,12 +137,23 @@ export default function SettingsPage() {
             <div className="form-row">
               <div className="form-group">
                 <label>RUC</label>
-                <input
-                  value={ruc}
-                  onChange={(e) => setRuc(e.target.value)}
-                  placeholder="20123456789"
-                  maxLength={11}
-                />
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input
+                    value={ruc}
+                    onChange={(e) => setRuc(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                    placeholder="20123456789"
+                    maxLength={11}
+                    style={{ flex: 1 }}
+                  />
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={handleRucSearch}
+                    disabled={searchingRuc || ruc.length !== 11}
+                  >
+                    {searchingRuc ? "..." : <Search size={18} />}
+                  </button>
+                </div>
               </div>
               <div className="form-group">
                 <label>Teléfono</label>

@@ -13,6 +13,7 @@ import {
 import { Save, ArrowLeft, Plus, Trash2, Search, FileDown } from "lucide-react";
 import Link from "next/link";
 import { generatePDF } from "@/lib/pdf-export";
+import { fetchRucData } from "@/lib/ruc";
 import type { Product, QuotationItem, Category, CompanySettings } from "@/types";
 
 export default function NewQuotationPage() {
@@ -44,10 +45,26 @@ export default function NewQuotationPage() {
   // Client autocomplete
   const [clients, setClients] = useState<{id: string; name: string; ruc?: string; address?: string; phone?: string; email?: string}[]>([]);
   const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [searchingRuc, setSearchingRuc] = useState(false);
 
   useEffect(() => {
     fetchInitialData();
   }, []);
+
+  async function handleRucSearch() {
+    if (clientRuc.length !== 11) return;
+    try {
+      setSearchingRuc(true);
+      const data = await fetchRucData(clientRuc);
+      setClientName(data.razonSocial);
+      setClientAddress(data.direccion);
+      showToast("Datos de Sunat obtenidos");
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setSearchingRuc(false);
+    }
+  }
 
   async function fetchInitialData() {
     const [settingsRes, productsRes, catRes] = await Promise.all([
@@ -283,12 +300,23 @@ export default function NewQuotationPage() {
               <div className="form-row">
                 <div className="form-group">
                   <label>RUC</label>
-                  <input
-                    value={clientRuc}
-                    onChange={(e) => setClientRuc(e.target.value.replace(/\D/g, "").slice(0, 11))}
-                    placeholder="20123456789"
-                    maxLength={11}
-                  />
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <input
+                      value={clientRuc}
+                      onChange={(e) => setClientRuc(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                      placeholder="20123456789"
+                      maxLength={11}
+                      style={{ flex: 1 }}
+                    />
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      onClick={handleRucSearch}
+                      disabled={searchingRuc || clientRuc.length !== 11}
+                    >
+                      {searchingRuc ? "..." : <Search size={18} />}
+                    </button>
+                  </div>
                   {clientRuc && clientRuc.length > 0 && clientRuc.length !== 11 && (
                     <span style={{ fontSize: "0.75rem", color: "var(--warning)", marginTop: 4 }}>
                       {11 - clientRuc.length} dígitos restantes

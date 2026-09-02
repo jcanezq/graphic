@@ -10,6 +10,7 @@ import { ArrowLeft, Save, FileDown, Trash2, Search, Plus, MessageCircle } from "
 import Link from "next/link";
 import { generatePDF } from "@/lib/pdf-export";
 import { generateExcel } from "@/lib/excel-export";
+import { fetchRucData } from "@/lib/ruc";
 import type { Quotation, QuotationItem, QuotationStatus, CompanySettings } from "@/types";
 
 const STATUSES: { value: QuotationStatus; label: string }[] = [
@@ -42,10 +43,26 @@ export default function QuotationDetailPage() {
   const [validityDays, setValidityDays] = useState(15);
   const [status, setStatus] = useState<QuotationStatus>("borrador");
   const [items, setItems] = useState<QuotationItem[]>([]);
+  const [searchingRuc, setSearchingRuc] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, [quotationId]);
+
+  async function handleRucSearch() {
+    if (clientRuc.length !== 11) return;
+    try {
+      setSearchingRuc(true);
+      const data = await fetchRucData(clientRuc);
+      setClientName(data.razonSocial);
+      setClientAddress(data.direccion);
+      showToast("Datos de Sunat obtenidos");
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setSearchingRuc(false);
+    }
+  }
 
   async function fetchData() {
     const [quotRes, itemsRes, settingsRes] = await Promise.all([
@@ -275,7 +292,28 @@ export default function QuotationDetailPage() {
               <div className="form-row">
                 <div className="form-group">
                   <label>RUC</label>
-                  <input value={clientRuc} onChange={(e) => setClientRuc(e.target.value.replace(/\D/g, "").slice(0, 11))} maxLength={11} placeholder="20123456789" />
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <input 
+                      value={clientRuc} 
+                      onChange={(e) => setClientRuc(e.target.value.replace(/\D/g, "").slice(0, 11))} 
+                      maxLength={11} 
+                      placeholder="20123456789" 
+                      style={{ flex: 1 }}
+                    />
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      onClick={handleRucSearch}
+                      disabled={searchingRuc || clientRuc.length !== 11}
+                    >
+                      {searchingRuc ? "..." : <Search size={18} />}
+                    </button>
+                  </div>
+                  {clientRuc && clientRuc.length > 0 && clientRuc.length !== 11 && (
+                    <span style={{ fontSize: "0.75rem", color: "var(--warning)", marginTop: 4 }}>
+                      {11 - clientRuc.length} dígitos restantes
+                    </span>
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Nombre / Razón Social *</label>
