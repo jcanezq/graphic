@@ -44,8 +44,11 @@ export default function LoginPage() {
       setError("");
       const supabase = createClient();
       
-      // Use fake email for Supabase under the hood
-      const email = `${username.trim().toLowerCase()}@cotigrafic.local`;
+      // Use fake email for Supabase under the hood if it's just a username
+      let email = username.trim().toLowerCase();
+      if (!email.includes("@")) {
+        email = `${email}@cotigrafic.local`;
+      }
       
       const { error } = await supabase.auth.signInWithPassword({
         email,
