@@ -181,16 +181,10 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
+              className="btn btn-primary"
               style={{
                 marginTop: "0.5rem",
-                padding: "0.75rem",
-                background: "var(--accent-primary)",
-                color: "#fff",
-                border: "none",
-                borderRadius: "8px",
-                fontWeight: "600",
-                cursor: loading ? "not-allowed" : "pointer",
-                opacity: loading ? 0.7 : 1,
+                width: "100%",
               }}
             >
               {loading ? "Conectando..." : "Ingresar"}
