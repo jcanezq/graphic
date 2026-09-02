@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
@@ -13,35 +13,83 @@ export default function MaterialsPage() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: materials = [], isLoading: loading } = useQuery({
-    queryKey: ['materials'],
+  const PAGE_SIZE = 15;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Debounce search
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [debouncedSearch]);
+
+  const { data: queryData, isLoading: loading } = useQuery({
+    queryKey: ['materials', currentPage, debouncedSearch],
     queryFn: async () => {
-      const { data } = await supabase
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      let query = supabase
         .from("materials")
-        .select("*")
-        .order("name", { ascending: true });
-      return (data as Material[]) || [];
+        .select("*", { count: 'exact' })
+        .is("deleted_at", null);
+
+      if (debouncedSearch) {
+        query = query.ilike("name", `%${debouncedSearch}%`);
+      }
+
+      const { data, count } = await query
+        .order("name", { ascending: true })
+        .range(from, to);
+
+      return { materials: (data as Material[]) || [], count: count || 0 };
     }
   });
 
+  const materials = queryData?.materials || [];
+  const totalItems = queryData?.count || 0;
+  const totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("materials").delete().eq("id", id);
+      const { error } = await supabase.from("materials").update({ deleted_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
+    },
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['materials'] });
+      const previousData = queryClient.getQueryData(['materials', currentPage, debouncedSearch]);
+      queryClient.setQueryData(['materials', currentPage, debouncedSearch], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          materials: old.materials.filter((m: Material) => m.id !== deletedId),
+          count: old.count - 1
+        };
+      });
+      return { previousData };
+    },
+    onError: (err, newTodo, context) => {
+      showToast("Error al eliminar material", "error");
+      if (context?.previousData) {
+        queryClient.setQueryData(['materials', currentPage, debouncedSearch], context.previousData);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['materials'] });
     },
     onSuccess: () => {
       showToast("Material eliminado");
-      queryClient.invalidateQueries({ queryKey: ['materials'] });
-    },
-    onError: (e: any) => showToast("Error al eliminar material: " + e.message, "error")
+    }
   });
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar este material?")) return;
     deleteMutation.mutate(id);
   }
-
-  const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editUnit, setEditUnit] = useState("unidad");
@@ -95,18 +143,12 @@ export default function MaterialsPage() {
     setEditCost(0);
   }
 
-  const filtered = useMemo(() => {
-    return materials.filter((m) =>
-      !search || m.name.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [materials, search]);
-
   return (
     <div className="animate-fadeIn">
       <div className="page-header">
         <div>
           <h1>Catálogo de Materiales</h1>
-          <p className="subtitle">{materials.length} materiales registrados</p>
+          <p className="subtitle">{totalItems} materiales registrados</p>
         </div>
         <div className="page-header-actions">
           <button className="btn btn-primary" onClick={startNew}>
@@ -130,16 +172,29 @@ export default function MaterialsPage() {
         </div>
 
         {loading ? (
-          <div className="card" style={{ padding: "2rem" }}>
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="skeleton"
-                style={{ height: 48, marginBottom: 8, borderRadius: 8 }}
-              />
-            ))}
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Unidad</th>
+                  <th>Costo Unit.</th>
+                  <th style={{ textAlign: "right" }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <tr key={i}>
+                    <td><div className="skeleton" style={{ height: 24, width: "60%", borderRadius: 4 }} /></td>
+                    <td><div className="skeleton" style={{ height: 20, width: 40, borderRadius: 4 }} /></td>
+                    <td><div className="skeleton" style={{ height: 20, width: 60, borderRadius: 4 }} /></td>
+                    <td><div className="skeleton" style={{ height: 28, width: 80, borderRadius: 4, marginLeft: "auto" }} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ) : filtered.length === 0 && editingId !== "new" ? (
+        ) : materials.length === 0 && editingId !== "new" ? (
           <div className="card empty-state">
             <Layers size={48} />
             <h3>No se encontraron materiales</h3>
@@ -207,7 +262,7 @@ export default function MaterialsPage() {
                     </td>
                   </tr>
                 )}
-                {filtered.map((m) => {
+                {materials.map((m) => {
                   if (editingId === m.id) {
                     return (
                       <tr key={m.id}>
@@ -276,6 +331,64 @@ export default function MaterialsPage() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 16px",
+            borderTop: "1px solid var(--surface-divider)",
+            fontSize: "0.85rem",
+            color: "var(--text-secondary)",
+            background: "var(--surface)",
+            borderBottomLeftRadius: "var(--radius-lg)",
+            borderBottomRightRadius: "var(--radius-lg)",
+          }}>
+            <span>
+              {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, totalItems)} de {totalItems} materiales
+            </span>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button
+                className="btn btn-ghost btn-sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(currentPage - 1)}
+              >
+                ← Anterior
+              </button>
+              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                let page: number;
+                if (totalPages <= 7) {
+                  page = i + 1;
+                } else if (currentPage <= 4) {
+                  page = i + 1;
+                } else if (currentPage >= totalPages - 3) {
+                  page = totalPages - 6 + i;
+                } else {
+                  page = currentPage - 3 + i;
+                }
+                return (
+                  <button
+                    key={page}
+                    className={`btn btn-sm ${page === currentPage ? "btn-primary" : "btn-ghost"}`}
+                    onClick={() => setCurrentPage(page)}
+                    style={{ minWidth: 36 }}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+              <button
+                className="btn btn-ghost btn-sm"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(currentPage + 1)}
+              >
+                Siguiente →
+              </button>
+            </div>
           </div>
         )}
       </div>

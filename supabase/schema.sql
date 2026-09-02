@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS categories (
   color VARCHAR(7) DEFAULT '#6366f1',
   icon TEXT,
   sort_order INT DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 -- 3) Productos/Servicios
@@ -44,7 +45,8 @@ CREATE TABLE IF NOT EXISTS products (
   default_margin NUMERIC(5,2) DEFAULT 30.00,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 -- 4) Catálogo Maestro de Materiales
@@ -54,7 +56,8 @@ CREATE TABLE IF NOT EXISTS materials (
   unit TEXT NOT NULL DEFAULT 'unidad',
   cost NUMERIC(12,2) NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 -- 5) Materiales/Insumos de un producto
@@ -104,7 +107,8 @@ CREATE TABLE IF NOT EXISTS quotations (
   status TEXT NOT NULL DEFAULT 'borrador'
     CHECK (status IN ('borrador','enviada','aceptada','rechazada','vencida')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 -- 9) Ítems de cotización (snapshot del producto al momento de cotizar)
@@ -172,7 +176,8 @@ CREATE TABLE IF NOT EXISTS clients (
   phone VARCHAR(20),
   email TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_clients_name ON clients(name);

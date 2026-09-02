@@ -30,15 +30,49 @@ export default function ProductsPage() {
     }
   });
 
-  const { data: products = [], isLoading: loading } = useQuery({
-    queryKey: ['products'],
-    queryFn: async () => {
-      const { data: prodRes } = await supabase
-        .from("products")
-        .select("*, categories(id, name, color, slug)")
-        .order("created_at", { ascending: false });
+  const PAGE_SIZE = 15;
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-      if (!prodRes) return [];
+  // Debounce search
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [debouncedSearch, categoryFilter, typeFilter]);
+
+  const { data: queryData, isLoading: loading } = useQuery({
+    queryKey: ['products', currentPage, debouncedSearch, categoryFilter, typeFilter],
+    queryFn: async () => {
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      let query = supabase
+        .from("products")
+        .select("*, categories(id, name, color, slug)", { count: 'exact' })
+        .is("deleted_at", null);
+
+      if (debouncedSearch) {
+        query = query.or(`name.ilike.%${debouncedSearch}%,code.ilike.%${debouncedSearch}%`);
+      }
+      if (categoryFilter) {
+        query = query.eq("category_id", categoryFilter);
+      }
+      if (typeFilter) {
+        query = query.eq("type", typeFilter);
+      }
+
+      const { data: prodRes, count } = await query
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (!prodRes || prodRes.length === 0) return { products: [], count: count || 0 };
 
       const productIds = prodRes.map((p: Product) => p.id);
       const [matRes, labRes, indRes] = await Promise.all([
@@ -47,7 +81,7 @@ export default function ProductsPage() {
         supabase.from("product_indirect_costs").select("*").in("product_id", productIds),
       ]);
 
-      return prodRes.map((p: any) => {
+      const products = prodRes.map((p: any) => {
         const materials = (matRes.data || []).filter((m: any) => m.product_id === p.id);
         const labor = (labRes.data || []).filter((l: any) => l.product_id === p.id);
         const indirect_costs = (indRes.data || []).filter((ic: any) => ic.product_id === p.id);
@@ -66,19 +100,45 @@ export default function ProductsPage() {
           }),
         };
       }) as Product[];
+
+      return { products, count: count || 0 };
     }
   });
 
+  const products = queryData?.products || [];
+  const totalItems = queryData?.count || 0;
+  const totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("products").delete().eq("id", id);
+      const { error } = await supabase.from("products").update({ deleted_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
+    },
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['products'] });
+      const previousData = queryClient.getQueryData(['products', currentPage, debouncedSearch, categoryFilter, typeFilter]);
+      queryClient.setQueryData(['products', currentPage, debouncedSearch, categoryFilter, typeFilter], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          products: old.products.filter((p: Product) => p.id !== deletedId),
+          count: old.count - 1
+        };
+      });
+      return { previousData };
+    },
+    onError: (err, newTodo, context) => {
+      showToast("Error al eliminar producto", "error");
+      if (context?.previousData) {
+        queryClient.setQueryData(['products', currentPage, debouncedSearch, categoryFilter, typeFilter], context.previousData);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
     onSuccess: () => {
       showToast("Producto eliminado");
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-    },
-    onError: () => showToast("Error al eliminar producto", "error")
+    }
   });
 
   const duplicateMutation = useMutation({
@@ -133,37 +193,12 @@ export default function ProductsPage() {
     duplicateMutation.mutate(product);
   }
 
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const PAGE_SIZE = 15;
-
-  const filtered = useMemo(() => {
-    return products.filter((p) => {
-      const matchesSearch =
-        !search ||
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.code.toLowerCase().includes(search.toLowerCase());
-      const matchesCategory = !categoryFilter || p.category_id === categoryFilter;
-      const matchesType = !typeFilter || p.type === typeFilter;
-      return matchesSearch && matchesCategory && matchesType;
-    });
-  }, [products, search, categoryFilter, typeFilter]);
-
-  // Reset page when filters change
-  useEffect(() => { setCurrentPage(1); }, [search, categoryFilter, typeFilter]);
-
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginatedProducts = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
   return (
     <div className="animate-fadeIn">
       <div className="page-header">
         <div>
           <h1>Productos & Servicios</h1>
-          <p className="subtitle">{products.length} productos registrados</p>
+          <p className="subtitle">{totalItems} productos registrados</p>
         </div>
         <div className="page-header-actions">
           <Link href="/dashboard/productos/nuevo" className="btn btn-primary">
@@ -210,16 +245,44 @@ export default function ProductsPage() {
 
         {/* Table */}
         {loading ? (
-          <div className="card" style={{ padding: "2rem" }}>
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="skeleton"
-                style={{ height: 48, marginBottom: 8, borderRadius: 8 }}
-              />
-            ))}
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Producto</th>
+                  <th>Tipo</th>
+                  <th>Categoría</th>
+                  <th>Unidad</th>
+                  <th>Costo Unit.</th>
+                  <th>P.V. (c/margen)</th>
+                  <th>Estado</th>
+                  <th style={{ textAlign: "right" }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <tr key={i}>
+                    <td><div className="skeleton" style={{ height: 20, width: 80, borderRadius: 4 }} /></td>
+                    <td>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        <div className="skeleton" style={{ height: 40, width: 40, borderRadius: 4 }} />
+                        <div className="skeleton" style={{ height: 20, width: 150, borderRadius: 4 }} />
+                      </div>
+                    </td>
+                    <td><div className="skeleton" style={{ height: 24, width: 60, borderRadius: 12 }} /></td>
+                    <td><div className="skeleton" style={{ height: 24, width: 80, borderRadius: 12 }} /></td>
+                    <td><div className="skeleton" style={{ height: 20, width: 40, borderRadius: 4 }} /></td>
+                    <td><div className="skeleton" style={{ height: 20, width: 60, borderRadius: 4 }} /></td>
+                    <td><div className="skeleton" style={{ height: 20, width: 60, borderRadius: 4 }} /></td>
+                    <td><div className="skeleton" style={{ height: 24, width: 60, borderRadius: 12 }} /></td>
+                    <td><div className="skeleton" style={{ height: 28, width: 100, borderRadius: 4, marginLeft: "auto" }} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : products.length === 0 ? (
           <div className="card empty-state">
             <Package size={48} />
             <h3>No se encontraron productos</h3>
@@ -253,7 +316,7 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedProducts.map((p) => {
+                {products.map((p) => {
                   const unitCost = p.computed_unit_cost || 0;
                   const salePrice = unitCost * (1 + p.default_margin / 100);
                   return (
@@ -367,7 +430,7 @@ export default function ProductsPage() {
               color: "var(--text-secondary)",
             }}>
               <span>
-                {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} de {filtered.length} productos
+                {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, totalItems)} de {totalItems} productos
               </span>
               <div style={{ display: "flex", gap: 4 }}>
                 <button

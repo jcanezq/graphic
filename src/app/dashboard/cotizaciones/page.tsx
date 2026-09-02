@@ -3,11 +3,12 @@
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, formatDate, getStatusLabel, getStatusColor } from "@/lib/formatters";
-import { Search, Plus, FileText, Eye, Edit2, Trash2, Copy, Download } from "lucide-react";
+import { Search, Plus, FileText, Eye, Edit2, Trash2, Copy, Download, LayoutGrid, List } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
 import { generatePDF } from "@/lib/pdf-export";
 import { generateExcel } from "@/lib/excel-export";
+import { KanbanBoard } from "@/components/quotations/KanbanBoard";
 import type { Quotation, CompanySettings } from "@/types";
 
 export default function QuotationsPage() {
@@ -18,6 +19,7 @@ export default function QuotationsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"table" | "kanban">("kanban");
 
   useEffect(() => {
     fetchData();
@@ -25,7 +27,7 @@ export default function QuotationsPage() {
 
   async function fetchData() {
     const [quotRes, settingsRes] = await Promise.all([
-      supabase.from("quotations").select("*").order("created_at", { ascending: false }),
+      supabase.from("quotations").select("*").is("deleted_at", null).order("created_at", { ascending: false }),
       supabase.from("company_settings").select("*").limit(1).single(),
     ]);
     setQuotations((quotRes.data as Quotation[]) || []);
@@ -35,12 +37,19 @@ export default function QuotationsPage() {
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar esta cotización? Esta acción no se puede deshacer.")) return;
-    const { error } = await supabase.from("quotations").delete().eq("id", id);
+    const { error } = await supabase.from("quotations").update({ deleted_at: new Date().toISOString() }).eq("id", id);
     if (error) {
       showToast("Error al eliminar", "error");
     } else {
       showToast("Cotización eliminada");
       setQuotations((prev) => prev.filter((q) => q.id !== id));
+    }
+  }
+
+  async function handleStatusChange(id: string, newStatus: string) {
+    const { error } = await supabase.from("quotations").update({ status: newStatus }).eq("id", id);
+    if (error) {
+      showToast("Error al actualizar estado", "error");
     }
   }
 
@@ -171,7 +180,25 @@ export default function QuotationsPage() {
           <h1>Cotizaciones</h1>
           <p className="subtitle">{quotations.length} cotizaciones en total</p>
         </div>
-        <div className="page-header-actions">
+        <div className="page-header-actions" style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          <div style={{ display: "flex", background: "var(--surface-sunken)", padding: "4px", borderRadius: "var(--radius-md)", gap: "4px" }}>
+            <button 
+              className={`btn-icon ${viewMode === "table" ? "active" : ""}`} 
+              onClick={() => setViewMode("table")}
+              style={{ background: viewMode === "table" ? "var(--surface)" : "transparent", boxShadow: viewMode === "table" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}
+              title="Vista de Tabla"
+            >
+              <List size={16} />
+            </button>
+            <button 
+              className={`btn-icon ${viewMode === "kanban" ? "active" : ""}`} 
+              onClick={() => setViewMode("kanban")}
+              style={{ background: viewMode === "kanban" ? "var(--surface)" : "transparent", boxShadow: viewMode === "kanban" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}
+              title="Vista de Tablero"
+            >
+              <LayoutGrid size={16} />
+            </button>
+          </div>
           <Link href="/dashboard/cotizaciones/nueva" className="btn btn-primary">
             <Plus size={18} />
             Nueva Cotización
@@ -225,6 +252,15 @@ export default function QuotationsPage() {
               </Link>
             )}
           </div>
+        ) : viewMode === "kanban" ? (
+          <KanbanBoard 
+            quotations={filtered}
+            setQuotations={setQuotations}
+            onStatusChange={handleStatusChange}
+            onDuplicate={handleDuplicate}
+            onExportPDF={handleExportPDF}
+            onDelete={handleDelete}
+          />
         ) : (
           <>
           <div className="table-container">
