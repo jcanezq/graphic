@@ -6,6 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // Credentials state
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
   async function handleGoogleLogin() {
     try {
@@ -20,6 +24,41 @@ export default function LoginPage() {
         console.error("Supabase Auth Error:", error);
         setError(error.message || "Error al iniciar sesión con Google");
         setLoading(false);
+      }
+    } catch (err: any) {
+      console.error("Network/Unexpected Error:", err);
+      setError("Error de conexión. Intenta nuevamente.");
+      setLoading(false);
+    }
+  }
+
+  async function handleCredentialsLogin(e: React.FormEvent) {
+    e.preventDefault();
+    if (!username.trim() || !password.trim()) {
+      setError("Por favor ingresa usuario y contraseña.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      const supabase = createClient();
+      
+      // Use fake email for Supabase under the hood
+      const email = `${username.trim().toLowerCase()}@cotigrafic.local`;
+      
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error("Supabase Auth Error:", error);
+        setError("Usuario o contraseña incorrectos.");
+        setLoading(false);
+      } else {
+        // Redirigir al dashboard o recargar para que el middleware lo maneje
+        window.location.href = "/dashboard";
       }
     } catch (err: any) {
       console.error("Network/Unexpected Error:", err);
@@ -66,7 +105,7 @@ export default function LoginPage() {
         </div>
       </aside>
 
-      {/* Panel derecho — botón Google */}
+      {/* Panel derecho — Login */}
       <div className="auth-panel-right">
         <div className="auth-card">
           <div style={{ marginBottom: "2rem" }}>
@@ -89,18 +128,92 @@ export default function LoginPage() {
               Bienvenido a CotiGrafix
             </h1>
             <p className="subtitle" style={{ margin: 0 }}>
-              Inicia sesión con tu cuenta de Google para acceder al sistema.
+              Ingresa al sistema de cotizaciones.
             </p>
           </div>
 
           {error && <div className="msg-err">{error}</div>}
+
+          <form onSubmit={handleCredentialsLogin} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div>
+              <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.9rem", color: "var(--text-secondary)" }}>
+                Usuario
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Ej. admin"
+                disabled={loading}
+                style={{
+                  width: "100%",
+                  padding: "0.75rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--surface-divider)",
+                  background: "var(--surface)",
+                  color: "var(--text-main)",
+                  outline: "none",
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.9rem", color: "var(--text-secondary)" }}>
+                Contraseña
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                disabled={loading}
+                style={{
+                  width: "100%",
+                  padding: "0.75rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--surface-divider)",
+                  background: "var(--surface)",
+                  color: "var(--text-main)",
+                  outline: "none",
+                }}
+              />
+            </div>
+            
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                marginTop: "0.5rem",
+                padding: "0.75rem",
+                background: "var(--accent-primary)",
+                color: "#fff",
+                border: "none",
+                borderRadius: "8px",
+                fontWeight: "600",
+                cursor: loading ? "not-allowed" : "pointer",
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              {loading ? "Conectando..." : "Ingresar"}
+            </button>
+          </form>
+
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            margin: "1.5rem 0",
+            color: "var(--text-muted)",
+            fontSize: "0.85rem"
+          }}>
+            <div style={{ flex: 1, height: "1px", background: "var(--surface-divider)" }} />
+            <span style={{ padding: "0 10px" }}>O</span>
+            <div style={{ flex: 1, height: "1px", background: "var(--surface-divider)" }} />
+          </div>
 
           <button
             type="button"
             className="oauth-btn"
             onClick={handleGoogleLogin}
             disabled={loading}
-            style={{ marginTop: "0.5rem" }}
           >
             <svg viewBox="0 0 24 24">
               <path
@@ -120,28 +233,8 @@ export default function LoginPage() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            {loading ? "Conectando..." : "Continuar con Google"}
+            Continuar con Google
           </button>
-
-          <div
-            style={{
-              textAlign: "center",
-              marginTop: "2rem",
-              paddingTop: "1.5rem",
-              borderTop: "1px solid var(--surface-divider)",
-            }}
-          >
-            <p
-              style={{
-                color: "var(--text-muted)",
-                fontSize: "0.78rem",
-                lineHeight: 1.6,
-              }}
-            >
-              Al iniciar sesión aceptas que tus datos de perfil de Google se
-              utilicen para identificarte dentro del sistema.
-            </p>
-          </div>
         </div>
       </div>
     </div>

@@ -43,7 +43,8 @@ export async function middleware(request: NextRequest) {
 
   if (user && allowedEmails.length > 0) {
     const userEmail = user.email?.toLowerCase() || "";
-    if (!allowedEmails.includes(userEmail)) {
+    // Allow if email is in whitelist OR if it's a local admin account
+    if (!allowedEmails.includes(userEmail) && !userEmail.endsWith("@cotigrafic.local")) {
       // Unauthorized: sign out and redirect to login
       await supabase.auth.signOut();
       const url = request.nextUrl.clone();
