@@ -25,9 +25,19 @@ export interface Client {
 
 export type ProductUnit = 'm²' | 'unidad' | 'kit' | 'servicio' | 'ml' | 'metro';
 
+export interface Material {
+  id: string;
+  name: string;
+  unit: string;
+  cost: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface ProductMaterial {
   id?: string;
   product_id?: string;
+  material_id?: string | null;
   name: string;
   quantity: number;
   unit_cost: number;

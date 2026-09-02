@@ -39,6 +39,7 @@ function main() {
   const rows = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
   
   const products = [];
+  const uniqueMaterials = new Map();
   let currentProduct = null;
   let codeCounter = 1;
 
@@ -89,7 +90,21 @@ function main() {
       const quantity = parseFloat(col6) || 1;
 
       if (cat.includes('Materiales') || cat.includes('Insumos')) {
+        let matId;
+        const matKey = itemDesc.toLowerCase();
+        if (uniqueMaterials.has(matKey)) {
+           matId = uniqueMaterials.get(matKey).id;
+        } else {
+           matId = crypto.randomUUID();
+           uniqueMaterials.set(matKey, {
+             id: matId,
+             name: itemDesc,
+             unit: itemUnit,
+             cost: unitCost
+           });
+        }
         currentProduct.materials.push({
+          material_id: matId,
           name: itemDesc,
           quantity: quantity,
           unit_cost: unitCost,
@@ -122,6 +137,12 @@ function main() {
   sql += `-- ============================================================\n\n`;
   sql += `BEGIN;\n\n`;
 
+  sql += `-- MASTER MATERIALS\n`;
+  for (const m of uniqueMaterials.values()) {
+    sql += `INSERT INTO materials (id, name, unit, cost) VALUES ('${m.id}', '${m.name.replace(/'/g, "''")}', '${m.unit.replace(/'/g, "''")}', ${m.cost}) ON CONFLICT (name) DO NOTHING;\n`;
+  }
+  sql += `\n`;
+
   for (const p of products) {
     const catName = CATEGORY_MAP[p.name] || 'General';
     const margin = 35.00; // From "Resumen de Precios"
@@ -140,9 +161,9 @@ function main() {
 
     // Materials
     if (p.materials.length > 0) {
-      sql += `INSERT INTO product_materials (product_id, name, quantity, unit_cost, unit) VALUES\n`;
+      sql += `INSERT INTO product_materials (product_id, material_id, name, quantity, unit_cost, unit) VALUES\n`;
       const matValues = p.materials.map(m => 
-        `  ('${p.id}', '${m.name.replace(/'/g, "''")}', ${m.quantity}, ${m.unit_cost}, '${m.unit.replace(/'/g, "''")}')`
+        `  ('${p.id}', '${m.material_id}', '${m.name.replace(/'/g, "''")}', ${m.quantity}, ${m.unit_cost}, '${m.unit.replace(/'/g, "''")}')`
       );
       sql += matValues.join(',\n') + `;\n\n`;
     }

@@ -8,7 +8,7 @@ import { formatCurrency } from "@/lib/formatters";
 import { calcMaterialCost, calcLaborCost, calcIndirectCost, calcUnitPrice } from "@/lib/calculations";
 import { Save, ArrowLeft, Plus, Trash2, ChevronDown, Image as ImageIcon } from "lucide-react";
 import Link from "next/link";
-import type { Category, ProductMaterial, ProductLabor, ProductIndirectCost, ProductUnit } from "@/types";
+import type { Category, ProductMaterial, ProductLabor, ProductIndirectCost, ProductUnit, Material } from "@/types";
 
 const UNITS: { value: ProductUnit; label: string }[] = [
   { value: "m²", label: "Metro cuadrado (m²)" },
@@ -31,6 +31,7 @@ export default function ProductFormPage() {
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [masterMaterials, setMasterMaterials] = useState<Material[]>([]);
 
   // Form state
   const [code, setCode] = useState("");
@@ -57,8 +58,14 @@ export default function ProductFormPage() {
 
   useEffect(() => {
     fetchCategories();
+    fetchMasterMaterials();
     if (productId) fetchProduct();
   }, [productId]);
+
+  async function fetchMasterMaterials() {
+    const { data } = await supabase.from("materials").select("*").order("name");
+    setMasterMaterials((data as Material[]) || []);
+  }
 
   async function fetchCategories() {
     const { data } = await supabase.from("categories").select("*").order("sort_order");
@@ -152,6 +159,7 @@ export default function ProductFormPage() {
       await supabase.from("product_materials").insert(
         materials.map((m) => ({
           product_id: savedId,
+          material_id: m.material_id || null,
           name: m.name,
           quantity: Number(m.quantity),
           unit_cost: Number(m.unit_cost),
@@ -346,15 +354,32 @@ export default function ProductFormPage() {
                           {materials.map((m, i) => (
                             <tr key={i}>
                               <td>
-                                <input
-                                  value={m.name}
+                                <select
+                                  value={m.material_id || ""}
                                   onChange={(e) => {
+                                    const selectedId = e.target.value;
+                                    const selectedMat = masterMaterials.find(x => x.id === selectedId);
                                     const arr = [...materials];
-                                    arr[i] = { ...arr[i], name: e.target.value };
+                                    if (selectedMat) {
+                                      arr[i] = { 
+                                        ...arr[i], 
+                                        material_id: selectedMat.id, 
+                                        name: selectedMat.name,
+                                        unit: selectedMat.unit,
+                                        unit_cost: selectedMat.cost 
+                                      };
+                                    } else {
+                                      arr[i] = { ...arr[i], material_id: null, name: "" };
+                                    }
                                     setMaterials(arr);
                                   }}
-                                  placeholder="Vinil adhesivo"
-                                />
+                                  style={{ width: "100%" }}
+                                >
+                                  <option value="">Seleccionar material...</option>
+                                  {masterMaterials.map(mat => (
+                                    <option key={mat.id} value={mat.id}>{mat.name}</option>
+                                  ))}
+                                </select>
                               </td>
                               <td>
                                 <input
@@ -370,17 +395,9 @@ export default function ProductFormPage() {
                                 />
                               </td>
                               <td>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  min={0}
-                                  value={m.unit_cost}
-                                  onChange={(e) => {
-                                    const arr = [...materials];
-                                    arr[i] = { ...arr[i], unit_cost: Number(e.target.value) };
-                                    setMaterials(arr);
-                                  }}
-                                />
+                                <div style={{ padding: "0 8px", color: "var(--text-secondary)" }}>
+                                  {formatCurrency(m.unit_cost)}
+                                </div>
                               </td>
                               <td style={{ color: "var(--text-primary)", fontWeight: 500 }}>
                                 {formatCurrency(m.quantity * m.unit_cost)}
@@ -404,7 +421,7 @@ export default function ProductFormPage() {
                       type="button"
                       className="add-row-btn"
                       onClick={() =>
-                        setMaterials([...materials, { name: "", quantity: 1, unit_cost: 0, unit: "unidad" }])
+                        setMaterials([...materials, { name: "", material_id: null, quantity: 1, unit_cost: 0, unit: "unidad" }])
                       }
                     >
                       <Plus size={14} /> Agregar material

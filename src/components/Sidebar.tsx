@@ -9,6 +9,7 @@ import {
   Settings,
   Images,
   Users,
+  Layers,
 } from "lucide-react";
 
 const navItems = [
@@ -21,6 +22,11 @@ const navItems = [
     label: "Productos",
     href: "/dashboard/productos",
     icon: Package,
+  },
+  {
+    label: "Materiales",
+    href: "/dashboard/materiales",
+    icon: Layers,
   },
   {
     label: "Cotizaciones",

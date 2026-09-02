@@ -47,17 +47,28 @@ CREATE TABLE IF NOT EXISTS products (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 4) Materiales/Insumos de un producto
+-- 4) Catálogo Maestro de Materiales
+CREATE TABLE IF NOT EXISTS materials (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  unit TEXT NOT NULL DEFAULT 'unidad',
+  cost NUMERIC(12,2) NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 5) Materiales/Insumos de un producto
 CREATE TABLE IF NOT EXISTS product_materials (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  material_id UUID REFERENCES materials(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
   quantity NUMERIC(10,4) NOT NULL DEFAULT 1,
   unit_cost NUMERIC(12,2) NOT NULL DEFAULT 0,
   unit TEXT DEFAULT 'unidad'
 );
 
--- 5) Mano de obra de un producto
+-- 6) Mano de obra de un producto
 CREATE TABLE IF NOT EXISTS product_labor (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -66,7 +77,7 @@ CREATE TABLE IF NOT EXISTS product_labor (
   hourly_rate NUMERIC(10,2) NOT NULL DEFAULT 0
 );
 
--- 6) Costos indirectos de un producto
+-- 7) Costos indirectos de un producto
 CREATE TABLE IF NOT EXISTS product_indirect_costs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -74,7 +85,7 @@ CREATE TABLE IF NOT EXISTS product_indirect_costs (
   cost NUMERIC(12,2) NOT NULL DEFAULT 0
 );
 
--- 7) Cotizaciones
+-- 8) Cotizaciones
 CREATE TABLE IF NOT EXISTS quotations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   number VARCHAR(20) NOT NULL UNIQUE,
@@ -96,7 +107,7 @@ CREATE TABLE IF NOT EXISTS quotations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 8) Ítems de cotización (snapshot del producto al momento de cotizar)
+-- 9) Ítems de cotización (snapshot del producto al momento de cotizar)
 CREATE TABLE IF NOT EXISTS quotation_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   quotation_id UUID NOT NULL REFERENCES quotations(id) ON DELETE CASCADE,
@@ -133,6 +144,7 @@ CREATE INDEX IF NOT EXISTS idx_quotation_items_quotation ON quotation_items(quot
 -- ============================================================
 ALTER TABLE company_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_labor ENABLE ROW LEVEL SECURITY;
@@ -143,6 +155,7 @@ ALTER TABLE quotation_items ENABLE ROW LEVEL SECURITY;
 -- Políticas: Usuarios autenticados tienen acceso completo
 CREATE POLICY "auth_all_settings" ON company_settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_all_categories" ON categories FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth_all_master_materials" ON materials FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_all_products" ON products FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_all_materials" ON product_materials FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_all_labor" ON product_labor FOR ALL TO authenticated USING (true) WITH CHECK (true);
@@ -150,7 +163,7 @@ CREATE POLICY "auth_all_indirects" ON product_indirect_costs FOR ALL TO authenti
 CREATE POLICY "auth_all_quotations" ON quotations FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_all_items" ON quotation_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
--- 9) Clientes
+-- 10) Clientes
 CREATE TABLE IF NOT EXISTS clients (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
