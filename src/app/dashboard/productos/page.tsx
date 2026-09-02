@@ -136,7 +136,8 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 20;
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const PAGE_SIZE = 15;
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
@@ -254,6 +255,7 @@ export default function ProductsPage() {
                             <img
                               src={p.image_url}
                               alt={p.name}
+                              onClick={() => setSelectedImage(p.image_url)}
                               style={{
                                 width: 40,
                                 height: 40,
@@ -261,6 +263,7 @@ export default function ProductsPage() {
                                 objectFit: "cover",
                                 flexShrink: 0,
                                 border: "1px solid var(--surface-border)",
+                                cursor: "pointer",
                               }}
                             />
                           ) : (
@@ -392,6 +395,38 @@ export default function ProductsPage() {
           </>
         )}
       </div>
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.8)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+          }}
+          onClick={() => setSelectedImage(null)}
+        >
+          <img
+            src={selectedImage}
+            alt="Vista previa"
+            style={{
+              maxWidth: "90%",
+              maxHeight: "90%",
+              borderRadius: "var(--radius-md)",
+              objectFit: "contain",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)",
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
