@@ -53,6 +53,7 @@ export interface Product {
   id: string;
   code: string;
   name: string;
+  type: 'Producto' | 'Servicio';
   category_id: string | null;
   category?: Category;
   description?: string;
@@ -149,6 +150,7 @@ export interface QuotationFormData {
 export interface ProductFormData {
   code: string;
   name: string;
+  type: 'Producto' | 'Servicio';
   category_id: string;
   description: string;
   unit: ProductUnit;

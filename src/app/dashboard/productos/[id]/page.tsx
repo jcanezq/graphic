@@ -35,6 +35,7 @@ export default function ProductFormPage() {
   // Form state
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
+  const [type, setType] = useState<"Producto" | "Servicio">("Producto");
   const [categoryId, setCategoryId] = useState("");
   const [description, setDescription] = useState("");
   const [unit, setUnit] = useState<ProductUnit>("unidad");
@@ -76,6 +77,7 @@ export default function ProductFormPage() {
       const p = prodRes.data;
       setCode(p.code);
       setName(p.name);
+      setType(p.type || "Producto");
       setCategoryId(p.category_id || "");
       setDescription(p.description || "");
       setUnit(p.unit as ProductUnit);
@@ -110,6 +112,7 @@ export default function ProductFormPage() {
     const productData = {
       code,
       name,
+      type,
       category_id: categoryId || null,
       description,
       unit,
@@ -246,6 +249,13 @@ export default function ProductFormPage() {
                   />
                 </div>
                 <div className="form-row">
+                  <div className="form-group">
+                    <label>Tipo *</label>
+                    <select value={type} onChange={(e) => setType(e.target.value as "Producto" | "Servicio")}>
+                      <option value="Producto">Producto</option>
+                      <option value="Servicio">Servicio</option>
+                    </select>
+                  </div>
                   <div className="form-group">
                     <label>Categoría</label>
                     <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>

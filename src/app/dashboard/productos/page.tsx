@@ -134,6 +134,7 @@ export default function ProductsPage() {
   }
 
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -146,12 +147,13 @@ export default function ProductsPage() {
         p.name.toLowerCase().includes(search.toLowerCase()) ||
         p.code.toLowerCase().includes(search.toLowerCase());
       const matchesCategory = !categoryFilter || p.category_id === categoryFilter;
-      return matchesSearch && matchesCategory;
+      const matchesType = !typeFilter || p.type === typeFilter;
+      return matchesSearch && matchesCategory && matchesType;
     });
-  }, [products, search, categoryFilter]);
+  }, [products, search, categoryFilter, typeFilter]);
 
   // Reset page when filters change
-  useEffect(() => { setCurrentPage(1); }, [search, categoryFilter]);
+  useEffect(() => { setCurrentPage(1); }, [search, categoryFilter, typeFilter]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginatedProducts = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -183,6 +185,15 @@ export default function ProductsPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            style={{ width: 180 }}
+          >
+            <option value="">Todos los tipos</option>
+            <option value="Producto">Producto</option>
+            <option value="Servicio">Servicio</option>
+          </select>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
@@ -232,6 +243,7 @@ export default function ProductsPage() {
                 <tr>
                   <th>Código</th>
                   <th>Producto</th>
+                  <th>Tipo</th>
                   <th>Categoría</th>
                   <th>Unidad</th>
                   <th>Costo Unit.</th>
@@ -285,6 +297,11 @@ export default function ProductsPage() {
                           )}
                           <span>{p.name}</span>
                         </div>
+                      </td>
+                      <td>
+                        <span className="badge badge-muted">
+                          {p.type || "Producto"}
+                        </span>
                       </td>
                       <td>
                         {p.category && (

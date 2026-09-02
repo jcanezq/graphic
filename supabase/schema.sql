@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code VARCHAR(20) NOT NULL UNIQUE,
   name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'Producto',
   category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
   description TEXT,
   unit TEXT NOT NULL DEFAULT 'unidad',
