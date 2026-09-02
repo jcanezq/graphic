@@ -255,7 +255,7 @@ export default function ProductsPage() {
                             <img
                               src={p.image_url}
                               alt={p.name}
-                              onClick={() => setSelectedImage(p.image_url)}
+                              onClick={() => setSelectedImage(p.image_url || null)}
                               style={{
                                 width: 40,
                                 height: 40,
