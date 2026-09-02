@@ -63,7 +63,6 @@ function main() {
     // If we have a product name in the first column, start a new product
     if (col0 && typeof col0 === 'string' && col0.trim() !== '') {
       currentProduct = {
-        id: crypto.randomUUID(),
         code: `PRD-2026-${String(codeCounter++).padStart(4, '0')}`,
         name: col0.trim(),
         unit: 'unidad', // Default, will update based on col1
@@ -90,21 +89,15 @@ function main() {
       const quantity = parseFloat(col6) || 1;
 
       if (cat.includes('Materiales') || cat.includes('Insumos')) {
-        let matId;
         const matKey = itemDesc.toLowerCase();
-        if (uniqueMaterials.has(matKey)) {
-           matId = uniqueMaterials.get(matKey).id;
-        } else {
-           matId = crypto.randomUUID();
+        if (!uniqueMaterials.has(matKey)) {
            uniqueMaterials.set(matKey, {
-             id: matId,
              name: itemDesc,
              unit: itemUnit,
              cost: unitCost
            });
         }
         currentProduct.materials.push({
-          material_id: matId,
           name: itemDesc,
           quantity: quantity,
           unit_cost: unitCost,
@@ -139,7 +132,7 @@ function main() {
 
   sql += `-- MASTER MATERIALS\n`;
   for (const m of uniqueMaterials.values()) {
-    sql += `INSERT INTO materials (id, name, unit, cost) VALUES ('${m.id}', '${m.name.replace(/'/g, "''")}', '${m.unit.replace(/'/g, "''")}', ${m.cost}) ON CONFLICT (name) DO NOTHING;\n`;
+    sql += `INSERT INTO materials (name, unit, cost) VALUES ('${m.name.replace(/'/g, "''")}', '${m.unit.replace(/'/g, "''")}', ${m.cost}) ON CONFLICT (name) DO UPDATE SET cost = EXCLUDED.cost, unit = EXCLUDED.unit;\n`;
   }
   sql += `\n`;
 
@@ -148,27 +141,26 @@ function main() {
     const margin = 35.00; // From "Resumen de Precios"
 
     sql += `-- PRODUCTO: ${p.name}\n`;
-    sql += `INSERT INTO products (id, code, name, category_id, unit, default_margin, is_active)\n`;
+    sql += `INSERT INTO products (code, name, category_id, unit, default_margin, is_active)\n`;
     sql += `VALUES (\n`;
-    sql += `  '${p.id}',\n`;
     sql += `  '${p.code}',\n`;
     sql += `  '${p.name}',\n`;
     sql += `  (SELECT id FROM categories WHERE name = '${catName}' LIMIT 1),\n`;
     sql += `  '${p.unit}',\n`;
     sql += `  ${margin},\n`;
     sql += `  true\n`;
-    sql += `) ON CONFLICT (code) DO NOTHING;\n\n`;
+    sql += `) ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, unit = EXCLUDED.unit, category_id = EXCLUDED.category_id;\n\n`;
 
     // Clear existing relations to allow updates
-    sql += `DELETE FROM product_materials WHERE product_id = '${p.id}';\n`;
-    sql += `DELETE FROM product_labor WHERE product_id = '${p.id}';\n`;
-    sql += `DELETE FROM product_indirect_costs WHERE product_id = '${p.id}';\n\n`;
+    sql += `DELETE FROM product_materials WHERE product_id = (SELECT id FROM products WHERE code = '${p.code}');\n`;
+    sql += `DELETE FROM product_labor WHERE product_id = (SELECT id FROM products WHERE code = '${p.code}');\n`;
+    sql += `DELETE FROM product_indirect_costs WHERE product_id = (SELECT id FROM products WHERE code = '${p.code}');\n\n`;
 
     // Materials
     if (p.materials.length > 0) {
       sql += `INSERT INTO product_materials (product_id, material_id, name, quantity, unit_cost, unit) VALUES\n`;
       const matValues = p.materials.map(m => 
-        `  ('${p.id}', '${m.material_id}', '${m.name.replace(/'/g, "''")}', ${m.quantity}, ${m.unit_cost}, '${m.unit.replace(/'/g, "''")}')`
+        `  ((SELECT id FROM products WHERE code = '${p.code}'), (SELECT id FROM materials WHERE name = '${m.name.replace(/'/g, "''")}'), '${m.name.replace(/'/g, "''")}', ${m.quantity}, ${m.unit_cost}, '${m.unit.replace(/'/g, "''")}')`
       );
       sql += matValues.join(',\n') + `;\n\n`;
     }
@@ -177,7 +169,7 @@ function main() {
     if (p.labor.length > 0) {
       sql += `INSERT INTO product_labor (product_id, work_type, hours, hourly_rate) VALUES\n`;
       const labValues = p.labor.map(l => 
-        `  ('${p.id}', '${l.work_type.replace(/'/g, "''")}', ${l.hours}, ${l.hourly_rate})`
+        `  ((SELECT id FROM products WHERE code = '${p.code}'), '${l.work_type.replace(/'/g, "''")}', ${l.hours}, ${l.hourly_rate})`
       );
       sql += labValues.join(',\n') + `;\n\n`;
     }
@@ -186,7 +178,7 @@ function main() {
     if (p.indirects.length > 0) {
       sql += `INSERT INTO product_indirect_costs (product_id, concept, cost) VALUES\n`;
       const indValues = p.indirects.map(i => 
-        `  ('${p.id}', '${i.concept.replace(/'/g, "''")}', ${i.cost})`
+        `  ((SELECT id FROM products WHERE code = '${p.code}'), '${i.concept.replace(/'/g, "''")}', ${i.cost})`
       );
       sql += indValues.join(',\n') + `;\n\n`;
     }
