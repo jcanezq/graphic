@@ -178,9 +178,9 @@ export default function QuotationDetailPage() {
     setSaving(false);
   }
 
-  function handleExportPDF() {
+  async function handleExportPDF() {
     if (!quotation || !settings) return;
-    generatePDF({ ...quotation, items, subtotal: totals.subtotal, igv: totals.igv, total: totals.total } as Quotation, settings);
+    await generatePDF({ ...quotation, items, subtotal: totals.subtotal, igv: totals.igv, total: totals.total } as Quotation, settings);
     showToast("PDF generado");
   }
 
@@ -190,7 +190,7 @@ export default function QuotationDetailPage() {
     showToast("Excel generado");
   }
 
-  function handleSendWhatsApp() {
+  async function handleSendWhatsApp() {
     if (!quotation || !settings) return;
     if (!clientPhone) {
       showToast("El cliente no tiene un teléfono configurado", "error");
@@ -198,7 +198,7 @@ export default function QuotationDetailPage() {
     }
 
     // Export PDF locally first
-    handleExportPDF();
+    await handleExportPDF();
 
     // Format phone number: remove non-digits
     let phone = clientPhone.replace(/\D/g, "");

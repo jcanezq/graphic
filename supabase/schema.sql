@@ -186,7 +186,7 @@ ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "auth_all_clients" ON clients FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- ============================================================
--- Storage: bucket para imágenes de productos
+-- Storage: bucket para imágenes de productos y logos
 -- ============================================================
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('product-images', 'product-images', true)
@@ -200,6 +200,19 @@ CREATE POLICY "auth_delete_images" ON storage.objects FOR DELETE TO authenticate
   USING (bucket_id = 'product-images');
 CREATE POLICY "auth_update_images" ON storage.objects FOR UPDATE TO authenticated
   USING (bucket_id = 'product-images');
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('company-assets', 'company-assets', true)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "auth_upload_assets" ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'company-assets');
+CREATE POLICY "public_read_assets" ON storage.objects FOR SELECT TO public
+  USING (bucket_id = 'company-assets');
+CREATE POLICY "auth_delete_assets" ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'company-assets');
+CREATE POLICY "auth_update_assets" ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'company-assets');
 
 -- ============================================================
 -- Seed: Categorías iniciales (basadas en carpeta galeria/GALERIA/)

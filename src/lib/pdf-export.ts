@@ -7,10 +7,22 @@ import autoTable from "jspdf-autotable";
 import type { Quotation, CompanySettings } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 
-export function generatePDF(quotation: Quotation, settings: CompanySettings) {
+export async function generatePDF(quotation: Quotation, settings: CompanySettings) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
+
+  // Helper to convert image URL to base64
+  async function getBase64ImageFromUrl(imageUrl: string): Promise<string> {
+    const res = await fetch(imageUrl);
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
 
   // Colors
   const primary = [99, 102, 241]; // accent violet
@@ -18,17 +30,31 @@ export function generatePDF(quotation: Quotation, settings: CompanySettings) {
   const gray = [100, 116, 139];
 
   // ── Header ──────────────────────────────────────────────
+  let startY = 22;
+  
+  if (settings.logo_url) {
+    try {
+      const base64 = await getBase64ImageFromUrl(settings.logo_url);
+      // Determine format from URL or default to PNG
+      const format = settings.logo_url.toLowerCase().endsWith('.jpg') || settings.logo_url.toLowerCase().endsWith('.jpeg') ? 'JPEG' : 'PNG';
+      doc.addImage(base64, format, margin, 15, 35, 20, undefined, 'FAST');
+      startY = 42; // push company name down if there's a logo
+    } catch (error) {
+      console.error("Failed to load logo for PDF", error);
+    }
+  }
+
   // Company name
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(dark[0], dark[1], dark[2]);
-  doc.text(settings.company_name || "Mi Empresa", margin, 22);
+  doc.text(settings.company_name || "Mi Empresa", margin, startY);
 
   // Company details
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(gray[0], gray[1], gray[2]);
-  let yPos = 28;
+  let yPos = startY + 6;
   if (settings.ruc) {
     doc.text(`RUC: ${settings.ruc}`, margin, yPos);
     yPos += 4;
@@ -45,6 +71,8 @@ export function generatePDF(quotation: Quotation, settings: CompanySettings) {
     doc.text(settings.email, margin, yPos);
   }
 
+  const dividerY = Math.max(yPos + 4, 42);
+
   // Quotation title (right side)
   doc.setFontSize(24);
   doc.setFont("helvetica", "bold");
@@ -59,10 +87,10 @@ export function generatePDF(quotation: Quotation, settings: CompanySettings) {
   // Divider
   doc.setDrawColor(primary[0], primary[1], primary[2]);
   doc.setLineWidth(0.8);
-  doc.line(margin, 42, pageWidth - margin, 42);
+  doc.line(margin, dividerY, pageWidth - margin, dividerY);
 
   // ── Quotation Info + Client ─────────────────────────────
-  const infoY = 50;
+  const infoY = dividerY + 8;
 
   // Left - Quotation info
   doc.setFontSize(8);
@@ -121,7 +149,7 @@ export function generatePDF(quotation: Quotation, settings: CompanySettings) {
   const items = quotation.items || [];
 
   autoTable(doc, {
-    startY: 78,
+    startY: infoY + 28,
     head: [["#", "Descripción", "Und.", "Cant.", "P.U.", "Subtotal"]],
     body: items.map((item, i) => {
       let desc = item.product_name;

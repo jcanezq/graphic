@@ -135,7 +135,7 @@ export default function QuotationsPage() {
       .order("sort_order");
 
     const quotWithItems = { ...q, items: items || [] };
-    generatePDF(quotWithItems, settings!);
+    await generatePDF(quotWithItems, settings!);
     showToast("PDF generado");
   }
 

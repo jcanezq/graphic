@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
-import { Save, Building2, Search } from "lucide-react";
+import { Save, Building2, Search, Upload, Image as ImageIcon, X } from "lucide-react";
 import type { CompanySettings } from "@/types";
 import { fetchRucData } from "@/lib/ruc";
 
@@ -14,6 +14,8 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [searchingRuc, setSearchingRuc] = useState(false);
   const [settingsId, setSettingsId] = useState("");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const [companyName, setCompanyName] = useState("");
   const [ruc, setRuc] = useState("");
@@ -43,6 +45,7 @@ export default function SettingsPage() {
       setIgvRate(Number(s.igv_rate) * 100);
       setQuotationPrefix(s.quotation_prefix);
       setNextNumber(s.quotation_next_number);
+      setLogoUrl(s.logo_url || null);
     }
     setLoading(false);
   }
@@ -62,6 +65,40 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    const file = e.target.files[0];
+    const fileExt = file.name.split('.').pop();
+    const fileName = `logo-${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    setUploadingLogo(true);
+    
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('company-assets')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('company-assets')
+        .getPublicUrl(filePath);
+
+      setLogoUrl(data.publicUrl);
+      showToast("Logo subido correctamente");
+    } catch (error: any) {
+      showToast("Error subiendo el logo: " + error.message, "error");
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
+
+  async function handleRemoveLogo() {
+    setLogoUrl(null);
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -76,6 +113,7 @@ export default function SettingsPage() {
       igv_rate: igvRate / 100,
       quotation_prefix: quotationPrefix,
       quotation_next_number: nextNumber,
+      logo_url: logoUrl,
       updated_at: new Date().toISOString(),
     };
 
@@ -126,6 +164,56 @@ export default function SettingsPage() {
               <Building2 size={20} style={{ color: "var(--accent)" }} />
               <h3 className="card-title">Datos de la Empresa</h3>
             </div>
+            
+            <div className="form-group" style={{ marginBottom: "24px" }}>
+              <label>Logotipo de la Empresa</label>
+              <div style={{ display: "flex", gap: "16px", alignItems: "flex-start", marginTop: "8px" }}>
+                <div style={{ 
+                  width: "120px", 
+                  height: "120px", 
+                  borderRadius: "var(--radius-md)", 
+                  border: "2px dashed var(--surface-divider)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "var(--surface)",
+                  position: "relative",
+                  overflow: "hidden"
+                }}>
+                  {logoUrl ? (
+                    <>
+                      <img src={logoUrl} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                      <button 
+                        type="button" 
+                        onClick={handleRemoveLogo}
+                        style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.5)", color: "white", border: "none", borderRadius: "50%", padding: 4, cursor: "pointer" }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <ImageIcon size={32} style={{ color: "var(--text-muted)" }} />
+                  )}
+                </div>
+                <div>
+                  <label className="btn btn-secondary" style={{ cursor: "pointer" }}>
+                    <Upload size={16} />
+                    {uploadingLogo ? "Subiendo..." : "Subir Logo"}
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      style={{ display: "none" }} 
+                      onChange={handleLogoUpload}
+                      disabled={uploadingLogo}
+                    />
+                  </label>
+                  <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "8px" }}>
+                    Recomendado: PNG con fondo transparente. Aparecerá en tus cotizaciones PDF.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="form-group">
               <label>Nombre / Razón Social</label>
               <input
