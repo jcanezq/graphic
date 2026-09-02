@@ -15,23 +15,79 @@ export default function QuotationsPage() {
   const supabase = createClient();
   const { showToast } = useToast();
   const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"table" | "kanban">("kanban");
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    // Adding a debounce for search would be ideal, but for now we'll fetch on changes
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [currentPage, search, statusFilter, viewMode]);
 
   async function fetchData() {
-    const [quotRes, settingsRes] = await Promise.all([
-      supabase.from("quotations").select("*").is("deleted_at", null).order("created_at", { ascending: false }),
-      supabase.from("company_settings").select("*").limit(1).single(),
-    ]);
-    setQuotations((quotRes.data as Quotation[]) || []);
-    setSettings(settingsRes.data as CompanySettings);
+    setLoading(true);
+
+    if (viewMode === "table") {
+      let query = supabase
+        .from("quotations")
+        .select("*", { count: "exact" })
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+
+      if (search) {
+        query = query.or(`client_name.ilike.%${search}%,number.ilike.%${search}%`);
+      }
+      if (statusFilter) {
+        query = query.eq("status", statusFilter);
+      }
+
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      query = query.range(from, to);
+
+      const [quotRes, settingsRes] = await Promise.all([
+        query,
+        supabase.from("company_settings").select("*").limit(1).single(),
+      ]);
+
+      setQuotations((quotRes.data as Quotation[]) || []);
+      setTotalCount(quotRes.count || 0);
+      setSettings(settingsRes.data as CompanySettings);
+    } else {
+      // Kanban mode
+      // Limit to 200 items to keep it light, ordered from newest to oldest
+      let query = supabase
+        .from("quotations")
+        .select("*")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (search) {
+        query = query.or(`client_name.ilike.%${search}%,number.ilike.%${search}%`);
+      }
+      if (statusFilter) {
+        query = query.eq("status", statusFilter);
+      }
+
+      const [quotRes, settingsRes] = await Promise.all([
+        query,
+        supabase.from("company_settings").select("*").limit(1).single(),
+      ]);
+
+      setQuotations((quotRes.data as Quotation[]) || []);
+      setTotalCount(quotRes.data?.length || 0);
+      setSettings(settingsRes.data as CompanySettings);
+    }
+
     setLoading(false);
   }
 
@@ -151,34 +207,19 @@ export default function QuotationsPage() {
     showToast("Excel generado");
   }
 
-  const filtered = useMemo(() => {
-    return quotations.filter((q) => {
-      const matchesSearch =
-        !search ||
-        q.client_name.toLowerCase().includes(search.toLowerCase()) ||
-        q.number.toLowerCase().includes(search.toLowerCase());
-      const matchesStatus = !statusFilter || q.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [quotations, search, statusFilter]);
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 20;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [search, statusFilter]);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
   return (
     <div className="animate-fadeIn">
       <div className="page-header">
         <div>
           <h1>Cotizaciones</h1>
-          <p className="subtitle">{quotations.length} cotizaciones en total</p>
+          <p className="subtitle">{totalCount} cotizaciones encontradas</p>
         </div>
         <div className="page-header-actions" style={{ display: "flex", gap: "12px", alignItems: "center" }}>
           <div style={{ display: "flex", background: "var(--surface-sunken)", padding: "4px", borderRadius: "var(--radius-md)", gap: "4px" }}>
@@ -237,7 +278,7 @@ export default function QuotationsPage() {
               <div key={i} className="skeleton" style={{ height: 48, marginBottom: 8, borderRadius: 8 }} />
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : quotations.length === 0 ? (
           <div className="card empty-state">
             <FileText size={48} />
             <h3>No se encontraron cotizaciones</h3>
@@ -254,7 +295,7 @@ export default function QuotationsPage() {
           </div>
         ) : viewMode === "kanban" ? (
           <KanbanBoard 
-            quotations={filtered}
+            quotations={quotations}
             setQuotations={setQuotations}
             onStatusChange={handleStatusChange}
             onDuplicate={handleDuplicate}
@@ -278,7 +319,7 @@ export default function QuotationsPage() {
                 </tr>
               </thead>
               <tbody>
-                {paginated.map((q) => (
+                {quotations.map((q) => (
                   <tr key={q.id}>
                     <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.82rem" }}>
                       <Link href={`/dashboard/cotizaciones/${q.id}`} style={{ color: "var(--accent)" }}>
@@ -341,7 +382,7 @@ export default function QuotationsPage() {
               color: "var(--text-secondary)",
             }}>
               <span>
-                {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} de {filtered.length} cotizaciones
+                {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, totalCount)} de {totalCount} cotizaciones
               </span>
               <div style={{ display: "flex", gap: 4 }}>
                 <button
