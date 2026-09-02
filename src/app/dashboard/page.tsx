@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { formatCurrency, formatRelativeTime, getStatusLabel, getStatusColor } from "@/lib/formatters";
-import { FileText, Package, TrendingUp, Plus, DollarSign } from "lucide-react";
+import { FileText, Package, TrendingUp, Plus } from "lucide-react";
 import Link from "next/link";
 import type { Quotation } from "@/types";
 
@@ -79,7 +79,7 @@ export default async function DashboardPage() {
               className="metric-icon"
               style={{ background: "var(--success-light)", color: "var(--success)" }}
             >
-              <DollarSign size={22} />
+              <span style={{ fontSize: 18, fontWeight: 700 }}>S/</span>
             </div>
             <div className="metric-value">{formatCurrency(metrics.totalAmount)}</div>
             <div className="metric-label">Monto Total</div>

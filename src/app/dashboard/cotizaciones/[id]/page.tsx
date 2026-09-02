@@ -14,7 +14,7 @@ import { fetchRucData } from "@/lib/ruc";
 import type { Quotation, QuotationItem, QuotationStatus, CompanySettings } from "@/types";
 
 const STATUSES: { value: QuotationStatus; label: string }[] = [
-  { value: "borrador", label: "Borrador" },
+  { value: "borrador", label: "Generada" },
   { value: "enviada", label: "Enviada" },
   { value: "aceptada", label: "Aceptada" },
   { value: "rechazada", label: "Rechazada" },

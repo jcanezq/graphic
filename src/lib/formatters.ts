@@ -84,7 +84,7 @@ export function generateQuotationNumber(prefix: string, nextNumber: number): str
  */
 export function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
-    borrador: 'Borrador',
+    borrador: 'Generada',
     enviada: 'Enviada',
     aceptada: 'Aceptada',
     rechazada: 'Rechazada',

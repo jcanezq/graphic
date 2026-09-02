@@ -123,7 +123,7 @@ export default function QuotationsPage() {
         .eq("id", stg.id);
     }
 
-    showToast("Cotización duplicada como borrador");
+    showToast("Cotización duplicada como generada");
     fetchData();
   }
 
@@ -223,7 +223,7 @@ export default function QuotationsPage() {
             style={{ width: 180 }}
           >
             <option value="">Todos los estados</option>
-            <option value="borrador">Borrador</option>
+            <option value="borrador">Generada</option>
             <option value="enviada">Enviada</option>
             <option value="aceptada">Aceptada</option>
             <option value="rechazada">Rechazada</option>
