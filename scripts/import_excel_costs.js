@@ -159,6 +159,11 @@ function main() {
     sql += `  true\n`;
     sql += `) ON CONFLICT (code) DO NOTHING;\n\n`;
 
+    // Clear existing relations to allow updates
+    sql += `DELETE FROM product_materials WHERE product_id = '${p.id}';\n`;
+    sql += `DELETE FROM product_labor WHERE product_id = '${p.id}';\n`;
+    sql += `DELETE FROM product_indirect_costs WHERE product_id = '${p.id}';\n\n`;
+
     // Materials
     if (p.materials.length > 0) {
       sql += `INSERT INTO product_materials (product_id, material_id, name, quantity, unit_cost, unit) VALUES\n`;
