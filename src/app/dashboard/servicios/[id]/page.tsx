@@ -70,7 +70,7 @@ export default function ServiceFormPage() {
   async function fetchProduct() {
     const [prodRes, matRes, labRes, indRes] = await Promise.all([
       supabase.from("products").select("*").eq("id", productId).single(),
-      supabase.from("product_materials").select("*").eq("product_id", productId),
+      supabase.from("product_materials").select("*, materials(id, cost, name, unit)").eq("product_id", productId),
       supabase.from("product_labor").select("*").eq("product_id", productId),
       supabase.from("product_indirect_costs").select("*").eq("product_id", productId),
     ]);
@@ -88,7 +88,12 @@ export default function ServiceFormPage() {
         useManualCost: p.manual_unit_cost != null,
         default_margin: Number(p.default_margin),
         is_active: p.is_active,
-        materials: matRes.data || [],
+        materials: (matRes.data || []).map((m: any) => ({
+          ...m,
+          unit_cost: m.materials?.cost ?? m.unit_cost,
+          name: m.materials?.name ?? m.name,
+          unit: m.materials?.unit ?? m.unit
+        })),
         labor: labRes.data || [],
         indirects: indRes.data || []
       });

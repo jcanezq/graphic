@@ -89,17 +89,27 @@ export default function NewQuotationPage() {
     if (productsRes.data) {
       const ids = productsRes.data.map((p: { id: string }) => p.id);
       const [matRes, labRes, indRes] = await Promise.all([
-        supabase.from("product_materials").select("*").in("product_id", ids),
+        supabase.from("product_materials").select("*, materials(id, cost, name, unit)").in("product_id", ids),
         supabase.from("product_labor").select("*").in("product_id", ids),
         supabase.from("product_indirect_costs").select("*").in("product_id", ids),
       ]);
 
-      const prods = productsRes.data.map((p: Record<string, unknown>) => ({
-        ...p,
-        materials: (matRes.data || []).filter((m: { product_id: string }) => m.product_id === p.id),
-        labor: (labRes.data || []).filter((l: { product_id: string }) => l.product_id === p.id),
-        indirect_costs: (indRes.data || []).filter((ic: { product_id: string }) => ic.product_id === p.id),
-      }));
+      const prods = productsRes.data.map((p: Record<string, unknown>) => {
+        const materials = (matRes.data || [])
+          .filter((m: any) => m.product_id === p.id)
+          .map((m: any) => ({
+             ...m,
+             unit_cost: m.materials?.cost ?? m.unit_cost,
+             name: m.materials?.name ?? m.name,
+             unit: m.materials?.unit ?? m.unit
+          }));
+        return {
+          ...p,
+          materials,
+          labor: (labRes.data || []).filter((l: { product_id: string }) => l.product_id === p.id),
+          indirect_costs: (indRes.data || []).filter((ic: { product_id: string }) => ic.product_id === p.id),
+        };
+      });
 
       setProducts(prods as Product[]);
     }

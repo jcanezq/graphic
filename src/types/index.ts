@@ -42,6 +42,12 @@ export interface ProductMaterial {
   quantity: number;
   unit_cost: number;
   unit?: string;
+  materials?: {
+    id: string;
+    cost: number;
+    name: string;
+    unit: string;
+  } | null;
 }
 
 export interface ProductLabor {

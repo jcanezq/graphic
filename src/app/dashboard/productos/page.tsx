@@ -74,13 +74,20 @@ export default function ProductsPage() {
 
       const productIds = prodRes.map((p: Product) => p.id);
       const [matRes, labRes, indRes] = await Promise.all([
-        supabase.from("product_materials").select("*").in("product_id", productIds),
+        supabase.from("product_materials").select("*, materials(id, cost, name, unit)").in("product_id", productIds),
         supabase.from("product_labor").select("*").in("product_id", productIds),
         supabase.from("product_indirect_costs").select("*").in("product_id", productIds),
       ]);
 
       const products = prodRes.map((p: any) => {
-        const materials = (matRes.data || []).filter((m: any) => m.product_id === p.id);
+        const materials = (matRes.data || [])
+          .filter((m: any) => m.product_id === p.id)
+          .map((m: any) => ({
+             ...m,
+             unit_cost: m.materials?.cost ?? m.unit_cost,
+             name: m.materials?.name ?? m.name,
+             unit: m.materials?.unit ?? m.unit
+          }));
         const labor = (labRes.data || []).filter((l: any) => l.product_id === p.id);
         const indirect_costs = (indRes.data || []).filter((ic: any) => ic.product_id === p.id);
 
