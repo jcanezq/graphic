@@ -1,57 +1,41 @@
-# Plan de Implementación de Mejoras
+# Refactorización de Costos de Materiales (Live Pricing)
 
-Este plan detalla los pasos para implementar las mejoras sugeridas, respetando el orden de prioridad solicitado.
+## Goal Description
+El objetivo es resolver el problema de los costos "congelados" en las recetas de los productos. Actualmente, cuando un material es asignado a un producto, su costo se copia a la tabla `product_materials` y el producto usa esa copia estática para calcular su costo. Si el precio del material maestro cambia, el producto no se entera.
 
-## User Review Required
-
-> [!WARNING]  
-> **Soft Deletes vs. Políticas Globales:** Al implementar "Soft Deletes" (marcar como borrado en lugar de eliminar físicamente), las consultas actuales (ej. `select("*")`) traerán también los borrados a menos que se filtren explícitamente (`.is('deleted_at', null)`). Modificaré las llamadas al backend en la aplicación para aplicar este filtro siempre. ¿Estás de acuerdo con este enfoque?
-
-## Open Questions
-
-- ¿Tienes alguna preferencia de diseño para los Skeletons (animaciones de carga)? Por defecto usaré una estructura de "filas y columnas" más parecida a la tabla final para evitar el "salto visual" cuando cargan los datos.
+Modificaremos las consultas en toda la aplicación para que, al cargar los materiales de un producto (`product_materials`), el sistema haga un `JOIN` con la tabla `materials` y sobreescriba el costo, nombre y unidad al vuelo. De esta manera:
+- Los productos siempre mostrarán y usarán el **costo actualizado** del material.
+- Las cotizaciones nuevas usarán el costo actualizado.
+- Las cotizaciones **antiguas y guardadas** no se verán afectadas, ya que `quotation_items` seguirá guardando su propio snapshot independiente (lo cual es el comportamiento correcto e ideal para auditoría de precios).
 
 ## Proposed Changes
 
-### Fase 1: Experiencia de Usuario (UX/UI) y Rendimiento
+### 1. Tipos (TypeScript)
+- **MODIFY** [`src/types/index.ts`](file:///d:/proyectos/galeria/cotigrafic/src/types/index.ts)
+  - Actualizar `ProductMaterial` para incluir la relación opcional `materials?: { cost: number, name: string, unit: string } | null;`.
 
-Mejoraremos la forma en la que la aplicación responde a las acciones del usuario y maneja la carga de datos masivos.
+### 2. Listados de Productos y Servicios
+- **MODIFY** [`src/app/dashboard/productos/page.tsx`](file:///d:/proyectos/galeria/cotigrafic/src/app/dashboard/productos/page.tsx)
+  - Actualizar la consulta: `supabase.from("product_materials").select("*, materials(id, cost, name, unit)")`.
+  - Mapear la respuesta para que `unit_cost` herede `m.materials.cost` si existe.
+- **MODIFY** [`src/app/dashboard/servicios/page.tsx`](file:///d:/proyectos/galeria/cotigrafic/src/app/dashboard/servicios/page.tsx)
+  - Aplicar exactamente la misma actualización de consulta y mapeo.
 
-#### [MODIFY] `src/app/dashboard/productos/page.tsx` y `src/app/dashboard/materiales/page.tsx`
-- Implementar **paginación desde el servidor (Server-Side Pagination)** utilizando `range()` de Supabase en lugar de paginar los datos en el cliente.
-- Implementar **Actualizaciones Optimistas (Optimistic Updates)** usando la caché de React Query. Esto hará que al eliminar, duplicar o guardar, la tabla cambie instantáneamente sin esperar a que el servidor termine de procesar.
-- Mejorar el diseño visual de los `skeletons` para que simulen la tabla real.
+### 3. Formularios de Edición/Creación
+- **MODIFY** [`src/app/dashboard/productos/[id]/page.tsx`](file:///d:/proyectos/galeria/cotigrafic/src/app/dashboard/productos/[id]/page.tsx)
+  - Actualizar la consulta: `supabase.from("product_materials").select("*, materials(id, cost, name, unit)")`.
+  - Mapear para que al abrir el formulario de edición, los campos se pre-carguen con los costos actualizados del material maestro.
+- **MODIFY** [`src/app/dashboard/servicios/[id]/page.tsx`](file:///d:/proyectos/galeria/cotigrafic/src/app/dashboard/servicios/[id]/page.tsx)
+  - Aplicar la misma actualización.
 
-### Fase 2: Arquitectura y Código Frontend
-
-Refactorización de formularios masivos para usar librerías de grado empresarial que garanticen el rendimiento y validación.
-
-#### [NEW] `package.json` (Dependencias)
-- Instalar `react-hook-form`, `zod` y `@hookform/resolvers`.
-
-#### [MODIFY] `src/app/dashboard/productos/[id]/page.tsx`
-- Refactorizar el formulario de +600 líneas reemplazando los múltiples `useState` por un manejador central de `react-hook-form`.
-- Utilizar esquemas de validación Zod para evitar que el usuario guarde sin datos clave.
-
-#### [NEW] `src/components/products/`
-- Mover las lógicas a sub-componentes: `BasicInfoTab.tsx`, `MaterialsTab.tsx`, `LaborTab.tsx`, `IndirectCostsTab.tsx`, `CostSummary.tsx` para mejorar la mantenibilidad del código.
-
-### Fase 3: Base de Datos y Supabase (Schema)
-
-Proteger la integridad referencial y de auditoría implementando "Soft Deletes".
-
-#### [MODIFY] `supabase/schema.sql`
-- Agregar la columna `deleted_at TIMESTAMPTZ` a las tablas `products`, `materials`, `clients`, `quotations`.
-
-#### [MODIFY] Múltiples Archivos Frontend
-- Actualizar las mutaciones de eliminación en React Query para que usen `update({ deleted_at: new Date().toISOString() })` en lugar de `.delete()`.
-- Modificar las consultas de `select()` en toda la aplicación para agregar el filtro `.is('deleted_at', null)`.
-
----
+### 4. Cotizador
+- **MODIFY** [`src/app/dashboard/cotizaciones/nueva/page.tsx`](file:///d:/proyectos/galeria/cotigrafic/src/app/dashboard/cotizaciones/nueva/page.tsx)
+  - Actualizar la consulta: `supabase.from("product_materials").select("*, materials(id, cost, name, unit)")`.
+  - Mapear de igual forma para asegurar que cuando el usuario agregue un producto a una nueva cotización, arrastre el precio en vivo y no el histórico.
 
 ## Verification Plan
-
-### Manual Verification
-1. **Fase 1:** Navegar por Productos y Materiales. Comprobar que la paginación carga rápidamente desde el backend y que eliminar un ítem lo desaparece de la UI instantáneamente.
-2. **Fase 2:** Editar y crear un producto nuevo comprobando que las validaciones impiden errores y que el rendimiento al escribir no causa ralentización en la interfaz.
-3. **Fase 3:** "Eliminar" un material y verificar en la base de datos (vía Supabase) que la fila aún existe pero tiene una fecha en la columna `deleted_at`, y que el material ya no aparece en el sistema.
+1. Crear o identificar un Material (ej: "Acrílico") con un costo X (ej: S/ 10).
+2. Crear un Producto y agregarle el "Acrílico". El costo del producto reflejará S/ 10.
+3. Ir al listado de materiales y editar el costo de "Acrílico" a S/ 20.
+4. Entrar al listado de productos/servicios y verificar que el costo unitario recalculado ahora refleje S/ 20 de forma automática sin tener que editar el producto.
+5. Entrar a crear una Nueva Cotización y agregar el producto para verificar que arrastra el costo actualizado.

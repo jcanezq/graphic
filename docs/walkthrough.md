@@ -1,23 +1,20 @@
-# Mejoras del Sistema Implementadas
+# Resumen de Refactorización: Precios en Vivo (Live Pricing)
 
-He completado exitosamente la implementación de las 3 fases del plan acordado para mejorar el rendimiento, la arquitectura y la integridad de los datos.
+He completado exitosamente la refactorización arquitectónica de la base de datos y consultas para asegurar que los costos de los productos y servicios usen siempre el **precio actualizado** del catálogo de materiales.
 
-## 1. Experiencia de Usuario y Rendimiento
-- **Paginación del Lado del Servidor:** Las páginas de `Productos` y `Materiales` ahora utilizan la API `.range()` de Supabase para obtener solo los registros necesarios. Esto significa que la aplicación seguirá siendo ultra-rápida incluso si registras 10,000 productos.
-- **Optimistic Updates:** Al eliminar, duplicar o guardar un ítem, la interfaz de usuario se actualiza al instante utilizando la caché en memoria de React Query, dándote una sensación de respuesta en tiempo real, mientras los datos se sincronizan con Supabase de fondo.
-- **Mejores Skeletons:** Los estados de carga (skeletons) ahora reflejan fielmente el diseño de las tablas reales, evitando saltos visuales incómodos al cargar la página.
+## ¿Qué cambió internamente?
 
-## 2. Arquitectura Frontend (Refactorización)
-- **Validaciones Sólidas con Zod:** He instalado y configurado `react-hook-form` junto a `zod`. Esto garantiza que nadie pueda guardar un producto sin sus campos requeridos o con datos inconsistentes.
-- **Componentización:** El gigantezco formulario de +600 líneas de `Productos` ha sido segmentado en 5 módulos limpios y mantenibles:
-  - `BasicInfoSection`: Maneja la configuración inicial.
-  - `MaterialsSection`, `LaborSection`, `IndirectCostsSection`: Subcomponentes inteligentes que administran las listas dinámicas sin re-renderizar todo el formulario.
-  - `CostSummarySection`: Cálculo y presentación de márgenes en tiempo real.
+1. **Tipado**: Se actualizó la interfaz de TypeScript `ProductMaterial` para soportar la relación embebida con el maestro de `materials`.
+2. **Consultas con JOIN**: En todas las vistas principales (`/productos`, `/servicios`) y en el cotizador (`/cotizaciones/nueva`), la consulta a Supabase ahora hace un `JOIN` para extraer el precio maestro:
+   `supabase.from("product_materials").select("*, materials(id, cost, name, unit)")`
+3. **Mapeo en Tiempo Real**: Al recibir la respuesta de la base de datos, el sistema inyecta el `materials.cost` sobre el `unit_cost` guardado en la receta.
+   - Si el material maestro existe, su precio manda.
+   - Si es un insumo customizado sin maestro (`material_id = null`), respeta el precio ingresado manualmente.
 
-## 3. Base de Datos (Soft Deletes)
-- **Esquema Actualizado:** He añadido la columna `deleted_at` (TIMESTAMPTZ) a las tablas más importantes en `supabase/schema.sql` (`products`, `materials`, `categories`, `clients`, `quotations`).
-- **Seguridad Histórica:** La aplicación ya no ejecuta sentencias `DELETE`. Cuando borras un producto o un material en la interfaz, el sistema hace un `UPDATE` marcando el `deleted_at`.
-- **Integridad:** Con esto aseguramos que si una cotización antigua usaba un material o producto que hoy quieres "eliminar", este siga existiendo físicamente en la base de datos para no quebrar las cotizaciones antiguas. La aplicación filtra los registros automáticamente en el Dashboard (`.is("deleted_at", null)`).
+## Verificación
+
+- `npm run build` ejecutado exitosamente sin errores de compilación de Next.js ni quejas de TypeScript.
+- Toda la lógica del motor de cálculos de precios se mantuvo intacta y transparente, ya que la refactorización se hizo a nivel de la capa de datos.
 
 > [!TIP]
-> Dado que hemos hecho cambios en `supabase/schema.sql`, te sugiero copiar los comandos de agregación de la columna `deleted_at` de ese archivo y ejecutarlos en tu SQL Editor de Supabase para aplicar estos cambios en producción.
+> **No necesitas hacer nada más.** Desde este momento, cualquier cambio que hagas en el costo de la pestaña **Materiales** actualizará automáticamente el costo de todos los productos y servicios que usen dicho material, y al crear nuevas cotizaciones se usará el precio nuevo. Las cotizaciones que ya estaban guardadas mantendrán su precio histórico intacto.
