@@ -22,27 +22,27 @@
   --surface-divider: #e2e8f0;
 
   /* Text — Charcoal & slate */
-  --text-primary: #1e293b;
+  --text-primary: #0F172A;
   --text-secondary: #475569;
-  --text-muted: #94a3b8;
+  --text-muted: #94A3B8;
   --text-disabled: #cbd5e1;
 
-  /* Accent — Slate Blue (serio, corporativo) */
-  --accent: #4f6d92;
-  --accent-hover: #3d5a80;
-  --accent-light: rgba(79, 109, 146, 0.1);
-  --accent-gradient: linear-gradient(135deg, #4f6d92, #3d5a80);
-  --accent-gradient-hover: linear-gradient(135deg, #3d5a80, #2c4a6e);
+  /* Accent — Indigo Profesional */
+  --accent: #4F46E5;
+  --accent-hover: #4338CA;
+  --accent-light: rgba(79, 70, 229, 0.08);
+  --accent-gradient: linear-gradient(135deg, #4F46E5, #3730A3);
+  --accent-gradient-hover: linear-gradient(135deg, #4338CA, #312E81);
 
   /* Semantic colors */
-  --success: #2d8659;
-  --success-light: rgba(45, 134, 89, 0.08);
-  --warning: #b8860b;
-  --warning-light: rgba(184, 134, 11, 0.08);
-  --error: #c0392b;
-  --error-light: rgba(192, 57, 43, 0.08);
-  --info: #2874a6;
-  --info-light: rgba(40, 116, 166, 0.08);
+  --success: #059669;
+  --success-light: rgba(5, 150, 105, 0.08);
+  --warning: #D97706;
+  --warning-light: rgba(217, 119, 6, 0.08);
+  --error: #DC2626;
+  --error-light: rgba(220, 38, 38, 0.08);
+  --info: #2563EB;
+  --info-light: rgba(37, 99, 235, 0.08);
 
   /* Spacing */
   --space-xs: 4px;
@@ -60,11 +60,11 @@
   --radius-xl: 20px;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(13, 148, 136, 0.12);
+  /* Shadows (softer for cleaner look) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.15);
 
   /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

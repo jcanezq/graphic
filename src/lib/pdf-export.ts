@@ -24,10 +24,10 @@ export async function generatePDF(quotation: Quotation, settings: CompanySetting
     });
   }
 
-  // Colors
-  const primary = [99, 102, 241]; // accent violet
-  const dark = [15, 23, 42];
-  const gray = [100, 116, 139];
+  // Colors (Palette A - Indigo Profesional)
+  const primary = [79, 70, 229]; // #4F46E5
+  const dark = [15, 23, 42]; // #0F172A
+  const gray = [100, 116, 139]; // #64748b
 
   // ── Header ──────────────────────────────────────────────
   let startY = 22;
