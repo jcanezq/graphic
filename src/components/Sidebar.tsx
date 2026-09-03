@@ -20,14 +20,14 @@ const navItems = [
     icon: LayoutDashboard,
   },
   {
+    label: "Cotizaciones",
+    href: "/dashboard/cotizaciones",
+    icon: FileText,
+  },
+  {
     label: "Productos",
     href: "/dashboard/productos",
     icon: Package,
-  },
-  {
-    label: "Servicios",
-    href: "/dashboard/servicios",
-    icon: Briefcase,
   },
   {
     label: "Materiales",
@@ -35,16 +35,15 @@ const navItems = [
     icon: Layers,
   },
   {
-    label: "Cotizaciones",
-    href: "/dashboard/cotizaciones",
-    icon: FileText,
+    label: "Servicios",
+    href: "/dashboard/servicios",
+    icon: Briefcase,
   },
   {
     label: "Clientes",
     href: "/dashboard/clientes",
     icon: Users,
   },
-
   {
     label: "Configuración",
     href: "/dashboard/configuracion",

@@ -55,7 +55,8 @@ export default function ServicesPage() {
       let query = supabase
         .from("products")
         .select("*, categories(id, name, color, slug)", { count: 'exact' })
-        .is("deleted_at", null);
+        .is("deleted_at", null)
+        .eq("type", "Servicio");
 
       if (debouncedSearch) {
         query = query.or(`name.ilike.%${debouncedSearch}%,code.ilike.%${debouncedSearch}%`);
