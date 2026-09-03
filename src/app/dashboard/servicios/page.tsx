@@ -47,7 +47,7 @@ export default function ServicesPage() {
   useEffect(() => { setCurrentPage(1); }, [debouncedSearch, categoryFilter]);
 
   const { data: queryData, isLoading: loading } = useQuery({
-    queryKey: ['products', currentPage, debouncedSearch, categoryFilter],
+    queryKey: ['servicios_list', currentPage, debouncedSearch, categoryFilter],
     queryFn: async () => {
       const from = (currentPage - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
@@ -64,7 +64,6 @@ export default function ServicesPage() {
       if (categoryFilter) {
         query = query.eq("category_id", categoryFilter);
       }
-      query = query.eq("type", "Servicio");
 
       const { data: prodRes, count } = await query
         .order("created_at", { ascending: false })

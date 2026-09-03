@@ -47,7 +47,7 @@ export default function ProductsPage() {
   useEffect(() => { setCurrentPage(1); }, [debouncedSearch, categoryFilter]);
 
   const { data: queryData, isLoading: loading } = useQuery({
-    queryKey: ['products', currentPage, debouncedSearch, categoryFilter],
+    queryKey: ['productos_list', currentPage, debouncedSearch, categoryFilter],
     queryFn: async () => {
       const from = (currentPage - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
@@ -65,8 +65,6 @@ export default function ProductsPage() {
         query = query.eq("category_id", categoryFilter);
       }
       
-      query = query.eq("type", "Producto");
-
       const { data: prodRes, count } = await query
         .order("created_at", { ascending: false })
         .range(from, to);
