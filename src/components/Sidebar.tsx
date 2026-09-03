@@ -10,6 +10,7 @@ import {
   Images,
   Users,
   Layers,
+  Briefcase,
 } from "lucide-react";
 
 const navItems = [
@@ -22,6 +23,11 @@ const navItems = [
     label: "Productos",
     href: "/dashboard/productos",
     icon: Package,
+  },
+  {
+    label: "Servicios",
+    href: "/dashboard/servicios",
+    icon: Briefcase,
   },
   {
     label: "Materiales",

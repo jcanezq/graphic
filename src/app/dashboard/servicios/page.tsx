@@ -17,7 +17,7 @@ import {
 import Link from "next/link";
 import type { Product, Category } from "@/types";
 
-export default function ProductsPage() {
+export default function ServicesPage() {
   const supabase = createClient();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -63,8 +63,7 @@ export default function ProductsPage() {
       if (categoryFilter) {
         query = query.eq("category_id", categoryFilter);
       }
-      
-      query = query.eq("type", "Producto");
+      query = query.eq("type", "Servicio");
 
       const { data: prodRes, count } = await query
         .order("created_at", { ascending: false })
@@ -195,13 +194,13 @@ export default function ProductsPage() {
     <div className="animate-fadeIn">
       <div className="page-header">
         <div>
-          <h1>Productos</h1>
-          <p className="subtitle">{totalItems} productos registrados</p>
+          <h1>Servicios</h1>
+          <p className="subtitle">{totalItems} servicios registrados</p>
         </div>
         <div className="page-header-actions">
-          <Link href="/dashboard/productos/nuevo" className="btn btn-primary">
+          <Link href="/dashboard/servicios/nuevo" className="btn btn-primary">
             <Plus size={18} />
-            Nuevo Producto
+            Nuevo Servicio
           </Link>
         </div>
       </div>
@@ -274,16 +273,16 @@ export default function ProductsPage() {
         ) : products.length === 0 ? (
           <div className="card empty-state">
             <Package size={48} />
-            <h3>No se encontraron productos</h3>
+            <h3>No se encontraron servicios</h3>
             <p>
               {search || categoryFilter
                 ? "Prueba con otros filtros de búsqueda."
-                : "Crea tu primer producto para empezar a cotizar."}
+                : "Crea tu primer servicio para empezar a cotizar."}
             </p>
             {!search && !categoryFilter && (
-              <Link href="/dashboard/productos/nuevo" className="btn btn-primary">
+              <Link href="/dashboard/servicios/nuevo" className="btn btn-primary">
                 <Plus size={16} />
-                Nuevo Producto
+                Nuevo Servicio
               </Link>
             )}
           </div>
@@ -380,7 +379,7 @@ export default function ProductsPage() {
                       </td>
                       <td>
                         <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                          <Link href={`/dashboard/productos/${p.id}`} className="btn-icon" title="Editar">
+                          <Link href={`/dashboard/servicios/${p.id}`} className="btn-icon" title="Editar">
                             <Edit2 size={15} />
                           </Link>
                           <button
@@ -419,7 +418,7 @@ export default function ProductsPage() {
               color: "var(--text-secondary)",
             }}>
               <span>
-                {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, totalItems)} de {totalItems} productos
+                {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, totalItems)} de {totalItems} servicios
               </span>
               <div style={{ display: "flex", gap: 4 }}>
                 <button

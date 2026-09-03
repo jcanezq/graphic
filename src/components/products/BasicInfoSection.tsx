@@ -7,6 +7,7 @@ interface Props {
   control: Control<ProductFormValues>;
   categories: Category[];
   errors: any;
+  fixedType?: "Producto" | "Servicio";
 }
 
 const UNITS = [
@@ -18,7 +19,7 @@ const UNITS = [
   { value: "metro", label: "Metro" },
 ];
 
-export function BasicInfoSection({ register, control, categories, errors }: Props) {
+export function BasicInfoSection({ register, control, categories, errors, fixedType }: Props) {
   const useManualCost = useWatch({ control, name: "useManualCost" });
 
   return (
@@ -55,7 +56,7 @@ export function BasicInfoSection({ register, control, categories, errors }: Prop
         {errors.name && <span className="error-text">{errors.name.message}</span>}
       </div>
       <div className="form-row">
-        <div className="form-group">
+        <div className="form-group" style={{ display: fixedType ? 'none' : 'block' }}>
           <label>Tipo *</label>
           <select {...register("type")}>
             <option value="Producto">Producto</option>
@@ -93,7 +94,7 @@ export function BasicInfoSection({ register, control, categories, errors }: Prop
         <label className="toggle" style={{ marginBottom: 0 }}>
           <input type="checkbox" {...register("is_active")} />
           <span className="toggle-track" />
-          Producto activo
+          Activo
         </label>
         <label className="toggle" style={{ marginBottom: 0 }}>
           <input type="checkbox" {...register("useManualCost")} />

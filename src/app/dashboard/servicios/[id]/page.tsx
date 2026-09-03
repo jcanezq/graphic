@@ -17,7 +17,7 @@ import { LaborSection } from "@/components/products/LaborSection";
 import { IndirectCostsSection } from "@/components/products/IndirectCostsSection";
 import { CostSummarySection } from "@/components/products/CostSummarySection";
 
-export default function ProductFormPage() {
+export default function ServiceFormPage() {
   const router = useRouter();
   const params = useParams();
   const supabase = createClient();
@@ -36,7 +36,7 @@ export default function ProductFormPage() {
     defaultValues: {
       code: "",
       name: "",
-      type: "Producto",
+      type: "Servicio",
       category_id: "",
       description: "",
       unit: "unidad",
@@ -80,7 +80,7 @@ export default function ProductFormPage() {
       form.reset({
         code: p.code || "",
         name: p.name || "",
-        type: p.type || "Producto",
+        type: p.type || "Servicio",
         category_id: p.category_id || "",
         description: p.description || "",
         unit: p.unit || "unidad",
@@ -170,9 +170,9 @@ export default function ProductFormPage() {
       );
     }
 
-    showToast(isNew ? "Producto creado exitosamente" : "Producto actualizado");
+    showToast(isNew ? "Servicio creado exitosamente" : "Servicio actualizado");
     setSaving(false);
-    router.push("/dashboard/productos");
+    router.push("/dashboard/servicios");
   };
 
   if (loading) {
@@ -187,12 +187,12 @@ export default function ProductFormPage() {
     <div className="animate-fadeIn">
       <div className="page-header">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <Link href="/dashboard/productos" className="btn-icon">
+          <Link href="/dashboard/servicios" className="btn-icon">
             <ArrowLeft size={18} />
           </Link>
           <div>
-            <h1>{isNew ? "Nuevo Producto" : "Editar Producto"}</h1>
-            <p className="subtitle">{isNew ? "Registra un nuevo producto o servicio" : form.getValues("code")}</p>
+            <h1>{isNew ? "Nuevo Servicio" : "Editar Servicio"}</h1>
+            <p className="subtitle">{isNew ? "Registra un nuevo servicio" : form.getValues("code")}</p>
           </div>
         </div>
       </div>
@@ -207,7 +207,7 @@ export default function ProductFormPage() {
                 control={form.control} 
                 categories={categories} 
                 errors={form.formState.errors} 
-                fixedType="Producto"
+                fixedType="Servicio"
               />
               <MaterialsSection control={form.control} masterMaterials={masterMaterials} />
               <LaborSection control={form.control} />
