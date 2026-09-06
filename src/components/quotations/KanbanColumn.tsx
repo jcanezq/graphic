@@ -10,11 +10,12 @@ interface KanbanColumnProps {
   title: string;
   quotations: Quotation[];
   onDuplicate: (q: Quotation) => void;
+  onCreateRevision: (q: Quotation) => void;
   onExportPDF: (q: Quotation) => void;
   onDelete: (id: string) => void;
 }
 
-export function KanbanColumn({ id, title, quotations, onDuplicate, onExportPDF, onDelete }: KanbanColumnProps) {
+export function KanbanColumn({ id, title, quotations, onDuplicate, onCreateRevision, onExportPDF, onDelete }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
   
   const columnTotal = quotations.reduce((sum, q) => sum + Number(q.total), 0);
@@ -71,6 +72,7 @@ export function KanbanColumn({ id, title, quotations, onDuplicate, onExportPDF, 
               key={q.id} 
               quotation={q} 
               onDuplicate={onDuplicate} 
+              onCreateRevision={onCreateRevision}
               onExportPDF={onExportPDF} 
               onDelete={onDelete} 
             />

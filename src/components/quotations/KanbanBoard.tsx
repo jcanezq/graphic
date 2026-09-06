@@ -22,6 +22,7 @@ interface KanbanBoardProps {
   setQuotations: React.Dispatch<React.SetStateAction<Quotation[]>>;
   onStatusChange: (id: string, newStatus: string) => Promise<void>;
   onDuplicate: (q: Quotation) => void;
+  onCreateRevision: (q: Quotation) => void;
   onExportPDF: (q: Quotation) => void;
   onDelete: (id: string) => void;
 }
@@ -39,6 +40,7 @@ export function KanbanBoard({
   setQuotations, 
   onStatusChange,
   onDuplicate,
+  onCreateRevision,
   onExportPDF,
   onDelete
 }: KanbanBoardProps) {
@@ -142,6 +144,7 @@ export function KanbanBoard({
             title={col.title}
             quotations={quotations.filter(q => q.status === col.id)}
             onDuplicate={onDuplicate}
+            onCreateRevision={onCreateRevision}
             onExportPDF={onExportPDF}
             onDelete={onDelete}
           />
@@ -154,6 +157,7 @@ export function KanbanBoard({
             <KanbanCard 
               quotation={activeQuotation} 
               onDuplicate={() => {}} 
+              onCreateRevision={() => {}}
               onExportPDF={() => {}} 
               onDelete={() => {}} 
             />

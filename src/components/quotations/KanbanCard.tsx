@@ -3,12 +3,13 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/formatters";
 import type { Quotation } from "@/types";
-import { Eye, Download, Copy, Trash2, Clock, AlertTriangle } from "lucide-react";
+import { Eye, Download, Copy, Trash2, Clock, AlertTriangle, GitBranch } from "lucide-react";
 import Link from "next/link";
 
 interface KanbanCardProps {
   quotation: Quotation;
   onDuplicate: (q: Quotation) => void;
+  onCreateRevision: (q: Quotation) => void;
   onExportPDF: (q: Quotation) => void;
   onDelete: (id: string) => void;
 }
@@ -26,7 +27,7 @@ function getExpiryInfo(quotation: Quotation) {
   return { label: `${daysLeft}d vigente`, color: "var(--text-muted)", urgent: false, daysLeft };
 }
 
-export function KanbanCard({ quotation, onDuplicate, onExportPDF, onDelete }: KanbanCardProps) {
+export function KanbanCard({ quotation, onDuplicate, onCreateRevision, onExportPDF, onDelete }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -118,6 +119,9 @@ export function KanbanCard({ quotation, onDuplicate, onExportPDF, onDelete }: Ka
           <Link href={`/dashboard/cotizaciones/${quotation.id}`} className="btn-icon" title="Ver" style={{ padding: 4 }}>
             <Eye size={13} />
           </Link>
+          <button className="btn-icon" title="Crear Revisión" onClick={() => onCreateRevision(quotation)} style={{ padding: 4 }}>
+            <GitBranch size={13} />
+          </button>
           <button className="btn-icon" title="Duplicar" onClick={() => onDuplicate(quotation)} style={{ padding: 4 }}>
             <Copy size={13} />
           </button>

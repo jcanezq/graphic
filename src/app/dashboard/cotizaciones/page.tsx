@@ -455,6 +455,7 @@ export default function QuotationsPage() {
             setQuotations={setQuotations}
             onStatusChange={handleStatusChange}
             onDuplicate={handleDuplicate}
+            onCreateRevision={handleCreateRevision}
             onExportPDF={handleExportPDF}
             onDelete={handleDelete}
           />
