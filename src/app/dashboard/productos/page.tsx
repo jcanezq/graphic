@@ -313,7 +313,7 @@ export default function ProductsPage() {
               <tbody>
                 {products.map((p) => {
                   const unitCost = p.computed_unit_cost || 0;
-                  const salePrice = unitCost * (1 + p.default_margin / 100);
+                  const salePrice = unitCost * (1 + (p.default_margin || 0) / 100);
                   return (
                     <tr key={p.id}>
                       <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>
@@ -363,13 +363,13 @@ export default function ProductsPage() {
                       </td>
                       <td>
                         {p.category && (
-                          <span
-                            className="badge"
-                            style={{
-                              background: `${p.category.color}20`,
-                              color: p.category.color,
-                            }}
-                          >
+                            <span
+                              className="badge"
+                              style={{
+                                background: `${p.category.color || '#ccc'}20`,
+                                color: p.category.color || '#ccc',
+                              }}
+                            >
                             {p.category.name}
                           </span>
                         )}

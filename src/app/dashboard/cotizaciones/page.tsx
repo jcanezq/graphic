@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, formatDate, getStatusLabel, getStatusColor } from "@/lib/formatters";
 import { Search, Plus, FileText, Eye, Edit2, Trash2, Copy, Download, LayoutGrid, List, GitBranch } from "lucide-react";
@@ -19,354 +20,348 @@ function sanitizeSearch(input: string): string {
 export default function QuotationsPage() {
   const supabase = createClient();
   const { showToast } = useToast();
-  const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [settings, setSettings] = useState<CompanySettings | null>(null);
+  const queryClient = useQueryClient();
+
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
+
   const [viewMode, setViewMode] = useState<"table" | "kanban">(() => {
     if (typeof window !== "undefined") {
       return (localStorage.getItem("cotigrafic_view_mode") as "table" | "kanban") || "kanban";
     }
     return "kanban";
   });
-  const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 20;
+
+  // Local state for kanban optimistic updates
+  const [localQuotations, setLocalQuotations] = useState<Quotation[]>([]);
 
   useEffect(() => {
-    // Adding a debounce for search would be ideal, but for now we'll fetch on changes
-    const timer = setTimeout(() => {
-      fetchData();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [currentPage, search, statusFilter, viewMode]);
-
-  async function fetchData() {
-    setLoading(true);
-
-    if (viewMode === "table") {
-      let query = supabase
-        .from("quotations")
-        .select("*", { count: "exact" })
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
-
-      if (search) {
-        const s = sanitizeSearch(search);
-        query = query.or(`client_name.ilike.%${s}%,number.ilike.%${s}%`);
-      }
-      if (statusFilter) {
-        query = query.eq("status", statusFilter);
-      }
-
-      const from = (currentPage - 1) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-      query = query.range(from, to);
-
-      const [quotRes, settingsRes] = await Promise.all([
-        query,
-        supabase.from("company_settings").select("*").limit(1).single(),
-      ]);
-
-      setQuotations((quotRes.data as Quotation[]) || []);
-      setTotalCount(quotRes.count || 0);
-      setSettings(settingsRes.data as CompanySettings);
-    } else {
-      // Kanban mode
-      // Limit to 200 items to keep it light, ordered from newest to oldest
-      let query = supabase
-        .from("quotations")
-        .select("*")
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .limit(200);
-
-      if (search) {
-        const s = sanitizeSearch(search);
-        query = query.or(`client_name.ilike.%${s}%,number.ilike.%${s}%`);
-      }
-      if (statusFilter) {
-        query = query.eq("status", statusFilter);
-      }
-
-      const [quotRes, settingsRes] = await Promise.all([
-        query,
-        supabase.from("company_settings").select("*").limit(1).single(),
-      ]);
-
-      const data = (quotRes.data as Quotation[]) || [];
-
-      // Agrupar cotizaciones por parent_id (o su propio id si no tienen padre)
-      const groups = new Map<string, Quotation[]>();
-      data.forEach(q => {
-        const groupId = q.parent_id || q.id;
-        if (!groups.has(groupId)) groups.set(groupId, []);
-        groups.get(groupId)!.push(q);
-      });
-
-      // Encontrar la fecha máxima por grupo para ordenar los grupos entre sí
-      const groupMaxDate = new Map<string, number>();
-      groups.forEach((items, groupId) => {
-        const maxTime = Math.max(...items.map(i => new Date(i.created_at).getTime()));
-        groupMaxDate.set(groupId, maxTime);
-      });
-
-      // Ordenar grupos por fecha máxima, y dentro de cada grupo ordenar por revisión (B antes que A, A antes que original)
-      const sortedQuotations = Array.from(groups.values())
-        .sort((a, b) => {
-           const groupIdA = a[0].parent_id || a[0].id;
-           const groupIdB = b[0].parent_id || b[0].id;
-           return groupMaxDate.get(groupIdB)! - groupMaxDate.get(groupIdA)!;
-        })
-        .flatMap(group => 
-          group.sort((a, b) => {
-            const revA = a.revision || "";
-            const revB = b.revision || "";
-            return revB.localeCompare(revA);
-          })
-        );
-
-      setQuotations(sortedQuotations);
-      setTotalCount(data.length);
-      setSettings(settingsRes.data as CompanySettings);
-    }
-
-    setLoading(false);
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar esta cotización? Esta acción no se puede deshacer.")) return;
-    const { error } = await supabase.from("quotations").update({ deleted_at: new Date().toISOString() }).eq("id", id);
-    if (error) {
-      showToast("Error al eliminar", "error");
-    } else {
-      showToast("Cotización eliminada");
-      setQuotations((prev) => prev.filter((q) => q.id !== id));
-    }
-  }
-
-  async function handleStatusChange(id: string, newStatus: string) {
-    const { error } = await supabase.from("quotations").update({ status: newStatus }).eq("id", id);
-    if (error) {
-      showToast("Error al actualizar estado", "error");
-    }
-  }
-
-  async function handleDuplicate(q: Quotation) {
-    // Get items from original quotation
-    const { data: items } = await supabase
-      .from("quotation_items")
-      .select("*")
-      .eq("quotation_id", q.id);
-
-    // Atomic quotation number generation (prevents race condition)
-    let number: string | null = null;
-    const { data: rpcNumber, error: rpcError } = await supabase.rpc("generate_quotation_number");
-    if (!rpcError && rpcNumber) {
-      number = rpcNumber;
-    } else {
-      // Fallback: manual generation if RPC is not available
-      console.warn("RPC generate_quotation_number error, executing client fallback:", rpcError);
-      const { data: stg } = await supabase
-        .from("company_settings")
-        .select("id, quotation_prefix, quotation_next_number")
-        .limit(1)
-        .single();
-
-      const prefix = stg?.quotation_prefix || "COT";
-      const nextNum = stg?.quotation_next_number || 1;
-      const year = new Date().getFullYear();
-      number = `${prefix}-${year}-${String(nextNum).padStart(4, "0")}`;
-
-      if (stg?.id) {
-        await supabase
-          .from("company_settings")
-          .update({ quotation_next_number: nextNum + 1 })
-          .eq("id", stg.id);
-      }
-    }
-
-    const { data: newQuot, error } = await supabase
-      .from("quotations")
-      .insert({
-        number,
-        user_id: q.user_id,
-        client_name: q.client_name,
-        client_ruc: q.client_ruc,
-        client_address: q.client_address,
-        client_phone: q.client_phone,
-        client_email: q.client_email,
-        subtotal: q.subtotal,
-        igv_rate: q.igv_rate,
-        igv: q.igv,
-        total: q.total,
-        notes: q.notes,
-        validity_days: q.validity_days,
-        status: "borrador",
-      })
-      .select()
-      .single();
-
-    if (error) {
-      showToast("Error al duplicar: " + error.message, "error");
-      return;
-    }
-
-    if (newQuot && items?.length) {
-      const { error: itemsError } = await supabase.from("quotation_items").insert(
-        items.map((item: Record<string, unknown>) => ({
-          quotation_id: newQuot.id,
-          product_id: item.product_id,
-          sort_order: item.sort_order,
-          product_code: item.product_code,
-          product_name: item.product_name,
-          product_description: item.product_description,
-          unit: item.unit,
-          material_cost: item.material_cost,
-          labor_cost: item.labor_cost,
-          indirect_cost: item.indirect_cost,
-          unit_cost: item.unit_cost,
-          quantity: item.quantity,
-          margin_percent: item.margin_percent,
-          unit_price: item.unit_price,
-          subtotal: item.subtotal,
-        }))
-      );
-
-      if (itemsError) {
-        // Rollback: delete the duplicated quotation if items failed
-        await supabase.from("quotations").delete().eq("id", newQuot.id);
-        showToast("Error al duplicar ítems: " + itemsError.message, "error");
-        return;
-      }
-    }
-
-    showToast("Cotización duplicada como generada");
-    fetchData();
-  }
-
-  async function handleCreateRevision(q: Quotation) {
-    // Get items from original quotation
-    const { data: items } = await supabase
-      .from("quotation_items")
-      .select("*")
-      .eq("quotation_id", q.id);
-
-    // Determine parent: if this quotation already has a parent, use that; otherwise use this one
-    const parentId = q.parent_id || q.id;
-
-    // Count existing revisions to determine next letter
-    const { data: existingRevisions } = await supabase
-      .from("quotations")
-      .select("revision")
-      .eq("parent_id", parentId)
-      .order("revision", { ascending: false })
-      .limit(1);
-
-    let nextRevision = "A";
-    if (existingRevisions && existingRevisions.length > 0 && existingRevisions[0].revision) {
-      const lastLetter = existingRevisions[0].revision;
-      nextRevision = String.fromCharCode(lastLetter.charCodeAt(0) + 1);
-    } else if (q.revision) {
-      // Current quotation is a revision itself; increment from it
-      nextRevision = String.fromCharCode(q.revision.charCodeAt(0) + 1);
-    }
-
-    // The revision number is based on the original quotation number (strip any existing revision suffix)
-    const baseNumber = q.number.replace(/-[A-Z]$/, "");
-    const revisionNumber = `${baseNumber}-${nextRevision}`;
-
-    const { data: newQuot, error } = await supabase
-      .from("quotations")
-      .insert({
-        number: revisionNumber,
-        user_id: q.user_id,
-        client_name: q.client_name,
-        client_ruc: q.client_ruc,
-        client_address: q.client_address,
-        client_phone: q.client_phone,
-        client_email: q.client_email,
-        subtotal: q.subtotal,
-        igv_rate: q.igv_rate,
-        igv: q.igv,
-        total: q.total,
-        notes: q.notes,
-        validity_days: q.validity_days,
-        status: "borrador",
-        parent_id: parentId,
-        revision: nextRevision,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      showToast("Error al crear revisión: " + error.message, "error");
-      return;
-    }
-
-    if (newQuot && items?.length) {
-      const { error: itemsError } = await supabase.from("quotation_items").insert(
-        items.map((item: Record<string, unknown>) => ({
-          quotation_id: newQuot.id,
-          product_id: item.product_id,
-          sort_order: item.sort_order,
-          product_code: item.product_code,
-          product_name: item.product_name,
-          product_description: item.product_description,
-          unit: item.unit,
-          material_cost: item.material_cost,
-          labor_cost: item.labor_cost,
-          indirect_cost: item.indirect_cost,
-          unit_cost: item.unit_cost,
-          quantity: item.quantity,
-          margin_percent: item.margin_percent,
-          unit_price: item.unit_price,
-          subtotal: item.subtotal,
-        }))
-      );
-
-      if (itemsError) {
-        await supabase.from("quotations").delete().eq("id", newQuot.id);
-        showToast("Error al copiar ítems: " + itemsError.message, "error");
-        return;
-      }
-    }
-
-    showToast(`Revisión ${nextRevision} creada: ${revisionNumber}`);
-    fetchData();
-  }
-
-  async function handleExportPDF(q: Quotation) {
-    const { data: items } = await supabase
-      .from("quotation_items")
-      .select("*")
-      .eq("quotation_id", q.id)
-      .order("sort_order");
-
-    const quotWithItems = { ...q, items: items || [] };
-    await generatePDF(quotWithItems, settings!);
-    showToast("PDF generado");
-  }
-
-  async function handleExportExcel(q: Quotation) {
-    const { data: items } = await supabase
-      .from("quotation_items")
-      .select("*")
-      .eq("quotation_id", q.id)
-      .order("sort_order");
-
-    const quotWithItems = { ...q, items: items || [] };
-    generateExcel(quotWithItems, settings!);
-    showToast("Excel generado");
-  }
-
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+    const handler = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(handler);
+  }, [search]);
 
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter]);
+  }, [debouncedSearch, statusFilter]);
+
+  const { data: settings } = useQuery({
+    queryKey: ['company_settings'],
+    queryFn: async () => {
+      const { data } = await supabase.from("company_settings").select("*").limit(1).single();
+      return (data as CompanySettings) || null;
+    }
+  });
+
+  const { data: queryData, isLoading: loading } = useQuery({
+    queryKey: ['quotations_list', viewMode, currentPage, debouncedSearch, statusFilter],
+    queryFn: async () => {
+      if (viewMode === "table") {
+        let query = supabase
+          .from("quotations")
+          .select("*", { count: "exact" })
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false });
+
+        if (debouncedSearch) {
+          const s = sanitizeSearch(debouncedSearch);
+          query = query.or(`client_name.ilike.%${s}%,number.ilike.%${s}%`);
+        }
+        if (statusFilter) {
+          query = query.eq("status", statusFilter);
+        }
+
+        const from = (currentPage - 1) * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+        query = query.range(from, to);
+
+        const { data, count } = await query;
+        return { quotations: (data as Quotation[]) || [], count: count || 0 };
+      } else {
+        let query = supabase
+          .from("quotations")
+          .select("*")
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .limit(200);
+
+        if (debouncedSearch) {
+          const s = sanitizeSearch(debouncedSearch);
+          query = query.or(`client_name.ilike.%${s}%,number.ilike.%${s}%`);
+        }
+        if (statusFilter) {
+          query = query.eq("status", statusFilter);
+        }
+
+        const { data } = await query;
+        const d = (data as Quotation[]) || [];
+
+        const groups = new Map<string, Quotation[]>();
+        d.forEach(q => {
+          const groupId = q.parent_id || q.id;
+          if (!groups.has(groupId)) groups.set(groupId, []);
+          groups.get(groupId)!.push(q);
+        });
+
+        const groupMaxDate = new Map<string, number>();
+        groups.forEach((items, groupId) => {
+          const maxTime = Math.max(...items.map(i => new Date(i.created_at).getTime()));
+          groupMaxDate.set(groupId, maxTime);
+        });
+
+        const sortedQuotations = Array.from(groups.values())
+          .sort((a, b) => {
+             const groupIdA = a[0].parent_id || a[0].id;
+             const groupIdB = b[0].parent_id || b[0].id;
+             return groupMaxDate.get(groupIdB)! - groupMaxDate.get(groupIdA)!;
+          })
+          .flatMap(group => 
+            group.sort((a, b) => {
+              const revA = a.revision || "";
+              const revB = b.revision || "";
+              return revB.localeCompare(revA);
+            })
+          );
+
+        return { quotations: sortedQuotations, count: d.length };
+      }
+    }
+  });
+
+  useEffect(() => {
+    if (queryData) {
+      setLocalQuotations(queryData.quotations);
+    }
+  }, [queryData]);
+
+  const totalCount = queryData?.count || 0;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("quotations").update({ deleted_at: new Date().toISOString() }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      showToast("Cotización eliminada");
+      queryClient.invalidateQueries({ queryKey: ['quotations_list'] });
+    },
+    onError: () => {
+      showToast("Error al eliminar", "error");
+    }
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string, status: string }) => {
+      const { error } = await supabase.from("quotations").update({ status }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotations_list'] });
+    },
+    onError: () => {
+      showToast("Error al actualizar estado", "error");
+    }
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: async (q: Quotation) => {
+      const { data: items } = await supabase.from("quotation_items").select("*").eq("quotation_id", q.id);
+
+      let number: string | null = null;
+      const { data: rpcNumber, error: rpcError } = await supabase.rpc("generate_quotation_number");
+      if (!rpcError && rpcNumber) {
+        number = rpcNumber;
+      } else {
+        const { data: stg } = await supabase.from("company_settings").select("id, quotation_prefix, quotation_next_number").limit(1).single();
+        const prefix = stg?.quotation_prefix || "COT";
+        const nextNum = stg?.quotation_next_number || 1;
+        const year = new Date().getFullYear();
+        number = `${prefix}-${year}-${String(nextNum).padStart(4, "0")}`;
+        if (stg?.id) {
+          await supabase.from("company_settings").update({ quotation_next_number: nextNum + 1 }).eq("id", stg.id);
+        }
+      }
+
+      const { data: newQuot, error } = await supabase
+        .from("quotations")
+        .insert({
+          number,
+          user_id: q.user_id,
+          client_name: q.client_name,
+          client_ruc: q.client_ruc,
+          client_address: q.client_address,
+          client_phone: q.client_phone,
+          client_email: q.client_email,
+          subtotal: q.subtotal,
+          igv_rate: q.igv_rate,
+          igv: q.igv,
+          total: q.total,
+          notes: q.notes,
+          validity_days: q.validity_days,
+          status: "borrador",
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (newQuot && items?.length) {
+        const { error: itemsError } = await supabase.from("quotation_items").insert(
+          items.map((item: any) => ({
+            quotation_id: newQuot.id,
+            product_id: item.product_id,
+            sort_order: item.sort_order,
+            product_code: item.product_code,
+            product_name: item.product_name,
+            product_description: item.product_description,
+            unit: item.unit,
+            material_cost: item.material_cost,
+            labor_cost: item.labor_cost,
+            indirect_cost: item.indirect_cost,
+            unit_cost: item.unit_cost,
+            quantity: item.quantity,
+            margin_percent: item.margin_percent,
+            unit_price: item.unit_price,
+            subtotal: item.subtotal,
+          }))
+        );
+
+        if (itemsError) {
+          await supabase.from("quotations").delete().eq("id", newQuot.id);
+          throw itemsError;
+        }
+      }
+    },
+    onSuccess: () => {
+      showToast("Cotización duplicada como generada");
+      queryClient.invalidateQueries({ queryKey: ['quotations_list'] });
+    },
+    onError: (e: any) => {
+      showToast("Error al duplicar: " + e.message, "error");
+    }
+  });
+
+  const createRevisionMutation = useMutation({
+    mutationFn: async (q: Quotation) => {
+      const { data: items } = await supabase.from("quotation_items").select("*").eq("quotation_id", q.id);
+      const parentId = q.parent_id || q.id;
+
+      const { data: existingRevisions } = await supabase
+        .from("quotations")
+        .select("revision")
+        .eq("parent_id", parentId)
+        .order("revision", { ascending: false })
+        .limit(1);
+
+      let nextRevision = "A";
+      if (existingRevisions && existingRevisions.length > 0 && existingRevisions[0].revision) {
+        const lastLetter = existingRevisions[0].revision;
+        nextRevision = String.fromCharCode(lastLetter.charCodeAt(0) + 1);
+      } else if (q.revision) {
+        nextRevision = String.fromCharCode(q.revision.charCodeAt(0) + 1);
+      }
+
+      const baseNumber = q.number.replace(/-[A-Z]$/, "");
+      const revisionNumber = `${baseNumber}-${nextRevision}`;
+
+      const { data: newQuot, error } = await supabase
+        .from("quotations")
+        .insert({
+          number: revisionNumber,
+          user_id: q.user_id,
+          client_name: q.client_name,
+          client_ruc: q.client_ruc,
+          client_address: q.client_address,
+          client_phone: q.client_phone,
+          client_email: q.client_email,
+          subtotal: q.subtotal,
+          igv_rate: q.igv_rate,
+          igv: q.igv,
+          total: q.total,
+          notes: q.notes,
+          validity_days: q.validity_days,
+          status: "borrador",
+          parent_id: parentId,
+          revision: nextRevision,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (newQuot && items?.length) {
+        const { error: itemsError } = await supabase.from("quotation_items").insert(
+          items.map((item: any) => ({
+            quotation_id: newQuot.id,
+            product_id: item.product_id,
+            sort_order: item.sort_order,
+            product_code: item.product_code,
+            product_name: item.product_name,
+            product_description: item.product_description,
+            unit: item.unit,
+            material_cost: item.material_cost,
+            labor_cost: item.labor_cost,
+            indirect_cost: item.indirect_cost,
+            unit_cost: item.unit_cost,
+            quantity: item.quantity,
+            margin_percent: item.margin_percent,
+            unit_price: item.unit_price,
+            subtotal: item.subtotal,
+          }))
+        );
+
+        if (itemsError) {
+          await supabase.from("quotations").delete().eq("id", newQuot.id);
+          throw itemsError;
+        }
+      }
+      return { nextRevision, revisionNumber };
+    },
+    onSuccess: (data) => {
+      showToast(`Revisión ${data.nextRevision} creada: ${data.revisionNumber}`);
+      queryClient.invalidateQueries({ queryKey: ['quotations_list'] });
+    },
+    onError: (e: any) => {
+      showToast("Error al crear revisión: " + e.message, "error");
+    }
+  });
+
+  async function handleDelete(id: string) {
+    if (!confirm("¿Eliminar esta cotización? Esta acción no se puede deshacer.")) return;
+    deleteMutation.mutate(id);
+  }
+
+  async function handleStatusChange(id: string, newStatus: string) {
+    statusMutation.mutate({ id, status: newStatus });
+  }
+
+  async function handleDuplicate(q: Quotation) {
+    duplicateMutation.mutate(q);
+  }
+
+  async function handleCreateRevision(q: Quotation) {
+    createRevisionMutation.mutate(q);
+  }
+
+  async function handleExportPDF(q: Quotation) {
+    if (!settings) return;
+    const { data: items } = await supabase.from("quotation_items").select("*").eq("quotation_id", q.id).order("sort_order");
+    const quotWithItems = { ...q, items: (items as any) || [] };
+    await generatePDF(quotWithItems, settings);
+    showToast("PDF generado");
+  }
+
+  async function handleExportExcel(q: Quotation) {
+    if (!settings) return;
+    const { data: items } = await supabase.from("quotation_items").select("*").eq("quotation_id", q.id).order("sort_order");
+    const quotWithItems = { ...q, items: (items as any) || [] };
+    generateExcel(quotWithItems, settings);
+    showToast("Excel generado");
+  }
 
   return (
     <div className="animate-fadeIn">
@@ -427,13 +422,10 @@ export default function QuotationsPage() {
         </div>
 
         {/* Pipeline Summary Bar */}
-        {!loading && quotations.length > 0 && (
-          <div style={{
-            display: "flex", gap: "12px", marginBottom: "var(--space-lg)",
-            flexWrap: "wrap",
-          }}>
+        {!loading && localQuotations.length > 0 && (
+          <div style={{ display: "flex", gap: "12px", marginBottom: "var(--space-lg)", flexWrap: "wrap" }}>
             {(["borrador", "enviada", "aceptada", "rechazada", "vencida"] as const).map(status => {
-              const statusQuots = quotations.filter(q => q.status === status);
+              const statusQuots = localQuotations.filter(q => q.status === status);
               const statusTotal = statusQuots.reduce((sum, q) => sum + Number(q.total), 0);
               const color = getStatusColor(status);
               return (
@@ -466,16 +458,16 @@ export default function QuotationsPage() {
               <div key={i} className="skeleton" style={{ height: 48, marginBottom: 8, borderRadius: 8 }} />
             ))}
           </div>
-        ) : quotations.length === 0 ? (
+        ) : localQuotations.length === 0 ? (
           <div className="card empty-state">
             <FileText size={48} />
             <h3>No se encontraron cotizaciones</h3>
             <p>
-              {search || statusFilter
+              {debouncedSearch || statusFilter
                 ? "Prueba con otros filtros."
                 : "Crea tu primera cotización para empezar."}
             </p>
-            {!search && !statusFilter && (
+            {!debouncedSearch && !statusFilter && (
               <Link href="/dashboard/cotizaciones/nueva" className="btn btn-primary">
                 <Plus size={16} /> Nueva Cotización
               </Link>
@@ -483,8 +475,8 @@ export default function QuotationsPage() {
           </div>
         ) : viewMode === "kanban" ? (
           <KanbanBoard 
-            quotations={quotations}
-            setQuotations={setQuotations}
+            quotations={localQuotations}
+            setQuotations={setLocalQuotations}
             onStatusChange={handleStatusChange}
             onDuplicate={handleDuplicate}
             onCreateRevision={handleCreateRevision}
@@ -508,7 +500,7 @@ export default function QuotationsPage() {
                 </tr>
               </thead>
               <tbody>
-                {quotations.map((q) => (
+                {localQuotations.map((q) => (
                   <tr key={q.id}>
                     <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.82rem" }}>
                       <Link href={`/dashboard/cotizaciones/${q.id}`} style={{ color: "var(--accent)" }}>

@@ -100,8 +100,8 @@ export function createQuotationItemFromProduct(
   const materialCost = calcMaterialCost(product.materials || []);
   const laborCost = calcLaborCost(product.labor || []);
   const indirectCost = calcIndirectCost(product.indirect_costs || []);
-  const unitCost = product.manual_unit_cost ?? (materialCost + laborCost + indirectCost);
-  const margin = marginPercent ?? product.default_margin;
+  const unitCost = (product.manual_unit_cost != null && product.manual_unit_cost > 0) ? product.manual_unit_cost : (materialCost + laborCost + indirectCost);
+  const margin = marginPercent ?? (product.default_margin ?? 0);
   const unitPrice = calcUnitPrice(unitCost, margin);
   const subtotal = calcItemSubtotal(quantity, unitPrice);
 

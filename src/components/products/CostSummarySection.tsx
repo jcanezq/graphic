@@ -19,7 +19,7 @@ export function CostSummarySection({ watch, saving, isNew }: Props) {
   const manualCost = watch("manual_unit_cost");
 
   // Cast arrays to match calculation types
-  const materialTotal = calcMaterialCost(materials.map(m => ({ ...m, product_id: "" })));
+  const materialTotal = calcMaterialCost(materials.map(m => ({ ...m, product_id: "", material_id: m.material_id || null })));
   const laborTotal = calcLaborCost(labor.map(l => ({ ...l, product_id: "", id: "" })));
   const indirectTotal = calcIndirectCost(indirects.map(i => ({ ...i, product_id: "", id: "" })));
   

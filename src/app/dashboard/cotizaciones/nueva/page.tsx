@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
 import { formatCurrency } from "@/lib/formatters";
@@ -10,21 +11,17 @@ import {
   recalcQuotationItem,
   calcQuotationTotals,
 } from "@/lib/calculations";
-import { Save, ArrowLeft, Plus, Trash2, Search, FileDown } from "lucide-react";
+import { Save, ArrowLeft, Plus, Trash2, Search } from "lucide-react";
 import Link from "next/link";
 import { generatePDF } from "@/lib/pdf-export";
 import { fetchRucData } from "@/lib/ruc";
-import type { Product, QuotationItem, Category, CompanySettings } from "@/types";
+import type { Product, QuotationItem, CompanySettings } from "@/types";
 
 export default function NewQuotationPage() {
   const router = useRouter();
   const supabase = createClient();
   const { showToast } = useToast();
-
-  const [saving, setSaving] = useState(false);
-  const [settings, setSettings] = useState<CompanySettings | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const queryClient = useQueryClient();
 
   // Client data
   const [clientName, setClientName] = useState("");
@@ -43,13 +40,58 @@ export default function NewQuotationPage() {
   const [showProductDropdown, setShowProductDropdown] = useState(false);
 
   // Client autocomplete
-  const [clients, setClients] = useState<{id: string; name: string; ruc?: string; address?: string; phone?: string; email?: string}[]>([]);
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [searchingRuc, setSearchingRuc] = useState(false);
 
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
+  const { data: initialData, isLoading } = useQuery({
+    queryKey: ['quotation_form_data'],
+    queryFn: async () => {
+      const [settingsRes, productsRes, clientsRes] = await Promise.all([
+        supabase.from("company_settings").select("*").limit(1).single(),
+        supabase.from("products").select("*").eq("is_active", true).order("name"),
+        supabase.from("clients").select("*").order("name"),
+      ]);
+
+      const stg = settingsRes.data as CompanySettings;
+      let prods: Product[] = [];
+      
+      if (productsRes.data && productsRes.data.length > 0) {
+        const ids = productsRes.data.map((p: any) => p.id);
+        const [matRes, labRes, indRes] = await Promise.all([
+          supabase.from("product_materials").select("*, materials(id, cost, name, unit)").in("product_id", ids),
+          supabase.from("product_labor").select("*").in("product_id", ids),
+          supabase.from("product_indirect_costs").select("*").in("product_id", ids),
+        ]);
+
+        prods = productsRes.data.map((p: any) => {
+          const materials = (matRes.data || [])
+            .filter((m: any) => m.product_id === p.id)
+            .map((m: any) => ({
+               ...m,
+               unit_cost: m.materials?.cost ?? m.unit_cost,
+               name: m.materials?.name ?? m.name,
+               unit: m.materials?.unit ?? m.unit
+            }));
+          return {
+            ...p,
+            materials,
+            labor: (labRes.data || []).filter((l: any) => l.product_id === p.id),
+            indirect_costs: (indRes.data || []).filter((ic: any) => ic.product_id === p.id),
+          };
+        });
+      }
+
+      return {
+        settings: stg,
+        products: prods,
+        clients: (clientsRes.data || []) as any[]
+      };
+    }
+  });
+
+  const settings = initialData?.settings || null;
+  const products = initialData?.products || [];
+  const clients = initialData?.clients || [];
 
   async function handleRucSearch() {
     if (clientRuc.length !== 11) return;
@@ -63,55 +105,6 @@ export default function NewQuotationPage() {
       showToast(err.message, "error");
     } finally {
       setSearchingRuc(false);
-    }
-  }
-
-  async function fetchInitialData() {
-    const [settingsRes, productsRes, catRes] = await Promise.all([
-      supabase.from("company_settings").select("*").limit(1).single(),
-      supabase.from("products").select("*").eq("is_active", true).order("name"),
-      supabase.from("categories").select("*").order("sort_order"),
-    ]);
-
-    const stg = settingsRes.data as CompanySettings;
-    setSettings(stg);
-    if (stg) setValidityDays(15);
-    setCategories((catRes.data as Category[]) || []);
-
-    // Fetch clients for autocomplete
-    const { data: clientsData } = await supabase
-      .from("clients")
-      .select("*")
-      .order("name");
-    if (clientsData) setClients(clientsData);
-
-    // Load products with costs
-    if (productsRes.data) {
-      const ids = productsRes.data.map((p: { id: string }) => p.id);
-      const [matRes, labRes, indRes] = await Promise.all([
-        supabase.from("product_materials").select("*, materials(id, cost, name, unit)").in("product_id", ids),
-        supabase.from("product_labor").select("*").in("product_id", ids),
-        supabase.from("product_indirect_costs").select("*").in("product_id", ids),
-      ]);
-
-      const prods = productsRes.data.map((p: Record<string, unknown>) => {
-        const materials = (matRes.data || [])
-          .filter((m: any) => m.product_id === p.id)
-          .map((m: any) => ({
-             ...m,
-             unit_cost: m.materials?.cost ?? m.unit_cost,
-             name: m.materials?.name ?? m.name,
-             unit: m.materials?.unit ?? m.unit
-          }));
-        return {
-          ...p,
-          materials,
-          labor: (labRes.data || []).filter((l: { product_id: string }) => l.product_id === p.id),
-          indirect_costs: (indRes.data || []).filter((ic: { product_id: string }) => ic.product_id === p.id),
-        };
-      });
-
-      setProducts(prods as Product[]);
     }
   }
 
@@ -146,143 +139,126 @@ export default function NewQuotationPage() {
       p.code.toLowerCase().includes(productSearch.toLowerCase())
   );
 
-  async function handleSave(exportPdf = false) {
-    const errors: string[] = [];
+  const saveMutation = useMutation({
+    mutationFn: async (exportPdf: boolean) => {
+      const errors: string[] = [];
 
-    if (!clientName.trim()) {
-      errors.push("Nombre del cliente es obligatorio");
-    }
-    if (clientRuc && !/^\d{11}$/.test(clientRuc.replace(/\s/g, ""))) {
-      errors.push("RUC debe tener exactamente 11 dígitos");
-    }
-    if (clientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
-      errors.push("Email no tiene formato válido");
-    }
-    if (items.length === 0) {
-      errors.push("Agrega al menos un producto");
-    }
+      if (!clientName.trim()) errors.push("Nombre del cliente es obligatorio");
+      if (clientRuc && !/^\d{11}$/.test(clientRuc.replace(/\s/g, ""))) errors.push("RUC debe tener exactamente 11 dígitos");
+      if (clientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) errors.push("Email no tiene formato válido");
+      if (items.length === 0) errors.push("Agrega al menos un producto");
 
-    if (errors.length > 0) {
-      showToast(errors.join(" · "), "error");
-      return;
-    }
-
-    setSaving(true);
-
-    // Upsert client
-    const { error: clientError } = await supabase.from("clients").upsert(
-      {
-        name: clientName.trim(),
-        ruc: clientRuc || null,
-        address: clientAddress || null,
-        phone: clientPhone || null,
-        email: clientEmail || null,
-      },
-      { onConflict: "name" }
-    );
-    if (clientError) {
-      console.error("Error upserting client:", clientError);
-      showToast("No se pudo guardar el cliente (¿falta crear la tabla?): " + clientError.message, "error");
-    }
-
-    // Atomic quotation number generation with safe fallback
-    let number: string | null = null;
-    const { data: rpcNumber, error: rpcError } = await supabase.rpc("generate_quotation_number");
-    if (!rpcError && rpcNumber) {
-      number = rpcNumber;
-    } else {
-      console.warn("RPC generate_quotation_number error, executing client fallback:", rpcError);
-      const { data: settingsData } = await supabase
-        .from("company_settings")
-        .select("id, quotation_prefix, quotation_next_number")
-        .limit(1)
-        .single();
-
-      const prefix = settingsData?.quotation_prefix || "COT";
-      const nextNum = settingsData?.quotation_next_number || 1;
-      const year = new Date().getFullYear();
-      number = `${prefix}-${year}-${String(nextNum).padStart(4, "0")}`;
-
-      if (settingsData?.id) {
-        await supabase
-          .from("company_settings")
-          .update({ quotation_next_number: nextNum + 1 })
-          .eq("id", settingsData.id);
+      if (errors.length > 0) {
+        throw new Error(errors.join(" · "));
       }
-    }
 
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const { data: quotation, error } = await supabase
-      .from("quotations")
-      .insert({
-        number,
-        user_id: user!.id,
-        client_name: clientName,
-        client_ruc: clientRuc || null,
-        client_address: clientAddress || null,
-        client_phone: clientPhone || null,
-        client_email: clientEmail || null,
-        subtotal: totals.subtotal,
-        igv_rate: igvRate,
-        igv: totals.igv,
-        total: totals.total,
-        notes: notes || null,
-        validity_days: validityDays,
-        status: "borrador",
-      })
-      .select()
-      .single();
-
-    if (error) {
-      showToast("Error: " + error.message, "error");
-      setSaving(false);
-      return;
-    }
-
-    // Insert items
-    if (quotation) {
-      const { error: itemsError } = await supabase.from("quotation_items").insert(
-        items.map((item, idx) => ({
-          quotation_id: quotation.id,
-          product_id: item.product_id || null,
-          sort_order: idx,
-          product_code: item.product_code,
-          product_name: item.product_name,
-          product_description: item.product_description,
-          unit: item.unit,
-          material_cost: item.material_cost,
-          labor_cost: item.labor_cost,
-          indirect_cost: item.indirect_cost,
-          unit_cost: item.unit_cost,
-          quantity: item.quantity,
-          margin_percent: item.margin_percent,
-          unit_price: item.unit_price,
-          subtotal: item.subtotal,
-        }))
+      const { error: clientError } = await supabase.from("clients").upsert(
+        {
+          name: clientName.trim(),
+          ruc: clientRuc || null,
+          address: clientAddress || null,
+          phone: clientPhone || null,
+          email: clientEmail || null,
+        },
+        { onConflict: "name" }
       );
 
-      if (itemsError) {
-        // Rollback: delete the quotation without items
-        await supabase.from("quotations").delete().eq("id", quotation.id);
-        showToast("Error guardando ítems: " + itemsError.message, "error");
-        setSaving(false);
-        return;
+      if (clientError) {
+        console.error("Error upserting client:", clientError);
+        throw new Error("No se pudo guardar el cliente (¿falta crear la tabla?): " + clientError.message);
       }
 
-      if (exportPdf && settings) {
-        generatePDF({ ...quotation, items } as never, settings);
+      let number: string | null = null;
+      const { data: rpcNumber, error: rpcError } = await supabase.rpc("generate_quotation_number");
+      
+      if (!rpcError && rpcNumber) {
+        number = rpcNumber;
+      } else {
+        const { data: settingsData } = await supabase
+          .from("company_settings")
+          .select("id, quotation_prefix, quotation_next_number")
+          .limit(1)
+          .single();
+
+        const prefix = settingsData?.quotation_prefix || "COT";
+        const nextNum = settingsData?.quotation_next_number || 1;
+        const year = new Date().getFullYear();
+        number = `${prefix}-${year}-${String(nextNum).padStart(4, "0")}`;
+
+        if (settingsData?.id) {
+          await supabase
+            .from("company_settings")
+            .update({ quotation_next_number: nextNum + 1 })
+            .eq("id", settingsData.id);
+        }
       }
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: quotation, error } = await supabase
+        .from("quotations")
+        .insert({
+          number,
+          user_id: user!.id,
+          client_name: clientName,
+          client_ruc: clientRuc || null,
+          client_address: clientAddress || null,
+          client_phone: clientPhone || null,
+          client_email: clientEmail || null,
+          subtotal: totals.subtotal,
+          igv_rate: igvRate,
+          igv: totals.igv,
+          total: totals.total,
+          notes: notes || null,
+          validity_days: validityDays,
+          status: "borrador",
+        })
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+
+      if (quotation) {
+        const { error: itemsError } = await supabase.from("quotation_items").insert(
+          items.map((item, idx) => ({
+            quotation_id: quotation.id,
+            product_id: item.product_id || null,
+            sort_order: idx,
+            product_code: item.product_code,
+            product_name: item.product_name,
+            product_description: item.product_description,
+            unit: item.unit,
+            material_cost: item.material_cost,
+            labor_cost: item.labor_cost,
+            indirect_cost: item.indirect_cost,
+            unit_cost: item.unit_cost,
+            quantity: item.quantity,
+            margin_percent: item.margin_percent,
+            unit_price: item.unit_price,
+            subtotal: item.subtotal,
+          }))
+        );
+
+        if (itemsError) {
+          await supabase.from("quotations").delete().eq("id", quotation.id);
+          throw new Error("Error guardando ítems: " + itemsError.message);
+        }
+      }
+
+      return { quotation, number, exportPdf };
+    },
+    onSuccess: (data) => {
+      showToast("Cotización " + data.number + " creada exitosamente");
+      if (data.exportPdf && settings && data.quotation) {
+        generatePDF({ ...data.quotation, items } as never, settings);
+      }
+      queryClient.invalidateQueries({ queryKey: ['quotations_list'] });
+      router.push("/dashboard/cotizaciones");
+    },
+    onError: (error: any) => {
+      showToast(error.message, "error");
     }
-
-    showToast("Cotización " + number + " creada exitosamente");
-
-    // Save/update client for future autocomplete is handled at the start of handleSave
-
-    setSaving(false);
-    router.push("/dashboard/cotizaciones");
-  }
+  });
 
   return (
     <div className="animate-fadeIn">
@@ -652,12 +628,12 @@ export default function NewQuotationPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: "var(--space-lg)" }}>
                 <button
                   className="btn-primary"
-                  disabled={saving}
-                  onClick={() => handleSave(false)}
+                  disabled={saveMutation.isPending || isLoading}
+                  onClick={() => saveMutation.mutate(false)}
                   style={{ width: "100%" }}
                 >
                   <Save size={16} />
-                  {saving ? "Guardando..." : "Guardar Cotización"}
+                  {saveMutation.isPending ? "Guardando..." : "Guardar Cotización"}
                 </button>
               </div>
             </div>

@@ -25,8 +25,8 @@ describe('Calculations Library', () => {
   describe('Costs Calculation', () => {
     it('should calculate material cost correctly', () => {
       const materials: ProductMaterial[] = [
-        { name: 'Mat 1', quantity: 2, unit_cost: 10 },
-        { name: 'Mat 2', quantity: 1.5, unit_cost: 20 },
+        { name: 'Mat 1', quantity: 2, unit_cost: 10, unit: 'un', material_id: null },
+        { name: 'Mat 2', quantity: 1.5, unit_cost: 20, unit: 'kg', material_id: null },
       ];
       // 2*10 + 1.5*20 = 20 + 30 = 50
       expect(calcMaterialCost(materials)).toBe(50);
@@ -50,11 +50,13 @@ describe('Calculations Library', () => {
     });
   });
 
+
+
   describe('calcUnitCost', () => {
     it('should use manual_unit_cost if available and > 0', () => {
       const product = {
         manual_unit_cost: 100,
-        materials: [{ name: 'M1', quantity: 1, unit_cost: 10 }],
+        materials: [{ name: 'M1', quantity: 1, unit_cost: 10, unit: 'un', material_id: null }] as any[],
         labor: [],
         indirect_costs: []
       };
@@ -64,7 +66,7 @@ describe('Calculations Library', () => {
     it('should sum components if manual_unit_cost is null or 0', () => {
       const product = {
         manual_unit_cost: 0,
-        materials: [{ name: 'M1', quantity: 1, unit_cost: 10 }],
+        materials: [{ name: 'M1', quantity: 1, unit_cost: 10, unit: 'un', material_id: null }] as any[],
         labor: [{ work_type: 'L1', hours: 2, hourly_rate: 10 }], // 20
         indirect_costs: [{ concept: 'I1', cost: 5 }]
       };

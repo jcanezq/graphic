@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
 import { formatCurrency, formatDate, formatDateLong, getStatusLabel, getStatusColor } from "@/lib/formatters";
 import { recalcQuotationItem, calcQuotationTotals } from "@/lib/calculations";
-import { ArrowLeft, Save, FileDown, Trash2, Search, Plus, MessageCircle, GitBranch } from "lucide-react";
+import { ArrowLeft, Save, FileDown, Trash2, Search, MessageCircle, GitBranch } from "lucide-react";
 import Link from "next/link";
 import { generatePDF } from "@/lib/pdf-export";
 import { generateExcel } from "@/lib/excel-export";
@@ -26,14 +27,10 @@ export default function QuotationDetailPage() {
   const router = useRouter();
   const supabase = createClient();
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
 
   const quotationId = params.id as string;
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [settings, setSettings] = useState<CompanySettings | null>(null);
-
-  const [quotation, setQuotation] = useState<Quotation | null>(null);
   const [clientName, setClientName] = useState("");
   const [clientRuc, setClientRuc] = useState("");
   const [clientAddress, setClientAddress] = useState("");
@@ -44,11 +41,58 @@ export default function QuotationDetailPage() {
   const [status, setStatus] = useState<QuotationStatus>("borrador");
   const [items, setItems] = useState<QuotationItem[]>([]);
   const [searchingRuc, setSearchingRuc] = useState(false);
-  const [revisions, setRevisions] = useState<Array<{ id: string; number: string; revision: string | null; status: string; created_at: string }>>([]);
+
+  const { data: initialData, isLoading: loading } = useQuery({
+    queryKey: ['quotation_detail', quotationId],
+    queryFn: async () => {
+      const [quotRes, itemsRes, settingsRes] = await Promise.all([
+        supabase.from("quotations").select("*").eq("id", quotationId).single(),
+        supabase.from("quotation_items").select("*").eq("quotation_id", quotationId).order("sort_order"),
+        supabase.from("company_settings").select("*").limit(1).single(),
+      ]);
+
+      let revList: Array<{ id: string; number: string; revision: string | null; status: string; created_at: string }> = [];
+      if (quotRes.data) {
+        const q = quotRes.data as Quotation;
+        const parentId = q.parent_id || q.id;
+        const { data: revData } = await supabase
+          .from("quotations")
+          .select("id, number, revision, status, created_at")
+          .or(`id.eq.${parentId},parent_id.eq.${parentId}`)
+          .order("created_at", { ascending: true });
+        
+        revList = (revData || []).filter(r => r.id !== quotationId);
+      }
+
+      return {
+        quotation: quotRes.data as Quotation | null,
+        items: (itemsRes.data || []) as QuotationItem[],
+        settings: (settingsRes.data || null) as CompanySettings | null,
+        revisions: revList
+      };
+    }
+  });
 
   useEffect(() => {
-    fetchData();
-  }, [quotationId]);
+    if (initialData?.quotation) {
+      const q = initialData.quotation;
+      setClientName(q.client_name);
+      setClientRuc(q.client_ruc || "");
+      setClientAddress(q.client_address || "");
+      setClientPhone(q.client_phone || "");
+      setClientEmail(q.client_email || "");
+      setNotes(q.notes || "");
+      setValidityDays(q.validity_days);
+      setStatus(q.status as QuotationStatus);
+    }
+    if (initialData?.items) {
+      setItems(initialData.items);
+    }
+  }, [initialData]);
+
+  const quotation = initialData?.quotation;
+  const settings = initialData?.settings;
+  const revisions = initialData?.revisions || [];
 
   async function handleRucSearch() {
     if (clientRuc.length !== 11) return;
@@ -63,43 +107,6 @@ export default function QuotationDetailPage() {
     } finally {
       setSearchingRuc(false);
     }
-  }
-
-  async function fetchData() {
-    const [quotRes, itemsRes, settingsRes] = await Promise.all([
-      supabase.from("quotations").select("*").eq("id", quotationId).single(),
-      supabase.from("quotation_items").select("*").eq("quotation_id", quotationId).order("sort_order"),
-      supabase.from("company_settings").select("*").limit(1).single(),
-    ]);
-
-    if (quotRes.data) {
-      const q = quotRes.data as Quotation;
-      setQuotation(q);
-      setClientName(q.client_name);
-      setClientRuc(q.client_ruc || "");
-      setClientAddress(q.client_address || "");
-      setClientPhone(q.client_phone || "");
-      setClientEmail(q.client_email || "");
-      setNotes(q.notes || "");
-      setValidityDays(q.validity_days);
-      setStatus(q.status);
-
-      // Fetch revisions if this quotation is part of a revision chain
-      const parentId = q.parent_id || q.id;
-      const { data: revData } = await supabase
-        .from("quotations")
-        .select("id, number, revision, status, created_at")
-        .or(`id.eq.${parentId},parent_id.eq.${parentId}`)
-        .order("created_at", { ascending: true });
-      
-      // Only show revisions panel if there's more than just the current quotation
-      const revList = (revData || []).filter(r => r.id !== quotationId);
-      setRevisions(revList);
-    }
-
-    setItems((itemsRes.data as QuotationItem[]) || []);
-    setSettings(settingsRes.data as CompanySettings);
-    setLoading(false);
   }
 
   function updateItem(index: number, changes: Partial<QuotationItem>) {
@@ -119,103 +126,97 @@ export default function QuotationDetailPage() {
   const igvRate = quotation?.igv_rate ?? settings?.igv_rate ?? 0.18;
   const totals = calcQuotationTotals(items, igvRate);
 
-  async function handleSave() {
-    if (!clientName.trim()) {
-      showToast("Nombre del cliente es obligatorio", "error");
-      return;
-    }
-    setSaving(true);
-
-    // Upsert client
-    await supabase.from("clients").upsert(
-      {
-        name: clientName.trim(),
-        ruc: clientRuc || null,
-        address: clientAddress || null,
-        phone: clientPhone || null,
-        email: clientEmail || null,
-      },
-      { onConflict: "name" }
-    );
-
-    const { error } = await supabase
-      .from("quotations")
-      .update({
-        client_name: clientName,
-        client_ruc: clientRuc || null,
-        client_address: clientAddress || null,
-        client_phone: clientPhone || null,
-        client_email: clientEmail || null,
-        subtotal: totals.subtotal,
-        igv_rate: igvRate,
-        igv: totals.igv,
-        total: totals.total,
-        notes: notes || null,
-        validity_days: validityDays,
-        status,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", quotationId);
-
-    if (error) {
-      showToast("Error: " + error.message, "error");
-      setSaving(false);
-      return;
-    }
-
-    // Replace items using transactional RPC (prevents data loss if insert fails)
-    const itemsPayload = items.map((item, idx) => ({
-      product_id: item.product_id || null,
-      sort_order: idx,
-      product_code: item.product_code || null,
-      product_name: item.product_name,
-      product_description: item.product_description || null,
-      unit: item.unit,
-      material_cost: item.material_cost,
-      labor_cost: item.labor_cost,
-      indirect_cost: item.indirect_cost,
-      unit_cost: item.unit_cost,
-      quantity: item.quantity,
-      margin_percent: item.margin_percent,
-      unit_price: item.unit_price,
-      subtotal: item.subtotal,
-    }));
-
-    const { error: rpcError } = await supabase.rpc("replace_quotation_items", {
-      p_quotation_id: quotationId,
-      p_items: itemsPayload,
-    });
-
-    if (rpcError) {
-      // Fallback: if RPC is not deployed yet, use the original pattern with error handling
-      console.warn("RPC replace_quotation_items not available, using fallback:", rpcError);
-      const { error: deleteError } = await supabase
-        .from("quotation_items")
-        .delete()
-        .eq("quotation_id", quotationId);
-
-      if (deleteError) {
-        showToast("Error al actualizar ítems: " + deleteError.message, "error");
-        setSaving(false);
-        return;
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!clientName.trim()) {
+        throw new Error("Nombre del cliente es obligatorio");
       }
 
-      if (items.length > 0) {
-        const { error: insertError } = await supabase.from("quotation_items").insert(
-          itemsPayload.map((item) => ({ ...item, quotation_id: quotationId }))
-        );
+      await supabase.from("clients").upsert(
+        {
+          name: clientName.trim(),
+          ruc: clientRuc || null,
+          address: clientAddress || null,
+          phone: clientPhone || null,
+          email: clientEmail || null,
+        },
+        { onConflict: "name" }
+      );
 
-        if (insertError) {
-          showToast("Error crítico: los ítems no se pudieron guardar. Revisa la cotización.", "error");
-          setSaving(false);
-          return;
+      const { error } = await supabase
+        .from("quotations")
+        .update({
+          client_name: clientName,
+          client_ruc: clientRuc || null,
+          client_address: clientAddress || null,
+          client_phone: clientPhone || null,
+          client_email: clientEmail || null,
+          subtotal: totals.subtotal,
+          igv_rate: igvRate,
+          igv: totals.igv,
+          total: totals.total,
+          notes: notes || null,
+          validity_days: validityDays,
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", quotationId);
+
+      if (error) throw new Error(error.message);
+
+      const itemsPayload = items.map((item, idx) => ({
+        product_id: item.product_id || null,
+        sort_order: idx,
+        product_code: item.product_code || null,
+        product_name: item.product_name,
+        product_description: item.product_description || null,
+        unit: item.unit,
+        material_cost: item.material_cost,
+        labor_cost: item.labor_cost,
+        indirect_cost: item.indirect_cost,
+        unit_cost: item.unit_cost,
+        quantity: item.quantity,
+        margin_percent: item.margin_percent,
+        unit_price: item.unit_price,
+        subtotal: item.subtotal,
+      }));
+
+      const { error: rpcError } = await supabase.rpc("replace_quotation_items", {
+        p_quotation_id: quotationId,
+        p_items: itemsPayload,
+      });
+
+      if (rpcError) {
+        console.warn("RPC replace_quotation_items not available, using fallback:", rpcError);
+        const { error: deleteError } = await supabase
+          .from("quotation_items")
+          .delete()
+          .eq("quotation_id", quotationId);
+
+        if (deleteError) {
+          throw new Error("Error al actualizar ítems: " + deleteError.message);
+        }
+
+        if (items.length > 0) {
+          const { error: insertError } = await supabase.from("quotation_items").insert(
+            itemsPayload.map((item) => ({ ...item, quotation_id: quotationId }))
+          );
+
+          if (insertError) {
+            throw new Error("Error crítico: los ítems no se pudieron guardar. Revisa la cotización.");
+          }
         }
       }
+    },
+    onSuccess: () => {
+      showToast("Cotización actualizada");
+      queryClient.invalidateQueries({ queryKey: ['quotation_detail', quotationId] });
+      queryClient.invalidateQueries({ queryKey: ['quotations_list'] });
+    },
+    onError: (error: any) => {
+      showToast("Error: " + error.message, "error");
     }
-
-    showToast("Cotización actualizada");
-    setSaving(false);
-  }
+  });
 
   async function handleExportPDF() {
     if (!quotation || !settings) return;
@@ -236,14 +237,9 @@ export default function QuotationDetailPage() {
       return;
     }
 
-    // Export PDF locally first
     await handleExportPDF();
 
-    // Format phone number: remove non-digits
     let phone = clientPhone.replace(/\D/g, "");
-    
-    // Si asumes que tus clientes locales son de Perú (9 dígitos), agrega el +51. 
-    // Cámbialo si es otro país por defecto.
     if (phone.length === 9) {
       phone = `51${phone}`;
     }
@@ -259,7 +255,7 @@ export default function QuotationDetailPage() {
         .from("quotations")
         .update({ status: "enviada" })
         .eq("id", quotationId)
-        .then();
+        .then(() => queryClient.invalidateQueries({ queryKey: ['quotation_detail', quotationId] }));
     }
   }
 
@@ -517,12 +513,12 @@ export default function QuotationDetailPage() {
               </div>
               <button
                 className="btn-primary"
-                disabled={saving}
-                onClick={handleSave}
+                disabled={saveMutation.isPending}
+                onClick={() => saveMutation.mutate()}
                 style={{ width: "100%", marginTop: "var(--space-lg)" }}
               >
                 <Save size={16} />
-                {saving ? "Guardando..." : "Guardar Cambios"}
+                {saveMutation.isPending ? "Guardando..." : "Guardar Cambios"}
               </button>
             </div>
 
@@ -557,11 +553,11 @@ export default function QuotationDetailPage() {
                         </div>
                       </div>
                       <span className="badge" style={{
-                        background: `${getStatusColor(rev.status)}20`,
-                        color: getStatusColor(rev.status),
+                        background: `${getStatusColor(rev.status as QuotationStatus)}20`,
+                        color: getStatusColor(rev.status as QuotationStatus),
                         fontSize: "0.7rem",
                       }}>
-                        {getStatusLabel(rev.status)}
+                        {getStatusLabel(rev.status as QuotationStatus)}
                       </span>
                     </Link>
                   ))}
