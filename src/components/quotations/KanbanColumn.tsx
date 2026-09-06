@@ -27,33 +27,44 @@ export function KanbanColumn({ id, title, quotations, onDuplicate, onExportPDF, 
         flexDirection: "column",
         width: "320px",
         minWidth: "320px",
-        background: isOver ? "var(--surface-hover)" : "var(--surface-sunken)",
+        background: isOver ? "var(--bg-card-hover)" : "var(--bg-tertiary)",
         borderRadius: "var(--radius-lg)",
-        padding: "16px",
-        transition: "background 0.2s ease"
+        padding: "0",
+        transition: "background 0.2s ease, box-shadow 0.2s ease",
+        boxShadow: isOver ? `0 0 0 2px ${statusColor}40` : "none",
+        overflow: "hidden",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <div style={{ width: 12, height: 12, borderRadius: "50%", background: statusColor }} />
-          <h3 style={{ margin: 0, fontSize: "1rem" }}>{title}</h3>
-          <span style={{ 
-            background: "var(--surface)", 
-            padding: "2px 8px", 
-            borderRadius: "12px", 
-            fontSize: "0.8rem",
-            color: "var(--text-secondary)"
-          }}>
-            {quotations.length}
-          </span>
+      {/* Color accent stripe */}
+      <div style={{ height: 4, background: statusColor, opacity: 0.7 }} />
+      
+      <div style={{ padding: "16px 16px 0" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>{title}</h3>
+            <span style={{ 
+              background: `${statusColor}18`,
+              color: statusColor,
+              padding: "2px 10px", 
+              borderRadius: "var(--radius-full)", 
+              fontSize: "0.75rem",
+              fontWeight: 700,
+            }}>
+              {quotations.length}
+            </span>
+          </div>
+        </div>
+        
+        <div style={{ 
+          fontSize: "0.82rem", color: "var(--text-secondary)", marginBottom: "14px", fontWeight: 600,
+          display: "flex", alignItems: "center", gap: 4,
+        }}>
+          <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>Total:</span>
+          <span>{formatCurrency(columnTotal)}</span>
         </div>
       </div>
-      
-      <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "16px", fontWeight: 500 }}>
-        Total: {formatCurrency(columnTotal)}
-      </div>
 
-      <div ref={setNodeRef} style={{ flex: 1, minHeight: "150px" }}>
+      <div ref={setNodeRef} style={{ flex: 1, minHeight: "150px", padding: "0 16px 16px" }}>
         <SortableContext items={quotations.map(q => q.id)} strategy={verticalListSortingStrategy}>
           {quotations.map((q) => (
             <KanbanCard 

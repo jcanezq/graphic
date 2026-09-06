@@ -7,12 +7,35 @@ export const dynamic = 'force-dynamic';
 export default async function ClientsPage() {
   const supabase = createClient();
 
-  const { data } = await supabase
-    .from("clients")
-    .select("*")
-    .order("name", { ascending: true });
+  const [clientsRes, quotationsRes] = await Promise.all([
+    supabase.from("clients").select("*").order("name", { ascending: true }),
+    supabase.from("quotations").select("client_name, total, status, created_at").is("deleted_at", null),
+  ]);
 
-  const clients = (data as Client[]) || [];
+  const clients = (clientsRes.data as Client[]) || [];
+  const quotations = (quotationsRes.data || []) as Array<{
+    client_name: string;
+    total: number;
+    status: string;
+    created_at: string;
+  }>;
+
+  // Enrich clients with stats
+  const clientsWithStats = clients.map(c => {
+    const clientQuotes = quotations.filter(q => q.client_name === c.name);
+    const ltv = clientQuotes
+      .filter(q => q.status === "aceptada")
+      .reduce((sum, q) => sum + Number(q.total), 0);
+    const lastQuote = clientQuotes.length > 0
+      ? clientQuotes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+      : null;
+    return {
+      ...c,
+      quoteCount: clientQuotes.length,
+      ltv,
+      lastQuoteDate: lastQuote?.created_at || undefined,
+    };
+  });
 
   return (
     <div className="animate-fadeIn">
@@ -23,7 +46,7 @@ export default async function ClientsPage() {
         </div>
       </div>
       <div className="page-body">
-        <ClientTable initialClients={clients} />
+        <ClientTable initialClients={clientsWithStats} />
       </div>
     </div>
   );

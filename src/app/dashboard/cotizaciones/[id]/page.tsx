@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
 import { formatCurrency, formatDate, formatDateLong, getStatusLabel, getStatusColor } from "@/lib/formatters";
 import { recalcQuotationItem, calcQuotationTotals } from "@/lib/calculations";
-import { ArrowLeft, Save, FileDown, Trash2, Search, Plus, MessageCircle } from "lucide-react";
+import { ArrowLeft, Save, FileDown, Trash2, Search, Plus, MessageCircle, GitBranch } from "lucide-react";
 import Link from "next/link";
 import { generatePDF } from "@/lib/pdf-export";
 import { generateExcel } from "@/lib/excel-export";
@@ -44,6 +44,7 @@ export default function QuotationDetailPage() {
   const [status, setStatus] = useState<QuotationStatus>("borrador");
   const [items, setItems] = useState<QuotationItem[]>([]);
   const [searchingRuc, setSearchingRuc] = useState(false);
+  const [revisions, setRevisions] = useState<Array<{ id: string; number: string; revision: string | null; status: string; created_at: string }>>([]);
 
   useEffect(() => {
     fetchData();
@@ -82,6 +83,18 @@ export default function QuotationDetailPage() {
       setNotes(q.notes || "");
       setValidityDays(q.validity_days);
       setStatus(q.status);
+
+      // Fetch revisions if this quotation is part of a revision chain
+      const parentId = q.parent_id || q.id;
+      const { data: revData } = await supabase
+        .from("quotations")
+        .select("id, number, revision, status, created_at")
+        .or(`id.eq.${parentId},parent_id.eq.${parentId}`)
+        .order("created_at", { ascending: true });
+      
+      // Only show revisions panel if there's more than just the current quotation
+      const revList = (revData || []).filter(r => r.id !== quotationId);
+      setRevisions(revList);
     }
 
     setItems((itemsRes.data as QuotationItem[]) || []);
@@ -150,28 +163,54 @@ export default function QuotationDetailPage() {
       return;
     }
 
-    // Replace items
-    await supabase.from("quotation_items").delete().eq("quotation_id", quotationId);
-    if (items.length > 0) {
-      await supabase.from("quotation_items").insert(
-        items.map((item, idx) => ({
-          quotation_id: quotationId,
-          product_id: item.product_id || null,
-          sort_order: idx,
-          product_code: item.product_code,
-          product_name: item.product_name,
-          product_description: item.product_description,
-          unit: item.unit,
-          material_cost: item.material_cost,
-          labor_cost: item.labor_cost,
-          indirect_cost: item.indirect_cost,
-          unit_cost: item.unit_cost,
-          quantity: item.quantity,
-          margin_percent: item.margin_percent,
-          unit_price: item.unit_price,
-          subtotal: item.subtotal,
-        }))
-      );
+    // Replace items using transactional RPC (prevents data loss if insert fails)
+    const itemsPayload = items.map((item, idx) => ({
+      product_id: item.product_id || null,
+      sort_order: idx,
+      product_code: item.product_code || null,
+      product_name: item.product_name,
+      product_description: item.product_description || null,
+      unit: item.unit,
+      material_cost: item.material_cost,
+      labor_cost: item.labor_cost,
+      indirect_cost: item.indirect_cost,
+      unit_cost: item.unit_cost,
+      quantity: item.quantity,
+      margin_percent: item.margin_percent,
+      unit_price: item.unit_price,
+      subtotal: item.subtotal,
+    }));
+
+    const { error: rpcError } = await supabase.rpc("replace_quotation_items", {
+      p_quotation_id: quotationId,
+      p_items: itemsPayload,
+    });
+
+    if (rpcError) {
+      // Fallback: if RPC is not deployed yet, use the original pattern with error handling
+      console.warn("RPC replace_quotation_items not available, using fallback:", rpcError);
+      const { error: deleteError } = await supabase
+        .from("quotation_items")
+        .delete()
+        .eq("quotation_id", quotationId);
+
+      if (deleteError) {
+        showToast("Error al actualizar ítems: " + deleteError.message, "error");
+        setSaving(false);
+        return;
+      }
+
+      if (items.length > 0) {
+        const { error: insertError } = await supabase.from("quotation_items").insert(
+          itemsPayload.map((item) => ({ ...item, quotation_id: quotationId }))
+        );
+
+        if (insertError) {
+          showToast("Error crítico: los ítems no se pudieron guardar. Revisa la cotización.", "error");
+          setSaving(false);
+          return;
+        }
+      }
     }
 
     showToast("Cotización actualizada");
@@ -253,7 +292,18 @@ export default function QuotationDetailPage() {
             <ArrowLeft size={18} />
           </Link>
           <div>
-            <h1>{quotation.number}</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <h1>{quotation.number}</h1>
+              {quotation.revision && (
+                <span className="badge" style={{ 
+                  background: "var(--info-light)", color: "var(--info)",
+                  fontSize: "0.75rem", fontWeight: 700,
+                }}>
+                  <GitBranch size={12} style={{ marginRight: 4 }} />
+                  Revisión {quotation.revision}
+                </span>
+              )}
+            </div>
             <p className="subtitle">
               Creada el {formatDateLong(quotation.created_at)} ·{" "}
               <span
@@ -261,6 +311,14 @@ export default function QuotationDetailPage() {
               >
                 {getStatusLabel(quotation.status)}
               </span>
+              {quotation.parent_id && (
+                <>
+                  {" · "}
+                  <Link href={`/dashboard/cotizaciones/${quotation.parent_id}`} style={{ color: "var(--accent)", fontSize: "0.85rem" }}>
+                    Ver original
+                  </Link>
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -467,6 +525,49 @@ export default function QuotationDetailPage() {
                 {saving ? "Guardando..." : "Guardar Cambios"}
               </button>
             </div>
+
+            {/* Revision History */}
+            {revisions.length > 0 && (
+              <div className="card" style={{ marginTop: "var(--space-lg)" }}>
+                <h3 className="card-title" style={{ marginBottom: "var(--space-md)", display: "flex", alignItems: "center", gap: 8 }}>
+                  <GitBranch size={16} /> Historial de Revisiones
+                </h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {revisions.map(rev => (
+                    <Link
+                      key={rev.id}
+                      href={`/dashboard/cotizaciones/${rev.id}`}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "8px 10px", borderRadius: "var(--radius-md)",
+                        background: "var(--bg-tertiary)",
+                        textDecoration: "none", color: "inherit",
+                        transition: "background 0.15s",
+                        border: "1px solid transparent",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent-light)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = "transparent")}
+                    >
+                      <div>
+                        <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--accent)", fontFamily: "var(--font-mono)" }}>
+                          {rev.number}
+                        </div>
+                        <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                          {formatDate(rev.created_at)}
+                        </div>
+                      </div>
+                      <span className="badge" style={{
+                        background: `${getStatusColor(rev.status)}20`,
+                        color: getStatusColor(rev.status),
+                        fontSize: "0.7rem",
+                      }}>
+                        {getStatusLabel(rev.status)}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

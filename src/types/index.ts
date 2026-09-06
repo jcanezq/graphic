@@ -19,6 +19,7 @@ export interface Client {
   address?: string;
   phone?: string;
   email?: string;
+  notes?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -131,6 +132,8 @@ export interface Quotation {
   notes?: string;
   validity_days: number;
   status: QuotationStatus;
+  parent_id?: string | null;
+  revision?: string | null;
   created_at: string;
   updated_at: string;
 }

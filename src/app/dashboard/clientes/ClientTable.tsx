@@ -1,21 +1,35 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Users, Eye } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/components/ToastProvider";
+import { Search, Users, Eye, Trash2, Edit2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { formatCurrency, formatRelativeTime } from "@/lib/formatters";
 import type { Client } from "@/types";
 
+interface ClientWithStats extends Client {
+  ltv?: number;
+  quoteCount?: number;
+  lastQuoteDate?: string;
+}
+
 interface Props {
-  initialClients: Client[];
+  initialClients: ClientWithStats[];
 }
 
 export default function ClientTable({ initialClients }: Props) {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [clients, setClients] = useState(initialClients);
+  const supabase = createClient();
+  const { showToast } = useToast();
+  const router = useRouter();
   const PAGE_SIZE = 20;
 
   const filtered = useMemo(() => {
-    return initialClients.filter((c) => {
+    return clients.filter((c) => {
       const s = search.toLowerCase();
       return (
         c.name.toLowerCase().includes(s) ||
@@ -23,10 +37,21 @@ export default function ClientTable({ initialClients }: Props) {
         (c.email && c.email.toLowerCase().includes(s))
       );
     });
-  }, [initialClients, search]);
+  }, [clients, search]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`¿Eliminar al cliente "${name}"? Esta acción no se puede deshacer.`)) return;
+    const { error } = await supabase.from("clients").delete().eq("id", id);
+    if (error) {
+      showToast("Error al eliminar: " + error.message, "error");
+    } else {
+      setClients(prev => prev.filter(c => c.id !== id));
+      showToast("Cliente eliminado");
+    }
+  }
 
   return (
     <>
@@ -45,7 +70,7 @@ export default function ClientTable({ initialClients }: Props) {
         </div>
       </div>
 
-      {initialClients.length === 0 ? (
+      {clients.length === 0 ? (
         <div className="card empty-state">
           <Users size={48} />
           <h3>No hay clientes registrados</h3>
@@ -66,7 +91,9 @@ export default function ClientTable({ initialClients }: Props) {
                   <th>Cliente</th>
                   <th>RUC</th>
                   <th>Teléfono</th>
-                  <th>Correo</th>
+                  <th>Cotizaciones</th>
+                  <th>LTV</th>
+                  <th>Última Cotización</th>
                   <th style={{ textAlign: "right" }}>Acciones</th>
                 </tr>
               </thead>
@@ -82,12 +109,32 @@ export default function ClientTable({ initialClients }: Props) {
                       {c.ruc || "-"}
                     </td>
                     <td>{c.phone || "-"}</td>
-                    <td>{c.email || "-"}</td>
+                    <td>
+                      {c.quoteCount != null ? (
+                        <span className="badge" style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+                          {c.quoteCount}
+                        </span>
+                      ) : "-"}
+                    </td>
+                    <td style={{ fontWeight: 600, color: (c.ltv && c.ltv > 0) ? "var(--success)" : "var(--text-muted)" }}>
+                      {c.ltv != null && c.ltv > 0 ? formatCurrency(c.ltv) : "-"}
+                    </td>
+                    <td style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                      {c.lastQuoteDate ? formatRelativeTime(c.lastQuoteDate) : "-"}
+                    </td>
                     <td>
                       <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
                         <Link href={`/dashboard/clientes/${c.id}`} className="btn-icon" title="Ver Perfil">
                           <Eye size={15} />
                         </Link>
+                        <button
+                          className="btn-icon"
+                          title="Eliminar"
+                          onClick={() => handleDelete(c.id, c.name)}
+                          style={{ color: "var(--error)" }}
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       </div>
                     </td>
                   </tr>

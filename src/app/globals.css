@@ -1393,3 +1393,23 @@ td.primary {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Chart Cards ─────────────────────────────────────────────── */
+.chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-base);
+}
+
+.chart-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+@media (max-width: 768px) {
+  .chart-card {
+    padding: var(--space-md);
+  }
+}

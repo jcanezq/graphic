@@ -3,13 +3,18 @@
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, formatDate, getStatusLabel, getStatusColor } from "@/lib/formatters";
-import { Search, Plus, FileText, Eye, Edit2, Trash2, Copy, Download, LayoutGrid, List } from "lucide-react";
+import { Search, Plus, FileText, Eye, Edit2, Trash2, Copy, Download, LayoutGrid, List, GitBranch } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
 import { generatePDF } from "@/lib/pdf-export";
 import { generateExcel } from "@/lib/excel-export";
 import { KanbanBoard } from "@/components/quotations/KanbanBoard";
 import type { Quotation, CompanySettings } from "@/types";
+
+/** Escape PostgREST special characters in search input to prevent query injection */
+function sanitizeSearch(input: string): string {
+  return input.replace(/[,\.\(\)]/g, '');
+}
 
 export default function QuotationsPage() {
   const supabase = createClient();
@@ -20,7 +25,12 @@ export default function QuotationsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<"table" | "kanban">("kanban");
+  const [viewMode, setViewMode] = useState<"table" | "kanban">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("cotigrafic_view_mode") as "table" | "kanban") || "kanban";
+    }
+    return "kanban";
+  });
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 20;
 
@@ -43,7 +53,8 @@ export default function QuotationsPage() {
         .order("created_at", { ascending: false });
 
       if (search) {
-        query = query.or(`client_name.ilike.%${search}%,number.ilike.%${search}%`);
+        const s = sanitizeSearch(search);
+        query = query.or(`client_name.ilike.%${s}%,number.ilike.%${s}%`);
       }
       if (statusFilter) {
         query = query.eq("status", statusFilter);
@@ -72,7 +83,8 @@ export default function QuotationsPage() {
         .limit(200);
 
       if (search) {
-        query = query.or(`client_name.ilike.%${search}%,number.ilike.%${search}%`);
+        const s = sanitizeSearch(search);
+        query = query.or(`client_name.ilike.%${s}%,number.ilike.%${s}%`);
       }
       if (statusFilter) {
         query = query.eq("status", statusFilter);
@@ -110,18 +122,38 @@ export default function QuotationsPage() {
   }
 
   async function handleDuplicate(q: Quotation) {
-    // Get items
+    // Get items from original quotation
     const { data: items } = await supabase
       .from("quotation_items")
       .select("*")
       .eq("quotation_id", q.id);
 
-    // Get next number
-    const { data: stg } = await supabase.from("company_settings").select("*").limit(1).single();
-    const prefix = stg?.quotation_prefix || "COT";
-    const nextNum = stg?.quotation_next_number || 1;
-    const year = new Date().getFullYear();
-    const number = `${prefix}-${year}-${String(nextNum).padStart(4, "0")}`;
+    // Atomic quotation number generation (prevents race condition)
+    let number: string | null = null;
+    const { data: rpcNumber, error: rpcError } = await supabase.rpc("generate_quotation_number");
+    if (!rpcError && rpcNumber) {
+      number = rpcNumber;
+    } else {
+      // Fallback: manual generation if RPC is not available
+      console.warn("RPC generate_quotation_number error, executing client fallback:", rpcError);
+      const { data: stg } = await supabase
+        .from("company_settings")
+        .select("id, quotation_prefix, quotation_next_number")
+        .limit(1)
+        .single();
+
+      const prefix = stg?.quotation_prefix || "COT";
+      const nextNum = stg?.quotation_next_number || 1;
+      const year = new Date().getFullYear();
+      number = `${prefix}-${year}-${String(nextNum).padStart(4, "0")}`;
+
+      if (stg?.id) {
+        await supabase
+          .from("company_settings")
+          .update({ quotation_next_number: nextNum + 1 })
+          .eq("id", stg.id);
+      }
+    }
 
     const { data: newQuot, error } = await supabase
       .from("quotations")
@@ -150,7 +182,7 @@ export default function QuotationsPage() {
     }
 
     if (newQuot && items?.length) {
-      await supabase.from("quotation_items").insert(
+      const { error: itemsError } = await supabase.from("quotation_items").insert(
         items.map((item: Record<string, unknown>) => ({
           quotation_id: newQuot.id,
           product_id: item.product_id,
@@ -169,17 +201,107 @@ export default function QuotationsPage() {
           subtotal: item.subtotal,
         }))
       );
-    }
 
-    // Increment next number
-    if (stg) {
-      await supabase
-        .from("company_settings")
-        .update({ quotation_next_number: nextNum + 1 })
-        .eq("id", stg.id);
+      if (itemsError) {
+        // Rollback: delete the duplicated quotation if items failed
+        await supabase.from("quotations").delete().eq("id", newQuot.id);
+        showToast("Error al duplicar ítems: " + itemsError.message, "error");
+        return;
+      }
     }
 
     showToast("Cotización duplicada como generada");
+    fetchData();
+  }
+
+  async function handleCreateRevision(q: Quotation) {
+    // Get items from original quotation
+    const { data: items } = await supabase
+      .from("quotation_items")
+      .select("*")
+      .eq("quotation_id", q.id);
+
+    // Determine parent: if this quotation already has a parent, use that; otherwise use this one
+    const parentId = q.parent_id || q.id;
+
+    // Count existing revisions to determine next letter
+    const { data: existingRevisions } = await supabase
+      .from("quotations")
+      .select("revision")
+      .eq("parent_id", parentId)
+      .order("revision", { ascending: false })
+      .limit(1);
+
+    let nextRevision = "A";
+    if (existingRevisions && existingRevisions.length > 0 && existingRevisions[0].revision) {
+      const lastLetter = existingRevisions[0].revision;
+      nextRevision = String.fromCharCode(lastLetter.charCodeAt(0) + 1);
+    } else if (q.revision) {
+      // Current quotation is a revision itself; increment from it
+      nextRevision = String.fromCharCode(q.revision.charCodeAt(0) + 1);
+    }
+
+    // The revision number is based on the original quotation number (strip any existing revision suffix)
+    const baseNumber = q.number.replace(/-[A-Z]$/, "");
+    const revisionNumber = `${baseNumber}-${nextRevision}`;
+
+    const { data: newQuot, error } = await supabase
+      .from("quotations")
+      .insert({
+        number: revisionNumber,
+        user_id: q.user_id,
+        client_name: q.client_name,
+        client_ruc: q.client_ruc,
+        client_address: q.client_address,
+        client_phone: q.client_phone,
+        client_email: q.client_email,
+        subtotal: q.subtotal,
+        igv_rate: q.igv_rate,
+        igv: q.igv,
+        total: q.total,
+        notes: q.notes,
+        validity_days: q.validity_days,
+        status: "borrador",
+        parent_id: parentId,
+        revision: nextRevision,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      showToast("Error al crear revisión: " + error.message, "error");
+      return;
+    }
+
+    if (newQuot && items?.length) {
+      const { error: itemsError } = await supabase.from("quotation_items").insert(
+        items.map((item: Record<string, unknown>) => ({
+          quotation_id: newQuot.id,
+          product_id: item.product_id,
+          sort_order: item.sort_order,
+          product_code: item.product_code,
+          product_name: item.product_name,
+          product_description: item.product_description,
+          unit: item.unit,
+          material_cost: item.material_cost,
+          labor_cost: item.labor_cost,
+          indirect_cost: item.indirect_cost,
+          unit_cost: item.unit_cost,
+          quantity: item.quantity,
+          margin_percent: item.margin_percent,
+          unit_price: item.unit_price,
+          subtotal: item.subtotal,
+        }))
+      );
+
+      if (itemsError) {
+        await supabase.from("quotations").delete().eq("id", newQuot.id);
+        showToast("Error al copiar ítems: " + itemsError.message, "error");
+        return;
+      }
+    }
+
+    showToast(`Revisión ${nextRevision} creada: ${revisionNumber}`);
     fetchData();
   }
 
@@ -222,10 +344,10 @@ export default function QuotationsPage() {
           <p className="subtitle">{totalCount} cotizaciones encontradas</p>
         </div>
         <div className="page-header-actions" style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-          <div style={{ display: "flex", background: "var(--surface-sunken)", padding: "4px", borderRadius: "var(--radius-md)", gap: "4px" }}>
+          <div style={{ display: "flex", background: "var(--bg-tertiary)", padding: "4px", borderRadius: "var(--radius-md)", gap: "4px" }}>
             <button 
               className={`btn-icon ${viewMode === "table" ? "active" : ""}`} 
-              onClick={() => setViewMode("table")}
+              onClick={() => { setViewMode("table"); localStorage.setItem("cotigrafic_view_mode", "table"); }}
               style={{ background: viewMode === "table" ? "var(--surface)" : "transparent", boxShadow: viewMode === "table" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}
               title="Vista de Tabla"
             >
@@ -233,7 +355,7 @@ export default function QuotationsPage() {
             </button>
             <button 
               className={`btn-icon ${viewMode === "kanban" ? "active" : ""}`} 
-              onClick={() => setViewMode("kanban")}
+              onClick={() => { setViewMode("kanban"); localStorage.setItem("cotigrafic_view_mode", "kanban"); }}
               style={{ background: viewMode === "kanban" ? "var(--surface)" : "transparent", boxShadow: viewMode === "kanban" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}
               title="Vista de Tablero"
             >
@@ -271,6 +393,40 @@ export default function QuotationsPage() {
             <option value="vencida">Vencida</option>
           </select>
         </div>
+
+        {/* Pipeline Summary Bar */}
+        {!loading && quotations.length > 0 && (
+          <div style={{
+            display: "flex", gap: "12px", marginBottom: "var(--space-lg)",
+            flexWrap: "wrap",
+          }}>
+            {(["borrador", "enviada", "aceptada", "rechazada", "vencida"] as const).map(status => {
+              const statusQuots = quotations.filter(q => q.status === status);
+              const statusTotal = statusQuots.reduce((sum, q) => sum + Number(q.total), 0);
+              const color = getStatusColor(status);
+              return (
+                <div key={status} style={{
+                  flex: "1 1 140px",
+                  padding: "12px 16px",
+                  borderRadius: "var(--radius-md)",
+                  background: `${color}08`,
+                  borderLeft: `3px solid ${color}`,
+                  minWidth: 0,
+                }}>
+                  <div style={{ fontSize: "0.72rem", color: color, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 2 }}>
+                    {getStatusLabel(status)}
+                  </div>
+                  <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                    {statusQuots.length}
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                    {formatCurrency(statusTotal)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {loading ? (
           <div className="card">
@@ -349,6 +505,9 @@ export default function QuotationsPage() {
                         <Link href={`/dashboard/cotizaciones/${q.id}`} className="btn-icon" title="Ver/Editar">
                           <Eye size={15} />
                         </Link>
+                        <button className="btn-icon" title="Crear Revisión" onClick={() => handleCreateRevision(q)}>
+                          <GitBranch size={15} />
+                        </button>
                         <button className="btn-icon" title="Duplicar" onClick={() => handleDuplicate(q)}>
                           <Copy size={15} />
                         </button>
