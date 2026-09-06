@@ -95,8 +95,40 @@ export default function QuotationsPage() {
         supabase.from("company_settings").select("*").limit(1).single(),
       ]);
 
-      setQuotations((quotRes.data as Quotation[]) || []);
-      setTotalCount(quotRes.data?.length || 0);
+      const data = (quotRes.data as Quotation[]) || [];
+
+      // Agrupar cotizaciones por parent_id (o su propio id si no tienen padre)
+      const groups = new Map<string, Quotation[]>();
+      data.forEach(q => {
+        const groupId = q.parent_id || q.id;
+        if (!groups.has(groupId)) groups.set(groupId, []);
+        groups.get(groupId)!.push(q);
+      });
+
+      // Encontrar la fecha máxima por grupo para ordenar los grupos entre sí
+      const groupMaxDate = new Map<string, number>();
+      groups.forEach((items, groupId) => {
+        const maxTime = Math.max(...items.map(i => new Date(i.created_at).getTime()));
+        groupMaxDate.set(groupId, maxTime);
+      });
+
+      // Ordenar grupos por fecha máxima, y dentro de cada grupo ordenar por revisión (B antes que A, A antes que original)
+      const sortedQuotations = Array.from(groups.values())
+        .sort((a, b) => {
+           const groupIdA = a[0].parent_id || a[0].id;
+           const groupIdB = b[0].parent_id || b[0].id;
+           return groupMaxDate.get(groupIdB)! - groupMaxDate.get(groupIdA)!;
+        })
+        .flatMap(group => 
+          group.sort((a, b) => {
+            const revA = a.revision || "";
+            const revB = b.revision || "";
+            return revB.localeCompare(revA);
+          })
+        );
+
+      setQuotations(sortedQuotations);
+      setTotalCount(data.length);
       setSettings(settingsRes.data as CompanySettings);
     }
 
