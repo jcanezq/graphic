@@ -23,6 +23,7 @@ export function KanbanColumn({ id, title, quotations, onDuplicate, onCreateRevis
 
   return (
     <div
+      className="glass-card"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -30,16 +31,15 @@ export function KanbanColumn({ id, title, quotations, onDuplicate, onCreateRevis
         minWidth: "320px",
         height: "100%",
         minHeight: "500px",
-        background: isOver ? "var(--bg-card-hover)" : "var(--bg-tertiary)",
         borderRadius: "var(--radius-lg)",
         padding: "0",
-        transition: "background 0.2s ease, box-shadow 0.2s ease",
-        boxShadow: isOver ? `0 0 0 2px ${statusColor}40` : "none",
+        transition: "box-shadow 0.2s ease",
+        boxShadow: isOver ? `0 0 0 2px ${statusColor}80, 0 8px 30px rgba(0,0,0,0.06)` : "0 4px 20px rgba(0, 0, 0, 0.03)",
         overflow: "hidden",
       }}
     >
       {/* Color accent stripe */}
-      <div style={{ height: 4, background: statusColor, opacity: 0.7 }} />
+      <div style={{ height: 4, background: `linear-gradient(90deg, ${statusColor}, ${statusColor}60)` }} />
       
       <div style={{ padding: "16px 16px 0" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>

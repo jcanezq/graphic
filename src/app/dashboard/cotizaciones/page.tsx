@@ -427,13 +427,14 @@ export default function QuotationsPage() {
               const statusTotal = statusQuots.reduce((sum, q) => sum + Number(q.total), 0);
               const color = getStatusColor(status);
               return (
-                <div key={status} style={{
+                <div key={status} className="glass-card" style={{
                   flex: "1 1 140px",
                   padding: "12px 16px",
                   borderRadius: "var(--radius-md)",
-                  background: `${color}08`,
+                  background: `linear-gradient(to right, ${color}08, ${color}02)`,
                   borderLeft: `3px solid ${color}`,
                   minWidth: 0,
+                  transition: "transform 0.2s, box-shadow 0.2s",
                 }}>
                   <div style={{ fontSize: "0.72rem", color: color, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 2 }}>
                     {getStatusLabel(status)}

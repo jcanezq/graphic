@@ -174,7 +174,7 @@ export default async function DashboardPage() {
             >
               <FileText size={22} />
             </div>
-            <div className="metric-value">{metrics.totalQuotations}</div>
+            <div className="metric-value gradient-text">{metrics.totalQuotations}</div>
             <div className="metric-label">Total Cotizaciones</div>
           </div>
 
@@ -185,7 +185,7 @@ export default async function DashboardPage() {
             >
               <TrendingUp size={22} />
             </div>
-            <div className="metric-value">{metrics.monthQuotations}</div>
+            <div className="metric-value gradient-text">{metrics.monthQuotations}</div>
             <div className="metric-label">Este Mes</div>
             {metrics.lastMonthQuotations > 0 && (
               <div style={{
@@ -209,7 +209,7 @@ export default async function DashboardPage() {
             >
               <span style={{ fontSize: 18, fontWeight: 700 }}>S/</span>
             </div>
-            <div className="metric-value">{formatCurrency(metrics.monthAmount)}</div>
+            <div className="metric-value gradient-text">{formatCurrency(metrics.monthAmount)}</div>
             <div className="metric-label">Monto Este Mes</div>
             {lastMonthAmount > 0 && (
               <div style={{
@@ -230,7 +230,7 @@ export default async function DashboardPage() {
             >
               <BarChart3 size={22} />
             </div>
-            <div className="metric-value">{conversionRate.toFixed(1)}%</div>
+            <div className="metric-value gradient-text">{conversionRate.toFixed(1)}%</div>
             <div className="metric-label">Tasa de Aceptación</div>
             <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: 4 }}>
               {acceptedCount} aceptadas de {totalQuotCount}
