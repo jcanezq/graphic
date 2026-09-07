@@ -1,6 +1,6 @@
 # Contexto del Proyecto: CotiGrafic
 
-**Fecha de actualización:** 31 de Agosto de 2026
+**Fecha de actualización:** 6 de Septiembre de 2026
 **Propósito:** Documento de contexto general técnico y de negocio para reuniones de equipo.
 
 ---
@@ -31,8 +31,8 @@ El proyecto ha sido recientemente optimizado y se encuentra bajo el siguiente st
 
 ## 5. Próximos Pasos (Oportunidades Futuras)
 Para la próxima fase del proyecto o futuras reuniones, se sugiere considerar:
-1.  **Tipado Automático:** Implementar `supabase gen types` para que los tipos de TypeScript se sincronicen automáticamente con cualquier cambio que se haga en las tablas de PostgreSQL. (Requiere token de acceso del administrador).
-2.  **Migración total a React Query:** Actualmente, la página de Productos fue migrada a React Query con éxito. Se recomienda hacer lo mismo progresivamente con la creación y edición de Cotizaciones.
+1.  ~~**Tipado Automático:** Implementar `supabase gen types` para que los tipos de TypeScript se sincronicen automáticamente con cualquier cambio que se haga en las tablas de PostgreSQL. (Requiere token de acceso del administrador).~~ **(Completado)**
+2.  ~~**Migración total a React Query:** Actualmente, la página de Productos fue migrada a React Query con éxito. Se recomienda hacer lo mismo progresivamente con la creación y edición de Cotizaciones.~~ **(Completado)**
 3.  **Generación de PDFs Server-Side:** Para cotizaciones extremadamente largas o con muchas imágenes, considerar mover la generación del PDF (`jspdf`) a una Edge Function de Supabase o una ruta de API de Next.js para no bloquear el navegador del cliente.
 
 ---
