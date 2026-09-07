@@ -245,7 +245,7 @@ export default function ClientDetailActions({ client, quotes, ltv, totalAmount, 
 
             {/* Metrics */}
             <div className="metric-card" style={{ padding: "var(--space-md)" }}>
-              <div className="metric-label">LTV (Monto Aprobado)</div>
+              <div className="metric-label">Total Cotizado (Monto Aprobado)</div>
               <div className="metric-value" style={{ color: "var(--success)" }}>
                 {formatCurrency(ltv)}
               </div>

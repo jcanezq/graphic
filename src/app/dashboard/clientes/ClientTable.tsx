@@ -92,7 +92,7 @@ export default function ClientTable({ initialClients }: Props) {
                   <th>RUC</th>
                   <th>Teléfono</th>
                   <th>Cotizaciones</th>
-                  <th>LTV</th>
+                  <th>Total Cotizado</th>
                   <th>Última Cotización</th>
                   <th style={{ textAlign: "right" }}>Acciones</th>
                 </tr>
