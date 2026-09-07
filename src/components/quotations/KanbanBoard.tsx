@@ -111,15 +111,24 @@ export function KanbanBoard({
     if (!over) return;
 
     const activeId = active.id as string;
-    const activeItem = quotations.find(q => q.id === activeId);
+    const overId = over.id as string;
     
-    // We already optimistically updated the status in handleDragOver
-    // Now we need to persist it if it changed column
-    if (activeItem) {
-      // Look up what the final status is
-      const finalStatus = activeItem.status;
-      // We could track original vs new status, but easiest is to just call the API
-      // Let's assume onStatusChange handles ignoring if it's the same, or we just fire it
+    let finalStatus = "";
+    
+    // Check if dropped directly over a column
+    const isColumn = COLUMNS.some(c => c.id === overId);
+    if (isColumn) {
+      finalStatus = overId;
+    } else {
+      // Dropped over a card, find that card's status
+      const overItem = quotations.find(q => q.id === overId);
+      if (overItem) {
+        // Even if quotations is stale, overItem was in the target column originally
+        finalStatus = overItem.status;
+      }
+    }
+
+    if (finalStatus) {
       await onStatusChange(activeId, finalStatus);
     }
   }
