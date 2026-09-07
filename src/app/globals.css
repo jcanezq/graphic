@@ -23,7 +23,7 @@
 
   /* Text — Charcoal & slate */
   --text-primary: #0F172A;
-  --text-secondary: #475569;
+  --text-secondary: #64748B;
   --text-muted: #94A3B8;
   --text-disabled: #cbd5e1;
 
@@ -35,14 +35,14 @@
   --accent-gradient-hover: linear-gradient(135deg, #4338CA, #312E81);
 
   /* Semantic colors */
-  --success: #059669;
-  --success-light: rgba(5, 150, 105, 0.08);
-  --warning: #D97706;
-  --warning-light: rgba(217, 119, 6, 0.08);
-  --error: #DC2626;
-  --error-light: rgba(220, 38, 38, 0.08);
-  --info: #2563EB;
-  --info-light: rgba(37, 99, 235, 0.08);
+  --success: #10B981;
+  --success-light: rgba(16, 185, 129, 0.08);
+  --warning: #F59E0B;
+  --warning-light: rgba(245, 158, 11, 0.08);
+  --error: #EF4444;
+  --error-light: rgba(239, 68, 68, 0.08);
+  --info: #3B82F6;
+  --info-light: rgba(59, 130, 246, 0.08);
 
   /* Spacing */
   --space-xs: 4px;
