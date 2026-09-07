@@ -58,7 +58,7 @@ export function KanbanCard({ quotation, onDuplicate, onCreateRevision, onExportP
         cursor: "grab",
         background: "var(--bg-secondary)",
         border: `1px solid ${expiry?.urgent ? `${expiry.color}40` : "var(--surface-border)"}`,
-        boxShadow: isDragging ? "0 12px 30px rgba(0,0,0,0.15)" : undefined,
+        boxShadow: isDragging ? "0 15px 40px rgba(0,0,0,0.35)" : undefined,
         touchAction: "none",
         borderRadius: "var(--radius-md)",
         transition: "border-color 0.2s, box-shadow 0.2s",
