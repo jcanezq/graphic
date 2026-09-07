@@ -27,8 +27,8 @@ export function KanbanColumn({ id, title, quotations, onDuplicate, onCreateRevis
       style={{
         display: "flex",
         flexDirection: "column",
-        width: "320px",
-        minWidth: "320px",
+        width: "280px",
+        minWidth: "280px",
         height: "100%",
         minHeight: "500px",
         borderRadius: "var(--radius-lg)",
