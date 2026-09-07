@@ -28,6 +28,8 @@ export function KanbanColumn({ id, title, quotations, onDuplicate, onCreateRevis
         flexDirection: "column",
         width: "320px",
         minWidth: "320px",
+        height: "100%",
+        minHeight: "500px",
         background: isOver ? "var(--bg-card-hover)" : "var(--bg-tertiary)",
         borderRadius: "var(--radius-lg)",
         padding: "0",
