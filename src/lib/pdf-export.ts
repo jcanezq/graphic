@@ -261,6 +261,7 @@ export async function generatePDF(quotation: Quotation, settings: CompanySetting
     { align: "center" }
   );
 
-  // Save
-  doc.save(`${quotation.number}.pdf`);
+  // Instead of directly saving, we can either return the ArrayBuffer for the server or save it in the client.
+  // To keep it flexible, let's return the ArrayBuffer.
+  return doc.output('arraybuffer');
 }

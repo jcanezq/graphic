@@ -7,7 +7,7 @@ import { formatCurrency, formatDate, getStatusLabel, getStatusColor } from "@/li
 import { Search, Plus, FileText, Eye, Edit2, Trash2, Copy, Download, LayoutGrid, List, GitBranch } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
-import { generatePDF } from "@/lib/pdf-export";
+
 import { generateExcel } from "@/lib/excel-export";
 import { KanbanBoard } from "@/components/quotations/KanbanBoard";
 import type { Quotation, CompanySettings } from "@/types";
@@ -349,9 +349,7 @@ export default function QuotationsPage() {
 
   async function handleExportPDF(q: Quotation) {
     if (!settings) return;
-    const { data: items } = await supabase.from("quotation_items").select("*").eq("quotation_id", q.id).order("sort_order");
-    const quotWithItems = { ...q, items: (items as any) || [] };
-    await generatePDF(quotWithItems, settings);
+    window.open(`/api/pdf/${q.id}`, "_blank");
     showToast("PDF generado");
   }
 

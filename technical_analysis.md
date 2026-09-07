@@ -27,20 +27,20 @@ El esquema (`schema.sql`) demuestra madurez en el modelado de datos relacionales
 Para llevar la aplicación al siguiente nivel de escala y mantenibilidad, sugiero las siguientes mejoras:
 
 > [!TIP]
-> **Gestión de Estado y Caché Remota**
-> Actualmente, las páginas (ej. `productos/page.tsx`) usan `useEffect` y `useState` para cargar datos. A medida que la app crezca, implementar **React Query (@tanstack/react-query)** o **SWR** mejoraría drásticamente la experiencia del usuario al proporcionar caché automática, deduplicación de peticiones y actualizaciones optimistas.
+> **Gestión de Estado y Caché Remota (Implementado ✅)**
+> Se ha implementado exitosamente **React Query (@tanstack/react-query)** en gran parte de la aplicación (incluyendo la gestión de cotizaciones y productos), proporcionando caché automática y mejorando radicalmente la experiencia de usuario.
 
 > [!IMPORTANT]
-> **Generación de Tipos Automática (Type Safety)**
-> Aunque existe un archivo `types/index.ts` muy bien estructurado, es propenso a desincronizarse si se cambia la base de datos. Se recomienda usar el CLI de Supabase (`supabase gen types typescript`) para generar los tipos directamente desde el esquema de PostgreSQL, garantizando un 100% de seguridad de tipos entre el frontend y el backend.
+> **Generación de Tipos Automática (Implementado ✅)**
+> Se ha integrado el archivo de tipos generados automáticamente por Supabase (`types/supabase.ts`), garantizando un 100% de seguridad de tipos entre la base de datos PostgreSQL y el frontend de Next.js.
 
 > [!NOTE]
-> **Renderizado Híbrido (Server Components)**
-> La mayoría de las páginas del dashboard usan `"use client"`. Podríamos mover la obtención de datos inicial (fetching) a **React Server Components (RSC)** en Next.js, enviando los datos iniciales a los componentes cliente. Esto reduce el código JavaScript que se envía al navegador y mejora los tiempos de carga inicial.
+> **Renderizado Híbrido y Rutas API (Implementado ✅)**
+> Se ha migrado exitosamente hacia el uso de **React Server Components (RSC)**. Además, operaciones pesadas como la **Generación de PDFs** han sido movidas al lado del servidor (Ruta API en `api/pdf/[id]`), aliviando la carga del navegador del cliente y mejorando el rendimiento.
 
 > [!WARNING]
-> **Falta de Pruebas Automatizadas (Testing)**
-> No se observan configuraciones de testing (Jest, Vitest o Playwright). Al ser una aplicación que maneja costos y cálculos financieros (márgenes, IGV), es crítico añadir **pruebas unitarias** al motor de cálculo (`src/lib/calculations.ts`) para prevenir regresiones silenciosas.
+> **Pruebas Automatizadas (Implementado ✅)**
+> Se ha añadido la suite de pruebas **Vitest** con tests unitarios automatizados que protegen la lógica crítica del motor de cálculos (`calculations.ts`), garantizando que no haya regresiones silenciosas.
 
 ## Conclusión
 La aplicación CotiGrafic tiene bases sumamente sólidas, seguras y bien pensadas. El código es limpio, el modelo de datos es correcto para su dominio y las decisiones arquitectónicas priorizan la estabilidad. Las mejoras sugeridas se centran en optimización, escalabilidad del código y automatización, más que en corregir fallos estructurales.

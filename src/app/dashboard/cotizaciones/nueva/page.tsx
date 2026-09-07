@@ -13,7 +13,7 @@ import {
 } from "@/lib/calculations";
 import { Save, ArrowLeft, Plus, Trash2, Search } from "lucide-react";
 import Link from "next/link";
-import { generatePDF } from "@/lib/pdf-export";
+
 import { fetchRucData } from "@/lib/ruc";
 import type { Product, QuotationItem, CompanySettings } from "@/types";
 
@@ -249,8 +249,8 @@ export default function NewQuotationPage() {
     },
     onSuccess: (data) => {
       showToast("Cotización " + data.number + " creada exitosamente");
-      if (data.exportPdf && settings && data.quotation) {
-        generatePDF({ ...data.quotation, items } as never, settings);
+      if (data.exportPdf && data.quotation) {
+        window.open(`/api/pdf/${data.quotation.id}`, "_blank");
       }
       queryClient.invalidateQueries({ queryKey: ['quotations_list'] });
       router.push("/dashboard/cotizaciones");

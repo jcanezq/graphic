@@ -9,7 +9,7 @@ import { formatCurrency, formatDate, formatDateLong, getStatusLabel, getStatusCo
 import { recalcQuotationItem, calcQuotationTotals } from "@/lib/calculations";
 import { ArrowLeft, Save, FileDown, Trash2, Search, MessageCircle, GitBranch } from "lucide-react";
 import Link from "next/link";
-import { generatePDF } from "@/lib/pdf-export";
+
 import { generateExcel } from "@/lib/excel-export";
 import { fetchRucData } from "@/lib/ruc";
 import type { Quotation, QuotationItem, QuotationStatus, CompanySettings } from "@/types";
@@ -220,7 +220,7 @@ export default function QuotationDetailPage() {
 
   async function handleExportPDF() {
     if (!quotation || !settings) return;
-    await generatePDF({ ...quotation, items, subtotal: totals.subtotal, igv: totals.igv, total: totals.total } as Quotation, settings);
+    window.open(`/api/pdf/${quotation.id}`, "_blank");
     showToast("PDF generado");
   }
 
