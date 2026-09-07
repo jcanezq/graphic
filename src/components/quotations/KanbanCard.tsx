@@ -105,38 +105,44 @@ export function KanbanCard({ quotation, onDuplicate, onCreateRevision, onExportP
         </div>
       )}
       
-      {/* Footer: Amount + Actions */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--success)" }}>
+      {/* Amount */}
+      <div style={{ marginBottom: "12px" }}>
+        <span style={{ fontWeight: 700, fontSize: "1.1rem", color: "var(--success)", letterSpacing: "-0.02em" }}>
           {formatCurrency(Number(quotation.total))}
         </span>
+      </div>
         
-        {/* Actions inside card (stop propagation so dragging doesn't trigger) */}
-        <div 
-          style={{ display: "flex", gap: 2 }}
-          onPointerDown={(e) => e.stopPropagation()}
+      {/* Actions inside card (stop propagation so dragging doesn't trigger) */}
+      <div 
+        style={{ 
+          display: "flex", 
+          gap: 4, 
+          justifyContent: "flex-end", 
+          paddingTop: "12px", 
+          borderTop: "1px dashed var(--surface-border)" 
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <Link href={`/dashboard/cotizaciones/${quotation.id}`} className="btn-icon" title="Ver" style={{ padding: 6 }}>
+          <Eye size={14} />
+        </Link>
+        <button className="btn-icon" title="Crear Revisión" onClick={() => onCreateRevision(quotation)} style={{ padding: 6 }}>
+          <GitBranch size={14} />
+        </button>
+        <button className="btn-icon" title="Duplicar" onClick={() => onDuplicate(quotation)} style={{ padding: 6 }}>
+          <Copy size={14} />
+        </button>
+        <button className="btn-icon" title="PDF" onClick={() => onExportPDF(quotation)} style={{ padding: 6 }}>
+          <Download size={14} />
+        </button>
+        <button
+          className="btn-icon"
+          title="Eliminar"
+          onClick={() => onDelete(quotation.id)}
+          style={{ color: "var(--error)", padding: 6 }}
         >
-          <Link href={`/dashboard/cotizaciones/${quotation.id}`} className="btn-icon" title="Ver" style={{ padding: 4 }}>
-            <Eye size={13} />
-          </Link>
-          <button className="btn-icon" title="Crear Revisión" onClick={() => onCreateRevision(quotation)} style={{ padding: 4 }}>
-            <GitBranch size={13} />
-          </button>
-          <button className="btn-icon" title="Duplicar" onClick={() => onDuplicate(quotation)} style={{ padding: 4 }}>
-            <Copy size={13} />
-          </button>
-          <button className="btn-icon" title="PDF" onClick={() => onExportPDF(quotation)} style={{ padding: 4 }}>
-            <Download size={13} />
-          </button>
-          <button
-            className="btn-icon"
-            title="Eliminar"
-            onClick={() => onDelete(quotation.id)}
-            style={{ color: "var(--error)", padding: 4 }}
-          >
-            <Trash2 size={13} />
-          </button>
-        </div>
+          <Trash2 size={14} />
+        </button>
       </div>
     </div>
   );
