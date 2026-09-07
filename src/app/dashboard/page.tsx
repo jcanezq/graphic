@@ -231,7 +231,7 @@ export default async function DashboardPage() {
               <BarChart3 size={22} />
             </div>
             <div className="metric-value">{conversionRate.toFixed(1)}%</div>
-            <div className="metric-label">Tasa de Conversión</div>
+            <div className="metric-label">Tasa de Aceptación</div>
             <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: 4 }}>
               {acceptedCount} aceptadas de {totalQuotCount}
             </div>
