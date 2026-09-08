@@ -453,9 +453,14 @@ export default function NewQuotationPage() {
                     type="button"
                     className={`btn ${productFilter === type ? 'btn-primary' : 'btn-secondary'}`}
                     style={{ padding: "4px 12px", fontSize: "0.8rem", borderRadius: "16px", whiteSpace: "nowrap" }}
-                    onClick={() => setProductFilter(type)}
+                    onClick={() => {
+                      setProductFilter(type);
+                      if (type === "Servicio" || type === "Material") {
+                        setCategoryFilter("Todas");
+                      }
+                    }}
                   >
-                    {type === "Todos" ? "Todos" : type + "s"}
+                    {type === "Todos" ? "Todos" : type === "Material" ? "Materiales" : type + "s"}
                   </button>
                 ))}
                 

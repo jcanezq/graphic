@@ -357,7 +357,12 @@ export default function HomePage() {
             {(["Todos", "Producto", "Servicio", "Material"] as const).map((type) => (
               <button
                 key={type}
-                onClick={() => setTypeFilter(type)}
+                onClick={() => {
+                  setTypeFilter(type);
+                  if (type === "Servicio" || type === "Material") {
+                    setSelectedCategory("all");
+                  }
+                }}
                 style={{
                   padding: "0.45rem 1rem",
                   borderRadius: "var(--radius-full)",
@@ -371,7 +376,7 @@ export default function HomePage() {
                   transition: "var(--transition-fast)",
                 }}
               >
-                {type === "Todos" ? "Todos los Tipos" : type + "s"}
+                {type === "Todos" ? "Todos los Tipos" : type === "Material" ? "Materiales" : type + "s"}
               </button>
             ))}
           </div>
