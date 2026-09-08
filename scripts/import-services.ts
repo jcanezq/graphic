@@ -143,7 +143,7 @@ async function main() {
 
   // 3. Upsert Materials
   console.log('Upserting materials...');
-  for (const m of uniqueMaterials.values()) {
+  for (const m of Array.from(uniqueMaterials.values())) {
     // Check if exists
     const { data: existingMat } = await supabase.from('materials').select('id').eq('name', m.name).maybeSingle();
     if (!existingMat) {
