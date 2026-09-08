@@ -70,7 +70,7 @@ export function calcItemSubtotal(quantity: number, unitPrice: number): number {
  */
 export function recalcQuotationItem(
   item: QuotationItem,
-  overrides?: { quantity?: number; margin_percent?: number; unit_cost?: number; has_labor?: boolean; has_design?: boolean; has_transport?: boolean }
+  overrides?: { quantity?: number; margin_percent?: number; unit_cost?: number; has_labor?: boolean | null; has_design?: boolean | null; has_transport?: boolean | null }
 ): QuotationItem {
   const quantity = overrides?.quantity ?? item.quantity;
   const marginPercent = overrides?.margin_percent ?? item.margin_percent;
