@@ -17,6 +17,10 @@ const UNITS = [
   { value: "servicio", label: "Servicio" },
   { value: "ml", label: "Metro lineal (ml)" },
   { value: "metro", label: "Metro" },
+  { value: "hora-técnico / visita", label: "hora-técnico / visita" },
+  { value: "m² de vehículo", label: "m² de vehículo" },
+  { value: "m² instalado", label: "m² instalado" },
+  { value: "m² de mueble/tabique", label: "m² de mueble/tabique" },
 ];
 
 export function BasicInfoSection({ register, control, categories, errors, fixedType }: Props) {

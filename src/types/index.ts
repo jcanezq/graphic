@@ -8,7 +8,7 @@ type Tables<T extends keyof Database['public']['Tables']> = Database['public']['
 
 export type Category = Tables<'categories'>;
 export type Client = Tables<'clients'>;
-export type ProductUnit = 'm²' | 'unidad' | 'kit' | 'servicio' | 'ml' | 'metro';
+export type ProductUnit = 'm²' | 'unidad' | 'kit' | 'servicio' | 'ml' | 'metro' | 'hora-técnico / visita' | 'm² de vehículo' | 'm² instalado' | 'm² de mueble/tabique';
 export type Material = Tables<'materials'>;
 
 export interface ProductMaterial extends Omit<Tables<'product_materials'>, 'id' | 'product_id'> {
