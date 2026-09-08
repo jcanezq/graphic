@@ -31,9 +31,17 @@ interface DraftItem {
   product_id: string;
   product_name: string;
   product_code: string;
+  product_type: string;
   unit: string;
+  base_unit_price: number;
   unit_price: number;
   quantity: number;
+  has_labor?: boolean;
+  has_design?: boolean;
+  labor_price?: number;
+  design_price?: number;
+  material_price?: number;
+  other_price?: number;
 }
 
 export default function CotizadorPage() {
@@ -144,6 +152,23 @@ export default function CotizadorPage() {
     showToast("Ítem eliminado");
   }
 
+  function handleToggleServiceOption(index: number, option: 'labor' | 'design', value: boolean) {
+    const updated = [...items];
+    const item = updated[index];
+    
+    if (option === 'labor') item.has_labor = value;
+    if (option === 'design') item.has_design = value;
+    
+    // Recalculate unit_price
+    let newPrice = item.base_unit_price;
+    if (item.has_labor === false && item.labor_price) newPrice -= item.labor_price;
+    if (item.has_design === false && item.design_price) newPrice -= item.design_price;
+    
+    item.unit_price = Math.max(0, newPrice);
+    
+    persistItems(updated);
+  }
+
   function handleAddItem(product: PublicProduct) {
     const existingIndex = items.findIndex((it) => it.product_id === product.id);
     if (existingIndex >= 0) {
@@ -155,9 +180,17 @@ export default function CotizadorPage() {
         product_id: product.id,
         product_name: product.name,
         product_code: product.code,
+        product_type: product.type,
         unit: product.unit,
+        base_unit_price: product.unit_price,
         unit_price: product.unit_price,
         quantity: 1,
+        has_labor: true,
+        has_design: true,
+        labor_price: product.labor_price,
+        design_price: product.design_price,
+        material_price: product.material_price,
+        other_price: product.other_price,
       };
       persistItems([...items, newItem]);
     }
@@ -255,6 +288,8 @@ export default function CotizadorPage() {
           items: items.map((it) => ({
             product_id: it.product_id,
             quantity: it.quantity,
+            has_labor: it.has_labor ?? true,
+            has_design: it.has_design ?? true,
           })),
         }),
       });
@@ -644,6 +679,44 @@ export default function CotizadorPage() {
                             <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
                               Cód: {item.product_code} · Estimado: {formatCurrency(item.unit_price)} / {item.unit}
                             </div>
+                            {item.product_type === 'Servicio' && (
+                              <div style={{ marginTop: 12, padding: 12, background: 'var(--bg-primary)', borderRadius: 8, border: '1px solid var(--surface-divider)', fontSize: '0.8rem' }}>
+                                <div style={{ fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>Desglose de Componentes:</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, color: 'var(--text-muted)' }}>
+                                  <div>· Materiales: {formatCurrency(item.material_price || 0)}</div>
+                                  <div>· Producción/Otros: {formatCurrency(item.other_price || 0)}</div>
+                                </div>
+                                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--surface-divider)', paddingTop: 10 }}>
+                                  {item.labor_price !== undefined && item.labor_price > 0 && (
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                      <input 
+                                        type="checkbox" 
+                                        checked={item.has_labor ?? true} 
+                                        onChange={(e) => handleToggleServiceOption(idx, 'labor', e.target.checked)}
+                                      /> 
+                                      Incluir Mano de Obra (Instalación): {formatCurrency(item.labor_price)}
+                                    </label>
+                                  )}
+                                  {item.design_price !== undefined && item.design_price > 0 && (
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                      <input 
+                                        type="checkbox" 
+                                        checked={item.has_design ?? true} 
+                                        onChange={(e) => handleToggleServiceOption(idx, 'design', e.target.checked)}
+                                      /> 
+                                      Incluir Diseño Gráfico: {formatCurrency(item.design_price)}
+                                    </label>
+                                  )}
+                                  {item.has_design === false && (
+                                    <div style={{ marginTop: 2, padding: 8, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--surface-divider)' }}>
+                                      <span style={{ fontSize: '0.75rem', display: 'block', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                                        * Importante: Como desmarcaste Diseño Gráfico, deberás enviar tu archivo final por WhatsApp.
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           {/* Quantity control */}

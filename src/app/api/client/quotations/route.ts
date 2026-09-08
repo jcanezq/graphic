@@ -3,6 +3,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import {
   createQuotationItemFromProduct,
   calcQuotationTotals,
+  recalcQuotationItem,
 } from "@/lib/calculations";
 import { generateClientToAdminWhatsAppUrl } from "@/lib/whatsapp";
 import type { Product } from "@/types";
@@ -124,7 +125,13 @@ export async function POST(request: Request) {
 
       const qty = Math.max(1, Number(raw.quantity) || 1);
       const margin = settings?.default_margin ?? prod.default_margin ?? 30;
-      const snapItem = createQuotationItemFromProduct(prod, qty, margin, i);
+      let snapItem = createQuotationItemFromProduct(prod, qty, margin, i);
+      
+      snapItem = recalcQuotationItem(snapItem, {
+        has_labor: raw.has_labor ?? true,
+        has_design: raw.has_design ?? true,
+      });
+      
       quotationItems.push(snapItem);
     }
 
@@ -235,6 +242,9 @@ export async function POST(request: Request) {
         margin_percent: item.margin_percent,
         unit_price: item.unit_price,
         subtotal: item.subtotal,
+        has_labor: item.has_labor,
+        has_design: item.has_design,
+        design_cost: item.design_cost,
       }))
     );
 

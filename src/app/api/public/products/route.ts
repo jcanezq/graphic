@@ -79,6 +79,20 @@ export async function GET() {
 
       const margin = p.default_margin ?? 30;
       const unitPrice = round2(calcUnitPrice(unitCost, margin));
+      
+      // Calculate components with margin for public display
+      const laborCost = pLabor.reduce((acc, l) => acc + (l.hours * l.hourly_rate), 0);
+      const laborPrice = round2(calcUnitPrice(laborCost, margin));
+      
+      const designCostItem = pIndirect.find((ic: any) => ic.concept?.toLowerCase().includes('diseño') || ic.concept?.toLowerCase().includes('design'));
+      const designCost = designCostItem ? designCostItem.cost : 0;
+      const designPrice = round2(calcUnitPrice(designCost, margin));
+
+      const materialCost = pMaterials.reduce((acc, m) => acc + (m.quantity * m.unit_cost), 0);
+      const materialPrice = round2(calcUnitPrice(materialCost, margin));
+
+      const otherCost = pIndirect.reduce((acc, i) => acc + i.cost, 0) - designCost;
+      const otherPrice = round2(calcUnitPrice(otherCost, margin));
 
       return {
         id: p.id,
@@ -91,6 +105,10 @@ export async function GET() {
         category_id: p.category_id,
         category_name: p.category_id ? categoryMap.get(p.category_id) || null : null,
         unit_price: unitPrice > 0 ? unitPrice : 1.0,
+        labor_price: laborPrice,
+        design_price: designPrice,
+        material_price: materialPrice,
+        other_price: otherPrice,
       };
     });
 

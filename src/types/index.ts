@@ -72,6 +72,10 @@ export interface PublicProduct {
   category_id: string | null;
   category_name?: string | null;
   unit_price: number;
+  labor_price?: number;
+  design_price?: number;
+  material_price?: number;
+  other_price?: number;
 }
 
 export interface ClientQuotationRequest {
