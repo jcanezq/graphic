@@ -40,16 +40,16 @@ export interface Product extends Omit<Tables<'products'>, 'type' | 'unit'> {
   computed_unit_cost?: number;
 }
 
-export interface QuotationItem extends Omit<Tables<'quotation_items'>, 'id' | 'quotation_id'> {
+export interface QuotationItem extends Omit<Tables<'quotation_items'>, 'id' | 'quotation_id' | 'item_type' | 'has_labor' | 'has_design' | 'design_cost' | 'has_transport' | 'transport_cost' | 'client_design_url'> {
   id?: string;
   quotation_id?: string;
-  item_type?: string;
-  has_labor?: boolean;
-  has_design?: boolean;
-  design_cost?: number;
-  has_transport?: boolean;
-  transport_cost?: number;
-  client_design_url?: string;
+  item_type?: string | null;
+  has_labor?: boolean | null;
+  has_design?: boolean | null;
+  design_cost?: number | null;
+  has_transport?: boolean | null;
+  transport_cost?: number | null;
+  client_design_url?: string | null;
   client_design_file?: File | null;
 }
 
