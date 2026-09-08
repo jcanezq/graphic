@@ -437,34 +437,42 @@ export default function QuotationDetailPage() {
                             )}
                             {item.item_type === 'Servicio' && (
                               <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
-                                  <input 
-                                    type="checkbox" 
-                                    checked={item.has_labor ?? true} 
-                                    onChange={(e) => updateItem(i, { has_labor: e.target.checked })}
-                                    style={{ width: 'auto', margin: 0 }}
-                                  /> 
-                                  Incluir Mano de Obra
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
-                                  <input 
-                                    type="checkbox" 
-                                    checked={item.has_design ?? true} 
-                                    onChange={(e) => updateItem(i, { has_design: e.target.checked })}
-                                    style={{ width: 'auto', margin: 0 }}
-                                  /> 
-                                  Incluir Diseño Gráfico
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
-                                  <input 
-                                    type="checkbox" 
-                                    checked={item.has_transport ?? true} 
-                                    onChange={(e) => updateItem(i, { has_transport: e.target.checked })}
-                                    style={{ width: 'auto', margin: 0 }}
-                                  /> 
-                                  Incluir Transporte / Movilidad
-                                </label>
-                                {(item.has_design === false) && (
+                                {(item.labor_cost || 0) > 0 && (
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
+                                    <input 
+                                      type="checkbox" 
+                                      checked={item.has_labor ?? true} 
+                                      onChange={(e) => updateItem(i, { has_labor: e.target.checked })}
+                                      style={{ width: 'auto', margin: 0 }}
+                                    /> 
+                                    Incluir Mano de Obra: {formatCurrency((item.labor_cost || 0) * (1 + (item.margin_percent || 0) / 100))}
+                                  </label>
+                                )}
+                                {(item.design_cost || 0) > 0 && (
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
+                                    <input 
+                                      type="checkbox" 
+                                      checked={item.has_design ?? true} 
+                                      onChange={(e) => updateItem(i, { has_design: e.target.checked })}
+                                      style={{ width: 'auto', margin: 0 }}
+                                    /> 
+                                    Incluir Diseño Gráfico: {formatCurrency((item.design_cost || 0) * (1 + (item.margin_percent || 0) / 100))}
+                                  </label>
+                                )}
+                                {(item.transport_cost || 0) > 0 && (
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
+                                    <input 
+                                      type="checkbox" 
+                                      checked={item.has_transport ?? true} 
+                                      onChange={(e) => updateItem(i, { has_transport: e.target.checked })}
+                                      style={{ width: 'auto', margin: 0 }}
+                                    /> 
+                                    Incluir Transporte: {formatCurrency((item.transport_cost || 0) * (1 + (item.margin_percent || 0) / 100))}
+                                  </label>
+                                )}
+                              </div>
+                            )}
+                            {(item.item_type === 'Servicio' && item.has_design === false) && (
                                   <div style={{ marginTop: 4, padding: 6, background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
                                     <span style={{ fontSize: '0.7rem', display: 'block', marginBottom: 4, fontWeight: 500 }}>
                                       Diseño adjunto por cliente
@@ -476,8 +484,6 @@ export default function QuotationDetailPage() {
                                     )}
                                   </div>
                                 )}
-                              </div>
-                            )}
                           </td>
                           <td>{item.unit}</td>
                           <td>
