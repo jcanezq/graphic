@@ -437,27 +437,30 @@ export default function QuotationDetailPage() {
                             )}
                             {item.item_type === 'Servicio' && (
                               <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
                                   <input 
                                     type="checkbox" 
                                     checked={item.has_labor ?? true} 
                                     onChange={(e) => updateItem(i, { has_labor: e.target.checked })}
+                                    style={{ width: 'auto', margin: 0 }}
                                   /> 
                                   Incluir Mano de Obra
                                 </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
                                   <input 
                                     type="checkbox" 
                                     checked={item.has_design ?? true} 
                                     onChange={(e) => updateItem(i, { has_design: e.target.checked })}
+                                    style={{ width: 'auto', margin: 0 }}
                                   /> 
                                   Incluir Diseño Gráfico
                                 </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
                                   <input 
                                     type="checkbox" 
                                     checked={item.has_transport ?? true} 
                                     onChange={(e) => updateItem(i, { has_transport: e.target.checked })}
+                                    style={{ width: 'auto', margin: 0 }}
                                   /> 
                                   Incluir Transporte / Movilidad
                                 </label>

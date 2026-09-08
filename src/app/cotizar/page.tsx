@@ -695,31 +695,34 @@ export default function CotizadorPage() {
                                 </div>
                                 <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--surface-divider)', paddingTop: 10 }}>
                                   {item.labor_price !== undefined && item.labor_price > 0 && (
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
                                       <input 
                                         type="checkbox" 
                                         checked={item.has_labor ?? true} 
                                         onChange={(e) => handleToggleServiceOption(idx, 'labor', e.target.checked)}
+                                        style={{ width: 'auto', margin: 0 }}
                                       /> 
                                       Incluir Mano de Obra (Instalación): {formatCurrency(item.labor_price)}
                                     </label>
                                   )}
                                   {item.design_price !== undefined && item.design_price > 0 && (
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
                                       <input 
                                         type="checkbox" 
                                         checked={item.has_design ?? true} 
                                         onChange={(e) => handleToggleServiceOption(idx, 'design', e.target.checked)}
+                                        style={{ width: 'auto', margin: 0 }}
                                       /> 
                                       Incluir Diseño Gráfico: {formatCurrency(item.design_price)}
                                     </label>
                                   )}
                                   {item.transport_price !== undefined && item.transport_price > 0 && (
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
                                       <input 
                                         type="checkbox" 
                                         checked={item.has_transport ?? true} 
                                         onChange={(e) => handleToggleServiceOption(idx, 'transport', e.target.checked)}
+                                        style={{ width: 'auto', margin: 0 }}
                                       /> 
                                       Incluir Transporte / Movilidad: {formatCurrency(item.transport_price)}
                                     </label>
