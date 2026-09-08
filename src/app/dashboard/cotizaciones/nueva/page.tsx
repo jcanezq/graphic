@@ -262,6 +262,8 @@ export default function NewQuotationPage() {
             has_labor: item.has_labor ?? true,
             has_design: item.has_design ?? true,
             design_cost: item.design_cost || 0,
+            has_transport: item.has_transport ?? true,
+            transport_cost: item.transport_cost || 0,
             client_design_url: item.client_design_url || null,
             sort_order: idx,
             product_code: item.product_code,

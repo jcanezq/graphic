@@ -330,6 +330,13 @@ export type Database = {
         Row: {
           id: string
           indirect_cost: number
+          item_type: string | null
+          has_labor: boolean
+          has_design: boolean
+          design_cost: number
+          has_transport: boolean
+          transport_cost: number
+          client_design_url: string | null
           labor_cost: number
           margin_percent: number
           material_cost: number
@@ -348,6 +355,13 @@ export type Database = {
         Insert: {
           id?: string
           indirect_cost?: number
+          item_type?: string | null
+          has_labor?: boolean
+          has_design?: boolean
+          design_cost?: number
+          has_transport?: boolean
+          transport_cost?: number
+          client_design_url?: string | null
           labor_cost?: number
           margin_percent?: number
           material_cost?: number
@@ -366,6 +380,13 @@ export type Database = {
         Update: {
           id?: string
           indirect_cost?: number
+          item_type?: string | null
+          has_labor?: boolean
+          has_design?: boolean
+          design_cost?: number
+          has_transport?: boolean
+          transport_cost?: number
+          client_design_url?: string | null
           labor_cost?: number
           margin_percent?: number
           material_cost?: number

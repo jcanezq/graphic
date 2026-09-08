@@ -228,6 +228,13 @@ export default function QuotationsPage() {
             margin_percent: item.margin_percent,
             unit_price: item.unit_price,
             subtotal: item.subtotal,
+            item_type: item.item_type,
+            has_labor: item.has_labor,
+            has_design: item.has_design,
+            design_cost: item.design_cost,
+            has_transport: item.has_transport,
+            transport_cost: item.transport_cost,
+            client_design_url: item.client_design_url,
           }))
         );
 
@@ -312,6 +319,13 @@ export default function QuotationsPage() {
             margin_percent: item.margin_percent,
             unit_price: item.unit_price,
             subtotal: item.subtotal,
+            item_type: item.item_type,
+            has_labor: item.has_labor,
+            has_design: item.has_design,
+            design_cost: item.design_cost,
+            has_transport: item.has_transport,
+            transport_cost: item.transport_cost,
+            client_design_url: item.client_design_url,
           }))
         );
 

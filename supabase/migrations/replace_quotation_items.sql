@@ -21,7 +21,9 @@ BEGIN
       quotation_id, product_id, sort_order, product_code,
       product_name, product_description, unit,
       material_cost, labor_cost, indirect_cost, unit_cost,
-      quantity, margin_percent, unit_price, subtotal
+      quantity, margin_percent, unit_price, subtotal,
+      item_type, has_labor, has_design, design_cost, 
+      has_transport, transport_cost, client_design_url
     )
     SELECT
       p_quotation_id,
@@ -38,7 +40,14 @@ BEGIN
       (elem->>'quantity')::NUMERIC,
       (elem->>'margin_percent')::NUMERIC,
       (elem->>'unit_price')::NUMERIC,
-      (elem->>'subtotal')::NUMERIC
+      (elem->>'subtotal')::NUMERIC,
+      elem->>'item_type',
+      COALESCE((elem->>'has_labor')::BOOLEAN, true),
+      COALESCE((elem->>'has_design')::BOOLEAN, true),
+      COALESCE((elem->>'design_cost')::NUMERIC, 0),
+      COALESCE((elem->>'has_transport')::BOOLEAN, true),
+      COALESCE((elem->>'transport_cost')::NUMERIC, 0),
+      elem->>'client_design_url'
     FROM jsonb_array_elements(p_items) AS elem;
   END IF;
 

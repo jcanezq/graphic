@@ -115,6 +115,9 @@ export default function QuotationDetailPage() {
       quantity: changes.quantity,
       margin_percent: changes.margin_percent,
       unit_cost: changes.unit_cost,
+      has_labor: changes.has_labor,
+      has_design: changes.has_design,
+      has_transport: changes.has_transport,
     });
     setItems(updated);
   }
@@ -166,6 +169,13 @@ export default function QuotationDetailPage() {
 
       const itemsPayload = items.map((item, idx) => ({
         product_id: item.product_id || null,
+        item_type: item.item_type || 'Producto',
+        has_labor: item.has_labor ?? true,
+        has_design: item.has_design ?? true,
+        design_cost: item.design_cost || 0,
+        has_transport: item.has_transport ?? true,
+        transport_cost: item.transport_cost || 0,
+        client_design_url: item.client_design_url || null,
         sort_order: idx,
         product_code: item.product_code || null,
         product_name: item.product_name,
@@ -416,7 +426,55 @@ export default function QuotationDetailPage() {
                         <tr key={i}>
                           <td style={{ color: "var(--text-muted)" }}>{i + 1}</td>
                           <td className="primary" style={{ fontSize: "0.82rem" }}>
-                            {item.product_name}
+                            <div>
+                              {item.product_name}
+                              {item.item_type && <span style={{ marginLeft: 6, fontSize: '0.65rem', padding: '2px 6px', background: 'var(--surface-hover)', borderRadius: 12 }}>{item.item_type}</span>}
+                            </div>
+                            {item.product_code && (
+                              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                                {item.product_code}
+                              </div>
+                            )}
+                            {item.item_type === 'Servicio' && (
+                              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem' }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={item.has_labor ?? true} 
+                                    onChange={(e) => updateItem(i, { has_labor: e.target.checked })}
+                                  /> 
+                                  Incluir Mano de Obra
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem' }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={item.has_design ?? true} 
+                                    onChange={(e) => updateItem(i, { has_design: e.target.checked })}
+                                  /> 
+                                  Incluir Diseño Gráfico
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem' }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={item.has_transport ?? true} 
+                                    onChange={(e) => updateItem(i, { has_transport: e.target.checked })}
+                                  /> 
+                                  Incluir Transporte / Movilidad
+                                </label>
+                                {(item.has_design === false) && (
+                                  <div style={{ marginTop: 4, padding: 6, background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
+                                    <span style={{ fontSize: '0.7rem', display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                                      Diseño adjunto por cliente
+                                    </span>
+                                    {item.client_design_url ? (
+                                      <a href={item.client_design_url} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: 'var(--accent)' }}>Ver archivo</a>
+                                    ) : (
+                                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Ninguno</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </td>
                           <td>{item.unit}</td>
                           <td>
