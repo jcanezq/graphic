@@ -38,6 +38,8 @@ export default function NewQuotationPage() {
   // Product search
   const [productSearch, setProductSearch] = useState("");
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [productFilter, setProductFilter] = useState<"Todos" | "Producto" | "Servicio" | "Material">("Todos");
+  const [categoryFilter, setCategoryFilter] = useState("Todas");
 
   // Client autocomplete
   const [showClientDropdown, setShowClientDropdown] = useState(false);
@@ -46,10 +48,11 @@ export default function NewQuotationPage() {
   const { data: initialData, isLoading } = useQuery({
     queryKey: ['quotation_form_data'],
     queryFn: async () => {
-      const [settingsRes, productsRes, clientsRes] = await Promise.all([
+      const [settingsRes, productsRes, clientsRes, categoriesRes] = await Promise.all([
         supabase.from("company_settings").select("*").limit(1).single(),
         supabase.from("products").select("*").eq("is_active", true).order("name"),
         supabase.from("clients").select("*").order("name"),
+        supabase.from("categories").select("*").is("deleted_at", null).order("name"),
       ]);
 
       const stg = settingsRes.data as CompanySettings;
@@ -84,7 +87,8 @@ export default function NewQuotationPage() {
       return {
         settings: stg,
         products: prods,
-        clients: (clientsRes.data || []) as any[]
+        clients: (clientsRes.data || []) as any[],
+        categories: (categoriesRes.data || []) as any[]
       };
     }
   });
@@ -92,6 +96,7 @@ export default function NewQuotationPage() {
   const settings = initialData?.settings || null;
   const products = initialData?.products || [];
   const clients = initialData?.clients || [];
+  const categories = initialData?.categories || [];
 
   async function handleRucSearch() {
     if (clientRuc.length !== 11) return;
@@ -134,9 +139,12 @@ export default function NewQuotationPage() {
   const totals = calcQuotationTotals(items, igvRate);
 
   const filteredProducts = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-      p.code.toLowerCase().includes(productSearch.toLowerCase())
+    (p) => {
+      const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.code.toLowerCase().includes(productSearch.toLowerCase());
+      const matchesFilter = productFilter === "Todos" || p.type === productFilter;
+      const matchesCategory = categoryFilter === "Todas" || p.category_id === categoryFilter;
+      return matchesSearch && matchesFilter && matchesCategory;
+    }
   );
 
   const saveMutation = useMutation({
@@ -438,6 +446,33 @@ export default function NewQuotationPage() {
               <h3 className="card-title" style={{ marginBottom: "var(--space-md)" }}>
                 📦 Agregar Productos
               </h3>
+              <div style={{ display: "flex", gap: 8, marginBottom: "var(--space-sm)", overflowX: "auto", paddingBottom: 4, alignItems: "center" }}>
+                {(["Todos", "Producto", "Servicio", "Material"] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    className={`btn ${productFilter === type ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ padding: "4px 12px", fontSize: "0.8rem", borderRadius: "16px", whiteSpace: "nowrap" }}
+                    onClick={() => setProductFilter(type)}
+                  >
+                    {type === "Todos" ? "Todos" : type + "s"}
+                  </button>
+                ))}
+                
+                <div style={{ width: "1px", height: "24px", background: "var(--surface-divider)", margin: "0 4px" }} />
+                
+                <select
+                  className="input"
+                  style={{ padding: "4px 12px", fontSize: "0.8rem", borderRadius: "16px", height: "auto", minWidth: "150px" }}
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                >
+                  <option value="Todas">Todas las Categorías</option>
+                  {categories.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
               <div style={{ position: "relative" }}>
                 <div className="search-bar" style={{ maxWidth: "100%" }}>
                   <Search size={18} />
