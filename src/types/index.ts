@@ -28,7 +28,7 @@ export interface ProductIndirectCost extends Omit<Tables<'product_indirect_costs
 }
 
 export interface Product extends Omit<Tables<'products'>, 'type' | 'unit'> {
-  type: 'Producto' | 'Servicio';
+  type: 'Producto' | 'Servicio' | 'Material';
   unit: ProductUnit;
   category?: Pick<Category, 'id' | 'name' | 'color' | 'slug'> | null;
   materials?: ProductMaterial[];
@@ -43,6 +43,12 @@ export interface Product extends Omit<Tables<'products'>, 'type' | 'unit'> {
 export interface QuotationItem extends Omit<Tables<'quotation_items'>, 'id' | 'quotation_id'> {
   id?: string;
   quotation_id?: string;
+  item_type?: string;
+  has_labor?: boolean;
+  has_design?: boolean;
+  design_cost?: number;
+  client_design_url?: string;
+  client_design_file?: File | null;
 }
 
 export type QuotationStatus = 'solicitada' | 'borrador' | 'enviada' | 'aceptada' | 'rechazada' | 'vencida';
@@ -59,7 +65,7 @@ export interface PublicProduct {
   id: string;
   code: string;
   name: string;
-  type: 'Producto' | 'Servicio';
+  type: 'Producto' | 'Servicio' | 'Material';
   unit: ProductUnit;
   description: string;
   image_url: string | null;
@@ -97,7 +103,7 @@ export interface QuotationFormData {
 export interface ProductFormData {
   code: string;
   name: string;
-  type: 'Producto' | 'Servicio';
+  type: 'Producto' | 'Servicio' | 'Material';
   category_id: string;
   description: string;
   unit: ProductUnit;

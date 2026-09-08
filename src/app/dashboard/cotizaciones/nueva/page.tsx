@@ -219,10 +219,42 @@ export default function NewQuotationPage() {
       if (error) throw new Error(error.message);
 
       if (quotation) {
+        const finalItems = [...items];
+        
+        for (let i = 0; i < finalItems.length; i++) {
+          const item = finalItems[i];
+          if (item.has_design === false && item.client_design_file) {
+            const file = item.client_design_file;
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const filePath = `${user!.id}/${fileName}`;
+            
+            const { error: uploadError } = await supabase.storage
+              .from('client-designs')
+              .upload(filePath, file);
+              
+            if (uploadError) {
+               await supabase.from("quotations").delete().eq("id", quotation.id);
+               throw new Error(`Error subiendo diseño para ${item.product_name}: ` + uploadError.message);
+            }
+            
+            const { data: { publicUrl } } = supabase.storage
+              .from('client-designs')
+              .getPublicUrl(filePath);
+              
+            item.client_design_url = publicUrl;
+          }
+        }
+
         const { error: itemsError } = await supabase.from("quotation_items").insert(
-          items.map((item, idx) => ({
+          finalItems.map((item, idx) => ({
             quotation_id: quotation.id,
             product_id: item.product_id || null,
+            item_type: item.item_type || 'Producto',
+            has_labor: item.has_labor ?? true,
+            has_design: item.has_design ?? true,
+            design_cost: item.design_cost || 0,
+            client_design_url: item.client_design_url || null,
             sort_order: idx,
             product_code: item.product_code,
             product_name: item.product_name,
@@ -509,10 +541,51 @@ export default function NewQuotationPage() {
                         <tr key={i}>
                           <td style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>{i + 1}</td>
                           <td className="primary" style={{ fontSize: "0.82rem" }}>
-                            <div>{item.product_name}</div>
+                            <div>
+                              {item.product_name}
+                              {item.item_type && <span style={{ marginLeft: 6, fontSize: '0.65rem', padding: '2px 6px', background: 'var(--surface-hover)', borderRadius: 12 }}>{item.item_type}</span>}
+                            </div>
                             {item.product_code && (
                               <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
                                 {item.product_code}
+                              </div>
+                            )}
+                            {item.item_type === 'Servicio' && (
+                              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem' }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={item.has_labor ?? true} 
+                                    onChange={(e) => updateItem(i, { has_labor: e.target.checked })}
+                                  /> 
+                                  Incluir Mano de Obra
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem' }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={item.has_design ?? true} 
+                                    onChange={(e) => updateItem(i, { has_design: e.target.checked })}
+                                  /> 
+                                  Incluir Diseño Gráfico
+                                </label>
+                                {(item.has_design === false) && (
+                                  <div style={{ marginTop: 4, padding: 6, background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
+                                    <span style={{ fontSize: '0.7rem', display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                                      Sube el diseño del cliente:
+                                    </span>
+                                    <input 
+                                      type="file" 
+                                      accept="image/*,.pdf,.ai,.psd" 
+                                      style={{ fontSize: '0.7rem', width: '100%' }} 
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0] || null;
+                                        const updated = [...items];
+                                        updated[i].client_design_file = file;
+                                        setItems(updated);
+                                      }} 
+                                    />
+                                  </div>
+                                )}
                               </div>
                             )}
                           </td>

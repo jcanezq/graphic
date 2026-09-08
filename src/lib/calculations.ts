@@ -70,16 +70,34 @@ export function calcItemSubtotal(quantity: number, unitPrice: number): number {
  */
 export function recalcQuotationItem(
   item: QuotationItem,
-  overrides?: { quantity?: number; margin_percent?: number; unit_cost?: number }
+  overrides?: { quantity?: number; margin_percent?: number; unit_cost?: number; has_labor?: boolean; has_design?: boolean }
 ): QuotationItem {
-  const unitCost = overrides?.unit_cost ?? item.unit_cost;
   const quantity = overrides?.quantity ?? item.quantity;
   const marginPercent = overrides?.margin_percent ?? item.margin_percent;
+  
+  const hasLabor = overrides?.has_labor ?? item.has_labor ?? true;
+  const hasDesign = overrides?.has_design ?? item.has_design ?? true;
+  
+  let unitCost = item.unit_cost;
+  
+  if (overrides?.unit_cost !== undefined) {
+    unitCost = overrides.unit_cost;
+  } else if (overrides?.has_labor !== undefined || overrides?.has_design !== undefined) {
+    // Recalculate unit cost from base components if toggles change
+    const activeLaborCost = hasLabor ? item.labor_cost : 0;
+    const activeDesignCost = hasDesign ? 0 : -(item.design_cost || 0); // subtract design if not active
+    // We assume the stored item.indirect_cost INCLUDES design cost.
+    unitCost = item.material_cost + activeLaborCost + item.indirect_cost + activeDesignCost;
+    if (unitCost < 0) unitCost = 0;
+  }
+  
   const unitPrice = calcUnitPrice(unitCost, marginPercent);
   const subtotal = calcItemSubtotal(quantity, unitPrice);
 
   return {
     ...item,
+    has_labor: hasLabor,
+    has_design: hasDesign,
     unit_cost: unitCost,
     quantity,
     margin_percent: marginPercent,
@@ -99,6 +117,11 @@ export function createQuotationItemFromProduct(
 ): QuotationItem {
   const materialCost = calcMaterialCost(product.materials || []);
   const laborCost = calcLaborCost(product.labor || []);
+  
+  // Extract design cost from indirect costs if it exists
+  const designCostItem = (product.indirect_costs || []).find(ic => ic.concept.toLowerCase().includes('diseño') || ic.concept.toLowerCase().includes('design'));
+  const designCost = designCostItem ? designCostItem.cost : 0;
+  
   const indirectCost = calcIndirectCost(product.indirect_costs || []);
   const unitCost = (product.manual_unit_cost != null && product.manual_unit_cost > 0) ? product.manual_unit_cost : (materialCost + laborCost + indirectCost);
   const margin = marginPercent ?? (product.default_margin ?? 0);
@@ -106,6 +129,10 @@ export function createQuotationItemFromProduct(
   const subtotal = calcItemSubtotal(quantity, unitPrice);
 
   return {
+    item_type: product.type,
+    has_labor: true,
+    has_design: true,
+    design_cost: round2(designCost),
     product_id: product.id,
     sort_order: sortOrder,
     product_code: product.code,
