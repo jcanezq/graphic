@@ -3,7 +3,8 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/formatters";
 import type { Quotation } from "@/types";
-import { Eye, Download, Copy, Trash2, Clock, AlertTriangle, GitBranch } from "lucide-react";
+import { Eye, Download, Copy, Trash2, Clock, AlertTriangle, GitBranch, MessageCircle, Globe } from "lucide-react";
+import { generateAdminToClientWhatsAppUrl } from "@/lib/whatsapp";
 import Link from "next/link";
 
 interface KanbanCardProps {
@@ -43,9 +44,17 @@ export function KanbanCard({ quotation, onDuplicate, onCreateRevision, onExportP
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const showExpiry = quotation.status === "borrador" || quotation.status === "enviada";
+  const showExpiry = quotation.status === "borrador" || quotation.status === "enviada" || quotation.status === "solicitada";
   const expiry = showExpiry ? getExpiryInfo(quotation) : null;
-  const statusColor = getStatusColor(quotation.status);
+  const isWebRequest = quotation.status === "solicitada" || quotation.notes?.includes("[Solicitud Web");
+  const whatsappUrl = quotation.client_phone
+    ? generateAdminToClientWhatsAppUrl({
+        clientPhone: quotation.client_phone,
+        quotationNumber: quotation.number,
+        clientName: quotation.client_name,
+        total: quotation.total,
+      })
+    : null;
 
   return (
     <div
@@ -57,7 +66,7 @@ export function KanbanCard({ quotation, onDuplicate, onCreateRevision, onExportP
         padding: "12px 14px",
         cursor: "grab",
         background: "var(--bg-secondary)",
-        border: `1px solid ${expiry?.urgent ? `${expiry.color}40` : "var(--surface-border)"}`,
+        border: `1px solid ${isWebRequest ? "rgba(245, 158, 11, 0.4)" : expiry?.urgent ? `${expiry.color}40` : "var(--surface-border)"}`,
         boxShadow: isDragging ? "0 15px 40px rgba(0,0,0,0.35)" : undefined,
         touchAction: "none",
         borderRadius: "var(--radius-md)",
@@ -68,13 +77,33 @@ export function KanbanCard({ quotation, onDuplicate, onCreateRevision, onExportP
     >
       {/* Header: Number + Date */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <Link 
-          href={`/dashboard/cotizaciones/${quotation.id}`} 
-          style={{ color: "var(--accent)", fontSize: "0.8rem", fontWeight: 700, fontFamily: "var(--font-mono)" }}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          {quotation.number}
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Link 
+            href={`/dashboard/cotizaciones/${quotation.id}`} 
+            style={{ color: "var(--accent)", fontSize: "0.8rem", fontWeight: 700, fontFamily: "var(--font-mono)" }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {quotation.number}
+          </Link>
+          {isWebRequest && (
+            <span
+              style={{
+                fontSize: "0.68rem",
+                fontWeight: 700,
+                background: "rgba(245, 158, 11, 0.15)",
+                color: "#d97706",
+                padding: "1px 5px",
+                borderRadius: "var(--radius-sm)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 2,
+              }}
+              title="Solicitud generada por cliente desde la web"
+            >
+              <Globe size={10} /> Web
+            </span>
+          )}
+        </div>
         <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
           {formatDate(quotation.created_at)}
         </span>
@@ -88,7 +117,7 @@ export function KanbanCard({ quotation, onDuplicate, onCreateRevision, onExportP
         {quotation.client_name}
       </h4>
 
-      {/* Expiry indicator (only for borrador/enviada) */}
+      {/* Expiry indicator */}
       {expiry && (
         <div style={{ 
           display: "flex", alignItems: "center", gap: 5,
@@ -112,7 +141,7 @@ export function KanbanCard({ quotation, onDuplicate, onCreateRevision, onExportP
         </span>
       </div>
         
-      {/* Actions inside card (stop propagation so dragging doesn't trigger) */}
+      {/* Actions inside card */}
       <div 
         style={{ 
           display: "flex", 
@@ -123,6 +152,18 @@ export function KanbanCard({ quotation, onDuplicate, onCreateRevision, onExportP
         }}
         onPointerDown={(e) => e.stopPropagation()}
       >
+        {whatsappUrl && (
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-icon"
+            title="Contactar al cliente por WhatsApp"
+            style={{ color: "#25D366", padding: 6 }}
+          >
+            <MessageCircle size={14} />
+          </a>
+        )}
         <Link href={`/dashboard/cotizaciones/${quotation.id}`} className="btn-icon" title="Ver" style={{ padding: 6 }}>
           <Eye size={14} />
         </Link>

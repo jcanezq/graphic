@@ -14,23 +14,39 @@ export default function AuthCallback() {
         const params = new URLSearchParams(window.location.search);
         const code = params.get("code");
 
+        const resolveRedirect = (email?: string) => {
+          const stored = localStorage.getItem("cotigrafic_auth_redirect");
+          if (stored) {
+            localStorage.removeItem("cotigrafic_auth_redirect");
+            return stored;
+          }
+          const redirectParam = params.get("redirect");
+          if (redirectParam) return redirectParam;
+
+          const lowerEmail = email?.toLowerCase() || "";
+          if (lowerEmail.endsWith("@cotigrafic.local") || lowerEmail === "admin@graph.com") {
+            return "/dashboard";
+          }
+          return "/cotizar";
+        };
+
         // 1. Session already exists
         const {
           data: { session: existing },
         } = await supabase.auth.getSession();
         if (existing) {
           setStatus("Sesión detectada. Redirigiendo...");
-          window.location.href = "/dashboard";
+          window.location.href = resolveRedirect(existing.user?.email);
           return;
         }
 
         // 2. PKCE code exchange
         if (code) {
           setStatus("Verificando credenciales...");
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
           if (!error) {
             setStatus("Acceso confirmado. Redirigiendo...");
-            window.location.href = "/dashboard";
+            window.location.href = resolveRedirect(data.user?.email);
             return;
           }
           setStatus("Error de autenticación. Redirigiendo...");
@@ -45,7 +61,7 @@ export default function AuthCallback() {
         } = supabase.auth.onAuthStateChange(async (_event, session) => {
           if (session) {
             subscription.unsubscribe();
-            window.location.href = "/dashboard";
+            window.location.href = resolveRedirect(session.user?.email);
           }
         });
 

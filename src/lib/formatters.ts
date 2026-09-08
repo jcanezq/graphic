@@ -84,6 +84,7 @@ export function generateQuotationNumber(prefix: string, nextNumber: number): str
  */
 export function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
+    solicitada: 'Solicitud Web',
     borrador: 'Generada',
     enviada: 'Enviada',
     aceptada: 'Aceptada',
@@ -98,6 +99,7 @@ export function getStatusLabel(status: string): string {
  */
 export function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
+    solicitada: '#d97706',
     borrador: '#94a3b8',
     enviada: '#3b82f6',
     aceptada: '#10b981',

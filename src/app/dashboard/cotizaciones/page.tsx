@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, formatDate, getStatusLabel, getStatusColor } from "@/lib/formatters";
-import { Search, Plus, FileText, Eye, Edit2, Trash2, Copy, Download, LayoutGrid, List, GitBranch } from "lucide-react";
+import { Search, Plus, FileText, Eye, Edit2, Trash2, Copy, Download, LayoutGrid, List, GitBranch, MessageCircle, Globe } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
 
 import { generateExcel } from "@/lib/excel-export";
 import { KanbanBoard } from "@/components/quotations/KanbanBoard";
+import { generateAdminToClientWhatsAppUrl } from "@/lib/whatsapp";
 import type { Quotation, CompanySettings } from "@/types";
 
 /** Escape PostgREST special characters in search input to prevent query injection */
@@ -411,6 +412,7 @@ export default function QuotationsPage() {
             style={{ width: 180 }}
           >
             <option value="">Todos los estados</option>
+            <option value="solicitada">Solicitudes Web</option>
             <option value="borrador">Generada</option>
             <option value="enviada">Enviada</option>
             <option value="aceptada">Aceptada</option>
@@ -422,7 +424,7 @@ export default function QuotationsPage() {
         {/* Pipeline Summary Bar */}
         {!loading && localQuotations.length > 0 && (
           <div style={{ display: "flex", gap: "12px", marginBottom: "var(--space-lg)", flexWrap: "wrap" }}>
-            {(["borrador", "enviada", "aceptada", "rechazada", "vencida"] as const).map(status => {
+            {(["solicitada", "borrador", "enviada", "aceptada", "rechazada", "vencida"] as const).map(status => {
               const statusQuots = localQuotations.filter(q => q.status === status);
               const statusTotal = statusQuots.reduce((sum, q) => sum + Number(q.total), 0);
               const color = getStatusColor(status);
@@ -499,57 +501,101 @@ export default function QuotationsPage() {
                 </tr>
               </thead>
               <tbody>
-                {localQuotations.map((q) => (
-                  <tr key={q.id}>
-                    <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.82rem" }}>
-                      <Link href={`/dashboard/cotizaciones/${q.id}`} style={{ color: "var(--accent)" }}>
-                        {q.number}
-                      </Link>
-                    </td>
-                    <td className="primary">{q.client_name}</td>
-                    <td>{formatCurrency(Number(q.subtotal))}</td>
-                    <td>{formatCurrency(Number(q.igv))}</td>
-                    <td style={{ fontWeight: 600, color: "var(--success)" }}>
-                      {formatCurrency(Number(q.total))}
-                    </td>
-                    <td>
-                      <span
-                        className="badge"
-                        style={{
-                          background: `${getStatusColor(q.status)}20`,
-                          color: getStatusColor(q.status),
-                        }}
-                      >
-                        {getStatusLabel(q.status)}
-                      </span>
-                    </td>
-                    <td>{formatDate(q.created_at)}</td>
-                    <td>
-                      <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                        <Link href={`/dashboard/cotizaciones/${q.id}`} className="btn-icon" title="Ver/Editar">
-                          <Eye size={15} />
-                        </Link>
-                        <button className="btn-icon" title="Crear Revisión" onClick={() => handleCreateRevision(q)}>
-                          <GitBranch size={15} />
-                        </button>
-                        <button className="btn-icon" title="Duplicar" onClick={() => handleDuplicate(q)}>
-                          <Copy size={15} />
-                        </button>
-                        <button className="btn-icon" title="PDF" onClick={() => handleExportPDF(q)}>
-                          <Download size={15} />
-                        </button>
-                        <button
-                          className="btn-icon"
-                          title="Eliminar"
-                          onClick={() => handleDelete(q.id)}
-                          style={{ color: "var(--error)" }}
+                {localQuotations.map((q) => {
+                  const isWebRequest = q.status === "solicitada" || q.notes?.includes("[Solicitud Web");
+                  const whatsappUrl = q.client_phone
+                    ? generateAdminToClientWhatsAppUrl({
+                        clientPhone: q.client_phone,
+                        quotationNumber: q.number,
+                        clientName: q.client_name,
+                        total: q.total,
+                      })
+                    : null;
+
+                  return (
+                    <tr key={q.id}>
+                      <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.82rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <Link href={`/dashboard/cotizaciones/${q.id}`} style={{ color: "var(--accent)" }}>
+                            {q.number}
+                          </Link>
+                          {isWebRequest && (
+                            <span
+                              style={{
+                                fontSize: "0.68rem",
+                                fontWeight: 700,
+                                background: "rgba(245, 158, 11, 0.15)",
+                                color: "#d97706",
+                                padding: "1px 5px",
+                                borderRadius: "var(--radius-sm)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 2,
+                              }}
+                              title="Solicitud generada por cliente desde la web"
+                            >
+                              <Globe size={10} /> Web
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="primary">{q.client_name}</td>
+                      <td>{formatCurrency(Number(q.subtotal))}</td>
+                      <td>{formatCurrency(Number(q.igv))}</td>
+                      <td style={{ fontWeight: 600, color: "var(--success)" }}>
+                        {formatCurrency(Number(q.total))}
+                      </td>
+                      <td>
+                        <span
+                          className="badge"
+                          style={{
+                            background: `${getStatusColor(q.status)}20`,
+                            color: getStatusColor(q.status),
+                          }}
                         >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {getStatusLabel(q.status)}
+                        </span>
+                      </td>
+                      <td>{formatDate(q.created_at)}</td>
+                      <td>
+                        <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                          {whatsappUrl && (
+                            <a
+                              href={whatsappUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn-icon"
+                              title="Contactar al cliente por WhatsApp"
+                              style={{ color: "#25D366" }}
+                            >
+                              <MessageCircle size={15} />
+                            </a>
+                          )}
+                          <Link href={`/dashboard/cotizaciones/${q.id}`} className="btn-icon" title="Ver/Editar">
+                            <Eye size={15} />
+                          </Link>
+                          <button className="btn-icon" title="Crear Revisión" onClick={() => handleCreateRevision(q)}>
+                            <GitBranch size={15} />
+                          </button>
+                          <button className="btn-icon" title="Duplicar" onClick={() => handleDuplicate(q)}>
+                            <Copy size={15} />
+                          </button>
+                          <button className="btn-icon" title="PDF" onClick={() => handleExportPDF(q)}>
+                            <Download size={15} />
+                          </button>
+                          <button
+                            className="btn-icon"
+                            title="Eliminar"
+                            onClick={() => handleDelete(q.id)}
+                            style={{ color: "var(--error)" }}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

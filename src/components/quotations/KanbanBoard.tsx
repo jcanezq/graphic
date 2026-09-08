@@ -28,6 +28,7 @@ interface KanbanBoardProps {
 }
 
 const COLUMNS = [
+  { id: "solicitada", title: "Solicitudes Web" },
   { id: "borrador", title: "Generada" },
   { id: "enviada", title: "Enviada" },
   { id: "aceptada", title: "Aceptada" },

@@ -45,7 +45,7 @@ export interface QuotationItem extends Omit<Tables<'quotation_items'>, 'id' | 'q
   quotation_id?: string;
 }
 
-export type QuotationStatus = 'borrador' | 'enviada' | 'aceptada' | 'rechazada' | 'vencida';
+export type QuotationStatus = 'solicitada' | 'borrador' | 'enviada' | 'aceptada' | 'rechazada' | 'vencida';
 
 export interface Quotation extends Omit<Tables<'quotations'>, 'status'> {
   status: QuotationStatus;
@@ -53,6 +53,33 @@ export interface Quotation extends Omit<Tables<'quotations'>, 'status'> {
 }
 
 export type CompanySettings = Tables<'company_settings'>;
+
+// Safe product representation for public client catalog (without internal costs/margins)
+export interface PublicProduct {
+  id: string;
+  code: string;
+  name: string;
+  type: 'Producto' | 'Servicio';
+  unit: ProductUnit;
+  description: string;
+  image_url: string | null;
+  category_id: string | null;
+  category_name?: string | null;
+  unit_price: number;
+}
+
+export interface ClientQuotationRequest {
+  client_name: string;
+  client_phone: string;
+  client_email?: string;
+  client_ruc?: string;
+  client_address?: string;
+  notes?: string;
+  items: Array<{
+    product_id: string;
+    quantity: number;
+  }>;
+}
 
 // Form state helpers
 export interface QuotationFormData {

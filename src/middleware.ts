@@ -32,49 +32,72 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   const isLoginPage = pathname === "/login";
-  const isRootPath = pathname === "/";
   const isDashboardRoute = pathname.startsWith("/dashboard");
+  const isCustomerPortal = pathname.startsWith("/mis-cotizaciones");
 
-  // Email whitelist — only allowed emails can access the app
+  // Determine if authenticated user has admin privileges
   const allowedEmails = (process.env.ADMIN_EMAILS || "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
 
-  if (user && allowedEmails.length > 0) {
-    const userEmail = user.email?.toLowerCase() || "";
-    // Allow if email is in whitelist OR if it's a local admin account OR the specific admin@graph.com account
-    if (!allowedEmails.includes(userEmail) && !userEmail.endsWith("@cotigrafic.local") && userEmail !== "admin@graph.com") {
-      // Unauthorized: sign out and redirect to login
-      await supabase.auth.signOut();
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("error", "unauthorized");
-      return NextResponse.redirect(url);
-    }
-  }
+  const userEmail = user?.email?.toLowerCase() || "";
+  const isAdmin =
+    user &&
+    (allowedEmails.includes(userEmail) ||
+      userEmail.endsWith("@cotigrafic.local") ||
+      userEmail === "admin@graph.com" ||
+      allowedEmails.length === 0);
 
-  // If there's an OAuth code at root, redirect to callback
-  if (isRootPath) {
-    const code = request.nextUrl.searchParams.get("code");
-    if (code) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/auth/callback";
-      return NextResponse.redirect(url);
-    }
-  }
-
-  // Not authenticated → trying to access protected routes or root → login
-  if (!user && (isDashboardRoute || isRootPath)) {
+  // If there's an OAuth code at root or cotizar, redirect to callback
+  const code = request.nextUrl.searchParams.get("code");
+  if (code && (pathname === "/" || pathname === "/cotizar")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = "/auth/callback";
     return NextResponse.redirect(url);
   }
 
-  // Authenticated → at login or root → go to dashboard
-  if (user && (isLoginPage || isRootPath)) {
+  // 1. Protected Admin Routes (/dashboard/*)
+  if (isDashboardRoute) {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(url);
+    }
+
+    // Authenticated but not admin -> redirect to customer portal
+    if (!isAdmin) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/mis-cotizaciones";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // 2. Protected Customer Portal Routes (/mis-cotizaciones/*)
+  if (isCustomerPortal && !user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/login";
+    url.searchParams.set("redirect", "/mis-cotizaciones");
+    return NextResponse.redirect(url);
+  }
+
+  // 3. Login Page (/login)
+  if (isLoginPage && user) {
+    const redirectParam = request.nextUrl.searchParams.get("redirect");
+    const url = request.nextUrl.clone();
+
+    if (redirectParam) {
+      url.pathname = redirectParam;
+      url.searchParams.delete("redirect");
+      return NextResponse.redirect(url);
+    }
+
+    if (isAdmin) {
+      url.pathname = "/dashboard";
+    } else {
+      url.pathname = "/mis-cotizaciones";
+    }
     return NextResponse.redirect(url);
   }
 
@@ -82,5 +105,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/login", "/dashboard/:path*"],
+  matcher: ["/", "/login", "/dashboard/:path*", "/mis-cotizaciones/:path*", "/cotizar"],
 };
