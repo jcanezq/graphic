@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { PublicNavbar } from "@/components/public/PublicNavbar";
 import { useToast } from "@/components/ToastProvider";
-import { formatCurrency } from "@/lib/formatters";
+import { formatCurrency, normalizeText } from "@/lib/formatters";
 import type { PublicProduct } from "@/types";
 import {
   Calculator,
@@ -45,13 +45,16 @@ export default function HomePage() {
   const categories = data?.categories || [];
   const settings = data?.settings;
 
+  const normalizedSearch = normalizeText(search);
+  const searchTokens = normalizedSearch.split(/\s+/).filter(Boolean);
+
   const filteredProducts = products.filter((p) => {
     const matchCat = selectedCategory === "all" || p.category_id === selectedCategory;
-    const matchSearch =
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.code.toLowerCase().includes(search.toLowerCase()) ||
-      (p.description && p.description.toLowerCase().includes(search.toLowerCase()));
-    return matchCat && matchSearch;
+    if (!matchCat) return false;
+    if (searchTokens.length === 0) return true;
+
+    const targetText = normalizeText(`${p.name} ${p.code} ${p.description || ""} ${p.category_name || ""}`);
+    return searchTokens.every((token) => targetText.includes(token));
   });
 
   function addToQuote(product: PublicProduct) {

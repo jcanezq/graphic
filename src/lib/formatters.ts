@@ -116,3 +116,16 @@ export function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength) + '…';
 }
+
+/**
+ * Normalize text for accent-insensitive and case-insensitive search.
+ * e.g. "Señalética" → "senaletica"
+ */
+export function normalizeText(text?: string | null): string {
+  if (!text) return "";
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}

@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { PublicNavbar } from "@/components/public/PublicNavbar";
 import { useToast } from "@/components/ToastProvider";
 import { createClient } from "@/lib/supabase/client";
-import { formatCurrency } from "@/lib/formatters";
+import { formatCurrency, normalizeText } from "@/lib/formatters";
 import { fetchRucData } from "@/lib/ruc";
 import type { PublicProduct } from "@/types";
 import {
@@ -187,11 +187,14 @@ export default function CotizadorPage() {
   const total = subtotal + igv;
 
   // Filter products for dropdown
-  const filteredProducts = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-      p.code.toLowerCase().includes(productSearch.toLowerCase())
-  );
+  const normalizedProductSearch = normalizeText(productSearch);
+  const searchTokens = normalizedProductSearch.split(/\s+/).filter(Boolean);
+
+  const filteredProducts = products.filter((p) => {
+    if (searchTokens.length === 0) return true;
+    const targetText = normalizeText(`${p.name} ${p.code} ${p.description || ""} ${p.category_name || ""}`);
+    return searchTokens.every((token) => targetText.includes(token));
+  });
 
   // Trigger Google Login
   async function handleGoogleLogin() {
