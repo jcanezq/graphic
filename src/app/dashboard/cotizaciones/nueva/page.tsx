@@ -608,6 +608,14 @@ export default function NewQuotationPage() {
                                   /> 
                                   Incluir Diseño Gráfico
                                 </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem' }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={item.has_transport ?? true} 
+                                    onChange={(e) => updateItem(i, { has_transport: e.target.checked })}
+                                  /> 
+                                  Incluir Transporte / Movilidad
+                                </label>
                                 {(item.has_design === false) && (
                                   <div style={{ marginTop: 4, padding: 6, background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
                                     <span style={{ fontSize: '0.7rem', display: 'block', marginBottom: 4, fontWeight: 500 }}>

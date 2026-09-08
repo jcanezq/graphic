@@ -47,6 +47,8 @@ export interface QuotationItem extends Omit<Tables<'quotation_items'>, 'id' | 'q
   has_labor?: boolean;
   has_design?: boolean;
   design_cost?: number;
+  has_transport?: boolean;
+  transport_cost?: number;
   client_design_url?: string;
   client_design_file?: File | null;
 }
@@ -74,6 +76,7 @@ export interface PublicProduct {
   unit_price: number;
   labor_price?: number;
   design_price?: number;
+  transport_price?: number;
   material_price?: number;
   other_price?: number;
 }

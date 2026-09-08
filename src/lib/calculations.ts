@@ -70,24 +70,26 @@ export function calcItemSubtotal(quantity: number, unitPrice: number): number {
  */
 export function recalcQuotationItem(
   item: QuotationItem,
-  overrides?: { quantity?: number; margin_percent?: number; unit_cost?: number; has_labor?: boolean; has_design?: boolean }
+  overrides?: { quantity?: number; margin_percent?: number; unit_cost?: number; has_labor?: boolean; has_design?: boolean; has_transport?: boolean }
 ): QuotationItem {
   const quantity = overrides?.quantity ?? item.quantity;
   const marginPercent = overrides?.margin_percent ?? item.margin_percent;
   
   const hasLabor = overrides?.has_labor ?? item.has_labor ?? true;
   const hasDesign = overrides?.has_design ?? item.has_design ?? true;
+  const hasTransport = overrides?.has_transport ?? item.has_transport ?? true;
   
   let unitCost = item.unit_cost;
   
   if (overrides?.unit_cost !== undefined) {
     unitCost = overrides.unit_cost;
-  } else if (overrides?.has_labor !== undefined || overrides?.has_design !== undefined) {
+  } else if (overrides?.has_labor !== undefined || overrides?.has_design !== undefined || overrides?.has_transport !== undefined) {
     // Recalculate unit cost from base components if toggles change
     const activeLaborCost = hasLabor ? item.labor_cost : 0;
     const activeDesignCost = hasDesign ? 0 : -(item.design_cost || 0); // subtract design if not active
-    // We assume the stored item.indirect_cost INCLUDES design cost.
-    unitCost = item.material_cost + activeLaborCost + item.indirect_cost + activeDesignCost;
+    const activeTransportCost = hasTransport ? 0 : -(item.transport_cost || 0); // subtract transport if not active
+    // We assume the stored item.indirect_cost INCLUDES design and transport costs.
+    unitCost = item.material_cost + activeLaborCost + item.indirect_cost + activeDesignCost + activeTransportCost;
     if (unitCost < 0) unitCost = 0;
   }
   
@@ -98,6 +100,7 @@ export function recalcQuotationItem(
     ...item,
     has_labor: hasLabor,
     has_design: hasDesign,
+    has_transport: hasTransport,
     unit_cost: unitCost,
     quantity,
     margin_percent: marginPercent,
@@ -122,6 +125,10 @@ export function createQuotationItemFromProduct(
   const designCostItem = (product.indirect_costs || []).find(ic => ic.concept.toLowerCase().includes('diseño') || ic.concept.toLowerCase().includes('design'));
   const designCost = designCostItem ? designCostItem.cost : 0;
   
+  // Extract transport cost from indirect costs if it exists
+  const transportCostItem = (product.indirect_costs || []).find(ic => ic.concept.toLowerCase().includes('transporte') || ic.concept.toLowerCase().includes('movilidad') || ic.concept.toLowerCase().includes('flete'));
+  const transportCost = transportCostItem ? transportCostItem.cost : 0;
+  
   const indirectCost = calcIndirectCost(product.indirect_costs || []);
   const unitCost = (product.manual_unit_cost != null && product.manual_unit_cost > 0) ? product.manual_unit_cost : (materialCost + laborCost + indirectCost);
   const margin = marginPercent ?? (product.default_margin ?? 0);
@@ -132,7 +139,9 @@ export function createQuotationItemFromProduct(
     item_type: product.type,
     has_labor: true,
     has_design: true,
+    has_transport: true,
     design_cost: round2(designCost),
+    transport_cost: round2(transportCost),
     product_id: product.id,
     sort_order: sortOrder,
     product_code: product.code,

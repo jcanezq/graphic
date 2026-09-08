@@ -88,10 +88,14 @@ export async function GET() {
       const designCost = designCostItem ? designCostItem.cost : 0;
       const designPrice = round2(calcUnitPrice(designCost, margin));
 
+      const transportCostItem = pIndirect.find((ic: any) => ic.concept?.toLowerCase().includes('transporte') || ic.concept?.toLowerCase().includes('movilidad') || ic.concept?.toLowerCase().includes('flete'));
+      const transportCost = transportCostItem ? transportCostItem.cost : 0;
+      const transportPrice = round2(calcUnitPrice(transportCost, margin));
+
       const materialCost = pMaterials.reduce((acc, m) => acc + (m.quantity * m.unit_cost), 0);
       const materialPrice = round2(calcUnitPrice(materialCost, margin));
 
-      const otherCost = pIndirect.reduce((acc, i) => acc + i.cost, 0) - designCost;
+      const otherCost = pIndirect.reduce((acc, i) => acc + i.cost, 0) - designCost - transportCost;
       const otherPrice = round2(calcUnitPrice(otherCost, margin));
 
       return {
@@ -107,6 +111,7 @@ export async function GET() {
         unit_price: unitPrice > 0 ? unitPrice : 1.0,
         labor_price: laborPrice,
         design_price: designPrice,
+        transport_price: transportPrice,
         material_price: materialPrice,
         other_price: otherPrice,
       };

@@ -38,8 +38,10 @@ interface DraftItem {
   quantity: number;
   has_labor?: boolean;
   has_design?: boolean;
+  has_transport?: boolean;
   labor_price?: number;
   design_price?: number;
+  transport_price?: number;
   material_price?: number;
   other_price?: number;
 }
@@ -152,17 +154,19 @@ export default function CotizadorPage() {
     showToast("Ítem eliminado");
   }
 
-  function handleToggleServiceOption(index: number, option: 'labor' | 'design', value: boolean) {
+  function handleToggleServiceOption(index: number, option: 'labor' | 'design' | 'transport', value: boolean) {
     const updated = [...items];
     const item = updated[index];
     
     if (option === 'labor') item.has_labor = value;
     if (option === 'design') item.has_design = value;
+    if (option === 'transport') item.has_transport = value;
     
     // Recalculate unit_price
     let newPrice = item.base_unit_price;
     if (item.has_labor === false && item.labor_price) newPrice -= item.labor_price;
     if (item.has_design === false && item.design_price) newPrice -= item.design_price;
+    if (item.has_transport === false && item.transport_price) newPrice -= item.transport_price;
     
     item.unit_price = Math.max(0, newPrice);
     
@@ -187,8 +191,10 @@ export default function CotizadorPage() {
         quantity: 1,
         has_labor: true,
         has_design: true,
+        has_transport: true,
         labor_price: product.labor_price,
         design_price: product.design_price,
+        transport_price: product.transport_price,
         material_price: product.material_price,
         other_price: product.other_price,
       };
@@ -290,6 +296,7 @@ export default function CotizadorPage() {
             quantity: it.quantity,
             has_labor: it.has_labor ?? true,
             has_design: it.has_design ?? true,
+            has_transport: it.has_transport ?? true,
           })),
         }),
       });
@@ -705,6 +712,16 @@ export default function CotizadorPage() {
                                         onChange={(e) => handleToggleServiceOption(idx, 'design', e.target.checked)}
                                       /> 
                                       Incluir Diseño Gráfico: {formatCurrency(item.design_price)}
+                                    </label>
+                                  )}
+                                  {item.transport_price !== undefined && item.transport_price > 0 && (
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                      <input 
+                                        type="checkbox" 
+                                        checked={item.has_transport ?? true} 
+                                        onChange={(e) => handleToggleServiceOption(idx, 'transport', e.target.checked)}
+                                      /> 
+                                      Incluir Transporte / Movilidad: {formatCurrency(item.transport_price)}
                                     </label>
                                   )}
                                   {item.has_design === false && (

@@ -130,6 +130,7 @@ export async function POST(request: Request) {
       snapItem = recalcQuotationItem(snapItem, {
         has_labor: raw.has_labor ?? true,
         has_design: raw.has_design ?? true,
+        has_transport: raw.has_transport ?? true,
       });
       
       quotationItems.push(snapItem);
@@ -244,7 +245,9 @@ export async function POST(request: Request) {
         subtotal: item.subtotal,
         has_labor: item.has_labor,
         has_design: item.has_design,
+        has_transport: item.has_transport,
         design_cost: item.design_cost,
+        transport_cost: item.transport_cost,
       }))
     );
 
