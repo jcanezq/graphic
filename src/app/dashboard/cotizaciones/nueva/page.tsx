@@ -457,6 +457,7 @@ export default function NewQuotationPage() {
                     style={{ padding: "4px 12px", fontSize: "0.8rem", borderRadius: "16px", whiteSpace: "nowrap" }}
                     onClick={() => {
                       setProductFilter(type);
+                      setShowProductDropdown(true);
                       if (type === "Servicio" || type === "Material") {
                         setCategoryFilter("Todas");
                       }
@@ -472,7 +473,10 @@ export default function NewQuotationPage() {
                   className="input"
                   style={{ padding: "4px 12px", fontSize: "0.8rem", borderRadius: "16px", height: "auto", minWidth: "150px" }}
                   value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  onChange={(e) => {
+                    setCategoryFilter(e.target.value);
+                    setShowProductDropdown(true);
+                  }}
                 >
                   <option value="Todas">Todas las Categorías</option>
                   {categories.map((c: any) => (
@@ -494,7 +498,7 @@ export default function NewQuotationPage() {
                     onFocus={() => setShowProductDropdown(true)}
                   />
                 </div>
-                {showProductDropdown && productSearch && (
+                {showProductDropdown && (
                   <div
                     style={{
                       position: "absolute",
