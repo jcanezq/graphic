@@ -27,6 +27,7 @@ export default function HomePage() {
   const { showToast } = useToast();
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<"Todos" | "Producto" | "Servicio" | "Material">("Todos");
 
   const { data, isLoading } = useQuery({
     queryKey: ["public_products"],
@@ -50,7 +51,8 @@ export default function HomePage() {
 
   const filteredProducts = products.filter((p) => {
     const matchCat = selectedCategory === "all" || p.category_id === selectedCategory;
-    if (!matchCat) return false;
+    const matchType = typeFilter === "Todos" || p.type === typeFilter;
+    if (!matchCat || !matchType) return false;
     if (searchTokens.length === 0) return true;
 
     const targetText = normalizeText(`${p.name} ${p.code} ${p.description || ""} ${p.category_name || ""}`);
@@ -340,6 +342,38 @@ export default function HomePage() {
                 }}
               />
             </div>
+          </div>
+
+          {/* Type Filter Pills */}
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              overflowX: "auto",
+              paddingBottom: "0.5rem",
+              marginBottom: "1rem",
+            }}
+          >
+            {(["Todos", "Producto", "Servicio", "Material"] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => setTypeFilter(type)}
+                style={{
+                  padding: "0.45rem 1rem",
+                  borderRadius: "var(--radius-full)",
+                  fontSize: "0.85rem",
+                  fontWeight: typeFilter === type ? 600 : 500,
+                  border: typeFilter === type ? "1px solid var(--accent)" : "1px solid var(--surface-border)",
+                  background: typeFilter === type ? "var(--accent)" : "var(--bg-secondary)",
+                  color: typeFilter === type ? "#fff" : "var(--text-secondary)",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  transition: "var(--transition-fast)",
+                }}
+              >
+                {type === "Todos" ? "Todos los Tipos" : type + "s"}
+              </button>
+            ))}
           </div>
 
           {/* Category Filter Pills */}
