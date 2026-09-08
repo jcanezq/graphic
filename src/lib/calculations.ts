@@ -70,42 +70,73 @@ export function calcItemSubtotal(quantity: number, unitPrice: number): number {
  */
 export function recalcQuotationItem(
   item: QuotationItem,
-  overrides?: { quantity?: number; margin_percent?: number; unit_cost?: number; has_labor?: boolean | null; has_design?: boolean | null; has_transport?: boolean | null }
+  overrides?: { 
+    quantity?: number; margin_percent?: number; unit_cost?: number; 
+    has_labor?: boolean | null; has_design?: boolean | null; has_transport?: boolean | null;
+    labor_quantity?: number; labor_unit_cost?: number; labor_margin_percent?: number;
+    design_quantity?: number; design_unit_cost?: number; design_margin_percent?: number;
+    transport_quantity?: number; transport_unit_cost?: number; transport_margin_percent?: number;
+  }
 ): QuotationItem {
   const quantity = overrides?.quantity ?? item.quantity;
   const marginPercent = overrides?.margin_percent ?? item.margin_percent;
+  const unitCost = overrides?.unit_cost ?? item.unit_cost;
   
   const hasLabor = overrides?.has_labor ?? item.has_labor ?? true;
   const hasDesign = overrides?.has_design ?? item.has_design ?? true;
   const hasTransport = overrides?.has_transport ?? item.has_transport ?? true;
   
-  let unitCost = item.unit_cost;
+  const laborQty = overrides?.labor_quantity ?? item.labor_quantity ?? 1;
+  const laborUC = overrides?.labor_unit_cost ?? item.labor_unit_cost ?? item.labor_cost;
+  const laborMargin = overrides?.labor_margin_percent ?? item.labor_margin_percent ?? marginPercent;
+
+  const designQty = overrides?.design_quantity ?? item.design_quantity ?? 1;
+  const designUC = overrides?.design_unit_cost ?? item.design_unit_cost ?? item.design_cost ?? 0;
+  const designMargin = overrides?.design_margin_percent ?? item.design_margin_percent ?? marginPercent;
+
+  const transportQty = overrides?.transport_quantity ?? item.transport_quantity ?? 1;
+  const transportUC = overrides?.transport_unit_cost ?? item.transport_unit_cost ?? item.transport_cost ?? 0;
+  const transportMargin = overrides?.transport_margin_percent ?? item.transport_margin_percent ?? marginPercent;
+
+  // Base item subtotal
+  const baseUnitPrice = calcUnitPrice(unitCost, marginPercent);
+  const baseSubtotal = calcItemSubtotal(quantity, baseUnitPrice);
+
+  // Component subtotals
+  const laborUP = calcUnitPrice(laborUC, laborMargin);
+  const laborSubtotal = hasLabor ? calcItemSubtotal(laborQty, laborUP) : 0;
+
+  const designUP = calcUnitPrice(designUC, designMargin);
+  const designSubtotal = hasDesign ? calcItemSubtotal(designQty, designUP) : 0;
+
+  const transportUP = calcUnitPrice(transportUC, transportMargin);
+  const transportSubtotal = hasTransport ? calcItemSubtotal(transportQty, transportUP) : 0;
+
+  // Total subtotal
+  const totalSubtotal = baseSubtotal + laborSubtotal + designSubtotal + transportSubtotal;
   
-  if (overrides?.unit_cost !== undefined) {
-    unitCost = overrides.unit_cost;
-  } else if (overrides?.has_labor !== undefined || overrides?.has_design !== undefined || overrides?.has_transport !== undefined) {
-    // Recalculate unit cost from base components if toggles change
-    const activeLaborCost = hasLabor ? item.labor_cost : 0;
-    const activeDesignCost = hasDesign ? 0 : -(item.design_cost || 0); // subtract design if not active
-    const activeTransportCost = hasTransport ? 0 : -(item.transport_cost || 0); // subtract transport if not active
-    // We assume the stored item.indirect_cost INCLUDES design and transport costs.
-    unitCost = item.material_cost + activeLaborCost + item.indirect_cost + activeDesignCost + activeTransportCost;
-    if (unitCost < 0) unitCost = 0;
-  }
-  
-  const unitPrice = calcUnitPrice(unitCost, marginPercent);
-  const subtotal = calcItemSubtotal(quantity, unitPrice);
+  // Represent average unit price
+  const totalUnitPrice = quantity > 0 ? (totalSubtotal / quantity) : 0;
 
   return {
     ...item,
+    quantity,
+    margin_percent: marginPercent,
+    unit_cost: unitCost,
     has_labor: hasLabor,
     has_design: hasDesign,
     has_transport: hasTransport,
-    unit_cost: unitCost,
-    quantity,
-    margin_percent: marginPercent,
-    unit_price: round2(unitPrice),
-    subtotal: round2(subtotal),
+    labor_quantity: laborQty,
+    labor_unit_cost: laborUC,
+    labor_margin_percent: laborMargin,
+    design_quantity: designQty,
+    design_unit_cost: designUC,
+    design_margin_percent: designMargin,
+    transport_quantity: transportQty,
+    transport_unit_cost: transportUC,
+    transport_margin_percent: transportMargin,
+    unit_price: round2(totalUnitPrice),
+    subtotal: round2(totalSubtotal),
   };
 }
 
@@ -130,10 +161,28 @@ export function createQuotationItemFromProduct(
   const transportCost = transportCostItem ? transportCostItem.cost : 0;
   
   const indirectCost = calcIndirectCost(product.indirect_costs || []);
-  const unitCost = (product.manual_unit_cost != null && product.manual_unit_cost > 0) ? product.manual_unit_cost : (materialCost + laborCost + indirectCost);
+  const baseIndirectCost = indirectCost - designCost - transportCost;
+  
+  const unitCost = (product.manual_unit_cost != null && product.manual_unit_cost > 0) 
+    ? product.manual_unit_cost 
+    : (materialCost + baseIndirectCost);
+    
   const margin = marginPercent ?? (product.default_margin ?? 0);
-  const unitPrice = calcUnitPrice(unitCost, margin);
-  const subtotal = calcItemSubtotal(quantity, unitPrice);
+  
+  const baseUnitPrice = calcUnitPrice(unitCost, margin);
+  const baseSubtotal = calcItemSubtotal(quantity, baseUnitPrice);
+
+  const laborUP = calcUnitPrice(laborCost, margin);
+  const laborSubtotal = calcItemSubtotal(1, laborUP);
+
+  const designUP = calcUnitPrice(designCost, margin);
+  const designSubtotal = calcItemSubtotal(1, designUP);
+
+  const transportUP = calcUnitPrice(transportCost, margin);
+  const transportSubtotal = calcItemSubtotal(1, transportUP);
+
+  const totalSubtotal = baseSubtotal + laborSubtotal + designSubtotal + transportSubtotal;
+  const totalUnitPrice = quantity > 0 ? (totalSubtotal / quantity) : 0;
 
   return {
     item_type: product.type,
@@ -160,8 +209,17 @@ export function createQuotationItemFromProduct(
     unit_cost: round2(unitCost),
     quantity,
     margin_percent: margin,
-    unit_price: round2(unitPrice),
-    subtotal: round2(subtotal),
+    labor_quantity: 1,
+    labor_unit_cost: round2(laborCost),
+    labor_margin_percent: margin,
+    design_quantity: 1,
+    design_unit_cost: round2(designCost),
+    design_margin_percent: margin,
+    transport_quantity: 1,
+    transport_unit_cost: round2(transportCost),
+    transport_margin_percent: margin,
+    unit_price: round2(totalUnitPrice),
+    subtotal: round2(totalSubtotal),
   };
 }
 

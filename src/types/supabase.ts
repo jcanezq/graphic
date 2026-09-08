@@ -351,6 +351,15 @@ export type Database = {
           unit: string
           unit_cost: number
           unit_price: number
+          labor_quantity: number | null
+          labor_unit_cost: number | null
+          labor_margin_percent: number | null
+          design_quantity: number | null
+          design_unit_cost: number | null
+          design_margin_percent: number | null
+          transport_quantity: number | null
+          transport_unit_cost: number | null
+          transport_margin_percent: number | null
         }
         Insert: {
           id?: string
@@ -376,6 +385,15 @@ export type Database = {
           unit?: string
           unit_cost?: number
           unit_price?: number
+          labor_quantity?: number | null
+          labor_unit_cost?: number | null
+          labor_margin_percent?: number | null
+          design_quantity?: number | null
+          design_unit_cost?: number | null
+          design_margin_percent?: number | null
+          transport_quantity?: number | null
+          transport_unit_cost?: number | null
+          transport_margin_percent?: number | null
         }
         Update: {
           id?: string
@@ -401,6 +419,15 @@ export type Database = {
           unit?: string
           unit_cost?: number
           unit_price?: number
+          labor_quantity?: number | null
+          labor_unit_cost?: number | null
+          labor_margin_percent?: number | null
+          design_quantity?: number | null
+          design_unit_cost?: number | null
+          design_margin_percent?: number | null
+          transport_quantity?: number | null
+          transport_unit_cost?: number | null
+          transport_margin_percent?: number | null
         }
         Relationships: [
           {

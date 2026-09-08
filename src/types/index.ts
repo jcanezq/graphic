@@ -51,6 +51,17 @@ export interface QuotationItem extends Omit<Tables<'quotation_items'>, 'id' | 'q
   transport_cost?: number | null;
   client_design_url?: string | null;
   client_design_file?: File | null;
+  
+  // Independent component fields
+  labor_quantity?: number | null;
+  labor_unit_cost?: number | null;
+  labor_margin_percent?: number | null;
+  design_quantity?: number | null;
+  design_unit_cost?: number | null;
+  design_margin_percent?: number | null;
+  transport_quantity?: number | null;
+  transport_unit_cost?: number | null;
+  transport_margin_percent?: number | null;
 }
 
 export type QuotationStatus = 'solicitada' | 'borrador' | 'enviada' | 'aceptada' | 'rechazada' | 'vencida';

@@ -23,7 +23,10 @@ BEGIN
       material_cost, labor_cost, indirect_cost, unit_cost,
       quantity, margin_percent, unit_price, subtotal,
       item_type, has_labor, has_design, design_cost, 
-      has_transport, transport_cost, client_design_url
+      has_transport, transport_cost, client_design_url,
+      labor_quantity, labor_unit_cost, labor_margin_percent,
+      design_quantity, design_unit_cost, design_margin_percent,
+      transport_quantity, transport_unit_cost, transport_margin_percent
     )
     SELECT
       p_quotation_id,
@@ -47,7 +50,16 @@ BEGIN
       COALESCE((elem->>'design_cost')::NUMERIC, 0),
       COALESCE((elem->>'has_transport')::BOOLEAN, true),
       COALESCE((elem->>'transport_cost')::NUMERIC, 0),
-      elem->>'client_design_url'
+      elem->>'client_design_url',
+      (elem->>'labor_quantity')::NUMERIC,
+      (elem->>'labor_unit_cost')::NUMERIC,
+      (elem->>'labor_margin_percent')::NUMERIC,
+      (elem->>'design_quantity')::NUMERIC,
+      (elem->>'design_unit_cost')::NUMERIC,
+      (elem->>'design_margin_percent')::NUMERIC,
+      (elem->>'transport_quantity')::NUMERIC,
+      (elem->>'transport_unit_cost')::NUMERIC,
+      (elem->>'transport_margin_percent')::NUMERIC
     FROM jsonb_array_elements(p_items) AS elem;
   END IF;
 

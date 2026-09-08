@@ -586,129 +586,194 @@ export default function NewQuotationPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {items.map((item, i) => (
-                        <tr key={i}>
-                          <td style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>{i + 1}</td>
-                          <td className="primary" style={{ fontSize: "0.82rem" }}>
-                            <div>
-                              {item.product_name}
-                              {item.item_type && <span style={{ marginLeft: 6, fontSize: '0.65rem', padding: '2px 6px', background: 'var(--surface-hover)', borderRadius: 12 }}>{item.item_type}</span>}
-                            </div>
-                            {item.product_code && (
-                              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
-                                {item.product_code}
+                       {items.map((item, i) => (
+                        <React.Fragment key={i}>
+                          <tr>
+                            <td style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>{i + 1}</td>
+                            <td className="primary" style={{ fontSize: "0.82rem" }}>
+                              <div>
+                                {item.product_name}
+                                {item.item_type && <span style={{ marginLeft: 6, fontSize: '0.65rem', padding: '2px 6px', background: 'var(--surface-hover)', borderRadius: 12 }}>{item.item_type}</span>}
                               </div>
-                            )}
-                            {item.item_type === 'Servicio' && (
-                              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                {(item.labor_cost || 0) > 0 && (
-                                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
-                                    <input 
-                                      type="checkbox" 
-                                      checked={item.has_labor ?? true} 
-                                      onChange={(e) => updateItem(i, { has_labor: e.target.checked })}
-                                      style={{ width: 'auto', margin: 0 }}
-                                    /> 
-                                    Incluir Mano de Obra: {formatCurrency((item.labor_cost || 0) * (1 + (item.margin_percent || 0) / 100))}
-                                  </label>
-                                )}
-                                {(item.design_cost || 0) > 0 && (
-                                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
-                                    <input 
-                                      type="checkbox" 
-                                      checked={item.has_design ?? true} 
-                                      onChange={(e) => updateItem(i, { has_design: e.target.checked })}
-                                      style={{ width: 'auto', margin: 0 }}
-                                    /> 
-                                    Incluir Diseño Gráfico: {formatCurrency((item.design_cost || 0) * (1 + (item.margin_percent || 0) / 100))}
-                                  </label>
-                                )}
-                                {(item.transport_cost || 0) > 0 && (
-                                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
-                                    <input 
-                                      type="checkbox" 
-                                      checked={item.has_transport ?? true} 
-                                      onChange={(e) => updateItem(i, { has_transport: e.target.checked })}
-                                      style={{ width: 'auto', margin: 0 }}
-                                    /> 
-                                    Incluir Transporte: {formatCurrency((item.transport_cost || 0) * (1 + (item.margin_percent || 0) / 100))}
-                                  </label>
-                                )}
-                                {(item.has_design === false) && (
-                                  <div style={{ marginTop: 4, padding: 6, background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
-                                    <span style={{ fontSize: '0.7rem', display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                                      Sube el diseño del cliente:
-                                    </span>
-                                    <input 
-                                      type="file" 
-                                      accept="image/*,.pdf,.ai,.psd" 
-                                      style={{ fontSize: '0.7rem', width: '100%' }} 
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0] || null;
-                                        const updated = [...items];
-                                        updated[i].client_design_file = file;
-                                        setItems(updated);
-                                      }} 
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                          <td style={{ fontSize: "0.8rem" }}>{item.unit}</td>
-                          <td>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min={0.01}
-                              value={item.quantity}
-                              onChange={(e) =>
-                                updateItem(i, { quantity: Number(e.target.value) })
-                              }
-                              style={{ width: 70 }}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min={0}
-                              value={item.unit_cost}
-                              onChange={(e) =>
-                                updateItem(i, { unit_cost: Number(e.target.value) })
-                              }
-                              style={{ width: 100 }}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="number"
-                              step="1"
-                              min={0}
-                              max={200}
-                              value={item.margin_percent}
-                              onChange={(e) =>
-                                updateItem(i, { margin_percent: Number(e.target.value) })
-                              }
-                              style={{ width: 70 }}
-                            />
-                          </td>
-                          <td style={{ color: "var(--text-primary)", fontWeight: 500 }}>
-                            {formatCurrency(item.unit_price)}
-                          </td>
-                          <td style={{ color: "var(--success)", fontWeight: 600 }}>
-                            {formatCurrency(item.subtotal)}
-                          </td>
-                          <td className="row-actions">
-                            <button
-                              className="btn-icon"
-                              style={{ color: "var(--error)", width: 28, height: 28 }}
-                              onClick={() => removeItem(i)}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </td>
-                        </tr>
+                              {item.product_code && (
+                                <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                                  {item.product_code}
+                                </div>
+                              )}
+                              {(item.item_type === 'Servicio' && item.has_design === false) && (
+                                <div style={{ marginTop: 4, padding: 6, background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
+                                  <span style={{ fontSize: '0.7rem', display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                                    Sube el diseño del cliente:
+                                  </span>
+                                  <input 
+                                    type="file" 
+                                    accept="image/*,.pdf,.ai,.psd" 
+                                    style={{ fontSize: '0.7rem', width: '100%' }} 
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0] || null;
+                                      const updated = [...items];
+                                      updated[i].client_design_file = file;
+                                      setItems(updated);
+                                    }} 
+                                  />
+                                </div>
+                              )}
+                            </td>
+                            <td style={{ fontSize: "0.8rem" }}>{item.unit}</td>
+                            <td>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min={0.01}
+                                value={item.quantity}
+                                onChange={(e) =>
+                                  updateItem(i, { quantity: Number(e.target.value) })
+                                }
+                                style={{ width: 70 }}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min={0}
+                                value={item.unit_cost}
+                                onChange={(e) =>
+                                  updateItem(i, { unit_cost: Number(e.target.value) })
+                                }
+                                style={{ width: 100 }}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="number"
+                                step="1"
+                                min={0}
+                                value={item.margin_percent}
+                                onChange={(e) =>
+                                  updateItem(i, { margin_percent: Number(e.target.value) })
+                                }
+                                style={{ width: 80 }}
+                              />
+                            </td>
+                            <td style={{ fontWeight: 600 }}>{formatCurrency(calcUnitPrice(item.unit_cost, item.margin_percent))}</td>
+                            <td style={{ fontWeight: 600, color: "var(--success)" }}>
+                              {formatCurrency(calcItemSubtotal(item.quantity, calcUnitPrice(item.unit_cost, item.margin_percent)))}
+                            </td>
+                            <td className="row-actions">
+                              <button
+                                type="button"
+                                className="icon-btn danger"
+                                onClick={() => removeItem(i)}
+                                title="Eliminar ítem"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                          
+                          {item.item_type === 'Servicio' && (item.labor_cost || 0) > 0 && (
+                            <tr style={{ background: item.has_labor ? 'var(--bg-glass)' : 'transparent', opacity: item.has_labor ? 1 : 0.5 }}>
+                              <td></td>
+                              <td>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal', paddingLeft: 12 }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={item.has_labor ?? true} 
+                                    onChange={(e) => updateItem(i, { has_labor: e.target.checked })}
+                                    style={{ width: 'auto', margin: 0 }}
+                                  /> 
+                                  Mano de Obra
+                                </label>
+                              </td>
+                              <td style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>hr</td>
+                              <td>
+                                <input type="number" step="0.01" min={0} value={item.labor_quantity ?? 1} onChange={(e) => updateItem(i, { labor_quantity: Number(e.target.value) })} style={{ width: 70 }} disabled={!item.has_labor} />
+                              </td>
+                              <td>
+                                <input type="number" step="0.01" min={0} value={item.labor_unit_cost ?? 0} onChange={(e) => updateItem(i, { labor_unit_cost: Number(e.target.value) })} style={{ width: 100 }} disabled={!item.has_labor} />
+                              </td>
+                              <td>
+                                <input type="number" step="1" min={0} value={item.labor_margin_percent ?? item.margin_percent} onChange={(e) => updateItem(i, { labor_margin_percent: Number(e.target.value) })} style={{ width: 80 }} disabled={!item.has_labor} />
+                              </td>
+                              <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                                {formatCurrency(calcUnitPrice(item.labor_unit_cost ?? 0, item.labor_margin_percent ?? item.margin_percent))}
+                              </td>
+                              <td style={{ fontSize: "0.8rem", color: item.has_labor ? "var(--success)" : "var(--text-muted)" }}>
+                                {formatCurrency(calcItemSubtotal(item.labor_quantity ?? 1, calcUnitPrice(item.labor_unit_cost ?? 0, item.labor_margin_percent ?? item.margin_percent)))}
+                              </td>
+                              <td></td>
+                            </tr>
+                          )}
+                          
+                          {item.item_type === 'Servicio' && (item.design_cost || 0) > 0 && (
+                            <tr style={{ background: item.has_design ? 'var(--bg-glass)' : 'transparent', opacity: item.has_design ? 1 : 0.5 }}>
+                              <td></td>
+                              <td>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal', paddingLeft: 12 }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={item.has_design ?? true} 
+                                    onChange={(e) => updateItem(i, { has_design: e.target.checked })}
+                                    style={{ width: 'auto', margin: 0 }}
+                                  /> 
+                                  Diseño Gráfico
+                                </label>
+                              </td>
+                              <td style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>hr</td>
+                              <td>
+                                <input type="number" step="0.01" min={0} value={item.design_quantity ?? 1} onChange={(e) => updateItem(i, { design_quantity: Number(e.target.value) })} style={{ width: 70 }} disabled={!item.has_design} />
+                              </td>
+                              <td>
+                                <input type="number" step="0.01" min={0} value={item.design_unit_cost ?? 0} onChange={(e) => updateItem(i, { design_unit_cost: Number(e.target.value) })} style={{ width: 100 }} disabled={!item.has_design} />
+                              </td>
+                              <td>
+                                <input type="number" step="1" min={0} value={item.design_margin_percent ?? item.margin_percent} onChange={(e) => updateItem(i, { design_margin_percent: Number(e.target.value) })} style={{ width: 80 }} disabled={!item.has_design} />
+                              </td>
+                              <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                                {formatCurrency(calcUnitPrice(item.design_unit_cost ?? 0, item.design_margin_percent ?? item.margin_percent))}
+                              </td>
+                              <td style={{ fontSize: "0.8rem", color: item.has_design ? "var(--success)" : "var(--text-muted)" }}>
+                                {formatCurrency(calcItemSubtotal(item.design_quantity ?? 1, calcUnitPrice(item.design_unit_cost ?? 0, item.design_margin_percent ?? item.margin_percent)))}
+                              </td>
+                              <td></td>
+                            </tr>
+                          )}
+
+                          {item.item_type === 'Servicio' && (item.transport_cost || 0) > 0 && (
+                            <tr style={{ background: item.has_transport ? 'var(--bg-glass)' : 'transparent', opacity: item.has_transport ? 1 : 0.5 }}>
+                              <td></td>
+                              <td>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal', paddingLeft: 12 }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={item.has_transport ?? true} 
+                                    onChange={(e) => updateItem(i, { has_transport: e.target.checked })}
+                                    style={{ width: 'auto', margin: 0 }}
+                                  /> 
+                                  Transporte / Movilidad
+                                </label>
+                              </td>
+                              <td style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>viaje</td>
+                              <td>
+                                <input type="number" step="0.01" min={0} value={item.transport_quantity ?? 1} onChange={(e) => updateItem(i, { transport_quantity: Number(e.target.value) })} style={{ width: 70 }} disabled={!item.has_transport} />
+                              </td>
+                              <td>
+                                <input type="number" step="0.01" min={0} value={item.transport_unit_cost ?? 0} onChange={(e) => updateItem(i, { transport_unit_cost: Number(e.target.value) })} style={{ width: 100 }} disabled={!item.has_transport} />
+                              </td>
+                              <td>
+                                <input type="number" step="1" min={0} value={item.transport_margin_percent ?? item.margin_percent} onChange={(e) => updateItem(i, { transport_margin_percent: Number(e.target.value) })} style={{ width: 80 }} disabled={!item.has_transport} />
+                              </td>
+                              <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                                {formatCurrency(calcUnitPrice(item.transport_unit_cost ?? 0, item.transport_margin_percent ?? item.margin_percent))}
+                              </td>
+                              <td style={{ fontSize: "0.8rem", color: item.has_transport ? "var(--success)" : "var(--text-muted)" }}>
+                                {formatCurrency(calcItemSubtotal(item.transport_quantity ?? 1, calcUnitPrice(item.transport_unit_cost ?? 0, item.transport_margin_percent ?? item.margin_percent)))}
+                              </td>
+                              <td></td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))}
                     </tbody>
                   </table>
