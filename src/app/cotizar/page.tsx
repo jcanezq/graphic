@@ -114,7 +114,8 @@ export default function CotizadorPage() {
           if (Array.isArray(parsed)) {
             const migrated = parsed.map(item => ({
               ...item,
-              base_unit_price: item.base_unit_price ?? item.unit_price ?? 0
+              base_unit_price: item.base_unit_price ?? item.unit_price ?? 0,
+              product_type: item.product_type || (item.product_code?.startsWith('SRV') ? 'Servicio' : 'Producto')
             }));
             setItems(migrated);
           }
@@ -738,7 +739,7 @@ export default function CotizadorPage() {
                           </div>
 
                           {/* Components Rows */}
-                          {item.product_type === 'Servicio' && (
+                          {(item.product_type === 'Servicio' || item.product_code?.startsWith('SRV')) && (
                             <div style={{ 
                               marginLeft: "1rem", 
                               padding: "0.75rem 1rem", 
