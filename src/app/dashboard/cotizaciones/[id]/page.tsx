@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
 import { formatCurrency, formatDate, formatDateLong, getStatusLabel, getStatusColor } from "@/lib/formatters";
-import { recalcQuotationItem, calcQuotationTotals } from "@/lib/calculations";
+import { recalcQuotationItem, calcQuotationTotals, calcUnitPrice, calcItemSubtotal } from "@/lib/calculations";
 import { ArrowLeft, Save, FileDown, Trash2, Search, MessageCircle, GitBranch } from "lucide-react";
 import Link from "next/link";
 

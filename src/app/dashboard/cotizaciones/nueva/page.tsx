@@ -10,6 +10,8 @@ import {
   createQuotationItemFromProduct,
   recalcQuotationItem,
   calcQuotationTotals,
+  calcUnitPrice,
+  calcItemSubtotal
 } from "@/lib/calculations";
 import { Save, ArrowLeft, Plus, Trash2, Search } from "lucide-react";
 import Link from "next/link";
