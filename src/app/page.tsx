@@ -73,9 +73,19 @@ export default function HomePage() {
           product_id: product.id,
           product_name: product.name,
           product_code: product.code,
+          product_type: product.type,
           unit: product.unit,
+          base_unit_price: product.unit_price,
           unit_price: product.unit_price,
           quantity: 1,
+          has_labor: true,
+          has_design: true,
+          has_transport: true,
+          labor_price: product.labor_price,
+          design_price: product.design_price,
+          transport_price: product.transport_price,
+          material_price: product.material_price,
+          other_price: product.other_price,
         });
       }
 
