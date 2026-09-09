@@ -6,6 +6,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Quotation, CompanySettings } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/formatters";
+import { calcUnitPrice, calcItemSubtotal } from "@/lib/calculations";
 
 export async function generatePDF(quotation: Quotation, settings: CompanySettings) {
   const doc = new jsPDF();
@@ -151,7 +152,7 @@ export async function generatePDF(quotation: Quotation, settings: CompanySetting
   autoTable(doc, {
     startY: infoY + 28,
     head: [["#", "Descripción", "Und.", "Cant.", "P.U.", "Subtotal"]],
-    body: items.map((item, i) => {
+    body: items.flatMap((item, i) => {
       let desc = item.product_name;
       // Filter out auto-generated line descriptions like "Product Name - Linea Category"
       if (
@@ -162,14 +163,62 @@ export async function generatePDF(quotation: Quotation, settings: CompanySetting
       ) {
         desc += `\n${item.product_description}`;
       }
-      return [
+      
+      const rows = [];
+      
+      // Calculate base price (excluding components)
+      const baseUnitPrice = calcUnitPrice(item.unit_cost, item.margin_percent);
+      const baseSubtotal = calcItemSubtotal(item.quantity, baseUnitPrice);
+      
+      rows.push([
         String(i + 1),
         desc,
         item.unit,
         String(item.quantity),
-        formatCurrency(item.unit_price),
-        formatCurrency(item.subtotal),
-      ];
+        formatCurrency(baseUnitPrice),
+        formatCurrency(baseSubtotal),
+      ]);
+
+      if (item.item_type === 'Servicio') {
+        if (item.has_labor && (item.labor_cost || 0) > 0) {
+          const up = calcUnitPrice(item.labor_unit_cost ?? 0, item.labor_margin_percent ?? item.margin_percent);
+          const sub = calcItemSubtotal(item.labor_quantity ?? 1, up);
+          rows.push([
+            "",
+            "   ↳ Mano de Obra",
+            "hr",
+            String(item.labor_quantity ?? 1),
+            formatCurrency(up),
+            formatCurrency(sub),
+          ]);
+        }
+        if (item.has_design && (item.design_cost || 0) > 0) {
+          const up = calcUnitPrice(item.design_unit_cost ?? 0, item.design_margin_percent ?? item.margin_percent);
+          const sub = calcItemSubtotal(item.design_quantity ?? 1, up);
+          rows.push([
+            "",
+            "   ↳ Diseño Gráfico",
+            "hr",
+            String(item.design_quantity ?? 1),
+            formatCurrency(up),
+            formatCurrency(sub),
+          ]);
+        }
+        if (item.has_transport && (item.transport_cost || 0) > 0) {
+          const up = calcUnitPrice(item.transport_unit_cost ?? 0, item.transport_margin_percent ?? item.margin_percent);
+          const sub = calcItemSubtotal(item.transport_quantity ?? 1, up);
+          rows.push([
+            "",
+            "   ↳ Transporte / Movilidad",
+            "viaje",
+            String(item.transport_quantity ?? 1),
+            formatCurrency(up),
+            formatCurrency(sub),
+          ]);
+        }
+      }
+
+      return rows;
     }),
     theme: "plain",
     headStyles: {

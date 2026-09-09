@@ -679,110 +679,171 @@ export default function CotizadorPage() {
                             flexWrap: "wrap",
                           }}
                         >
-                          <div style={{ flex: 1, minWidth: "200px" }}>
-                            <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--text-primary)" }}>
-                              {item.product_name}
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+                            <div style={{ flex: 1, minWidth: "200px" }}>
+                              <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--text-primary)" }}>
+                                {item.product_name}
+                              </div>
+                              <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
+                                Cód: {item.product_code}
+                              </div>
                             </div>
-                            <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
-                              Cód: {item.product_code} · Estimado: {formatCurrency(item.unit_price)} / {item.unit}
+                            
+                            {/* P.V. Unit */}
+                            <div style={{ width: "100px", textAlign: "right" }}>
+                              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", display: "block", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>P.V. Unit</span>
+                              <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--text-secondary)" }}>
+                                {formatCurrency(item.base_unit_price)}
+                              </span>
                             </div>
-                            {item.product_type === 'Servicio' && (
-                              <div style={{ marginTop: 12, padding: 12, background: 'var(--bg-primary)', borderRadius: 8, border: '1px solid var(--surface-divider)', fontSize: '0.8rem' }}>
-                                <div style={{ fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>Desglose de Componentes:</div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, color: 'var(--text-muted)' }}>
-                                  <div>· Materiales: {formatCurrency(item.material_price || 0)}</div>
-                                  <div>· Producción/Otros: {formatCurrency(item.other_price || 0)}</div>
-                                </div>
-                                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--surface-divider)', paddingTop: 10 }}>
-                                  {item.labor_price !== undefined && item.labor_price > 0 && (
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
+
+                            {/* Quantity control */}
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100px" }}>
+                              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", display: "block", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Cant.</span>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity}
+                                  onChange={(e) => handleQuantityChange(idx, Number(e.target.value))}
+                                  style={{
+                                    width: "60px", padding: "0.3rem", border: "1px solid var(--surface-border)",
+                                    borderRadius: "var(--radius-sm)", fontSize: "0.9rem", fontWeight: 600, textAlign: "center",
+                                  }}
+                                />
+                                <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{item.unit}</span>
+                              </div>
+                            </div>
+
+                            {/* Subtotal */}
+                            <div style={{ textAlign: "right", minWidth: "90px" }}>
+                              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", display: "block", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Subtotal</span>
+                              <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                                {formatCurrency(item.quantity * item.base_unit_price)}
+                              </div>
+                            </div>
+
+                            {/* Delete */}
+                            <button
+                              onClick={() => handleRemoveItem(idx)}
+                              style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "0.4rem", marginTop: 14 }}
+                              title="Eliminar ítem"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+
+                          {/* Components Rows */}
+                          {item.product_type === 'Servicio' && (
+                            <div style={{ 
+                              marginLeft: "1rem", 
+                              padding: "0.75rem 1rem", 
+                              background: "var(--bg-primary)", 
+                              borderRadius: "var(--radius-md)", 
+                              border: "1px solid var(--surface-divider)",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.65rem"
+                            }}>
+                              {/* Component Header */}
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", paddingBottom: "0.4rem", borderBottom: "1px solid var(--surface-divider)", fontSize: "0.7rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>
+                                <div style={{ flex: 1, minWidth: "180px" }}>Componente Opcional</div>
+                                <div style={{ width: "90px", textAlign: "right" }}>P.V. Unit</div>
+                                <div style={{ width: "90px", textAlign: "center" }}>Cant.</div>
+                                <div style={{ minWidth: "90px", textAlign: "right" }}>Subtotal</div>
+                                <div style={{ width: "32px" }}></div>
+                              </div>
+
+                              {/* Labor Row */}
+                              {item.labor_price !== undefined && item.labor_price > 0 && (
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", opacity: item.has_labor ? 1 : 0.5, transition: "opacity 0.2s" }}>
+                                  <div style={{ flex: 1, minWidth: "180px" }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-primary)', margin: 0, fontWeight: 500 }}>
                                       <input 
                                         type="checkbox" 
                                         checked={item.has_labor ?? true} 
                                         onChange={(e) => handleToggleServiceOption(idx, 'labor', e.target.checked)}
                                         style={{ width: 'auto', margin: 0 }}
                                       /> 
-                                      Incluir Mano de Obra (Instalación): {formatCurrency(item.labor_price)}
+                                      Mano de Obra
                                     </label>
-                                  )}
-                                  {item.design_price !== undefined && item.design_price > 0 && (
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
+                                  </div>
+                                  <div style={{ width: "90px", textAlign: "right", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                                    {formatCurrency(item.labor_price)}
+                                  </div>
+                                  <div style={{ width: "90px", textAlign: "center", fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                                    1 hr
+                                  </div>
+                                  <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.9rem", fontWeight: 600, color: item.has_labor ? "var(--success)" : "var(--text-muted)" }}>
+                                    {formatCurrency(item.has_labor ? item.labor_price : 0)}
+                                  </div>
+                                  <div style={{ width: "32px" }}></div>
+                                </div>
+                              )}
+                              
+                              {/* Design Row */}
+                              {item.design_price !== undefined && item.design_price > 0 && (
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", opacity: item.has_design ? 1 : 0.5, transition: "opacity 0.2s" }}>
+                                  <div style={{ flex: 1, minWidth: "180px" }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-primary)', margin: 0, fontWeight: 500 }}>
                                       <input 
                                         type="checkbox" 
                                         checked={item.has_design ?? true} 
                                         onChange={(e) => handleToggleServiceOption(idx, 'design', e.target.checked)}
                                         style={{ width: 'auto', margin: 0 }}
                                       /> 
-                                      Incluir Diseño Gráfico: {formatCurrency(item.design_price)}
+                                      Diseño Gráfico
                                     </label>
-                                  )}
-                                  {item.transport_price !== undefined && item.transport_price > 0 && (
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal' }}>
+                                  </div>
+                                  <div style={{ width: "90px", textAlign: "right", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                                    {formatCurrency(item.design_price)}
+                                  </div>
+                                  <div style={{ width: "90px", textAlign: "center", fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                                    1 hr
+                                  </div>
+                                  <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.9rem", fontWeight: 600, color: item.has_design ? "var(--success)" : "var(--text-muted)" }}>
+                                    {formatCurrency(item.has_design ? item.design_price : 0)}
+                                  </div>
+                                  <div style={{ width: "32px" }}></div>
+                                </div>
+                              )}
+
+                              {/* Transport Row */}
+                              {item.transport_price !== undefined && item.transport_price > 0 && (
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", opacity: item.has_transport ? 1 : 0.5, transition: "opacity 0.2s" }}>
+                                  <div style={{ flex: 1, minWidth: "180px" }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-primary)', margin: 0, fontWeight: 500 }}>
                                       <input 
                                         type="checkbox" 
                                         checked={item.has_transport ?? true} 
                                         onChange={(e) => handleToggleServiceOption(idx, 'transport', e.target.checked)}
                                         style={{ width: 'auto', margin: 0 }}
                                       /> 
-                                      Incluir Transporte / Movilidad: {formatCurrency(item.transport_price)}
+                                      Transporte / Movilidad
                                     </label>
-                                  )}
-                                  {item.has_design === false && (
-                                    <div style={{ marginTop: 2, padding: 8, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--surface-divider)' }}>
-                                      <span style={{ fontSize: '0.75rem', display: 'block', fontWeight: 500, color: 'var(--text-secondary)' }}>
-                                        * Importante: Como desmarcaste Diseño Gráfico, deberás enviar tu archivo final por WhatsApp.
-                                      </span>
-                                    </div>
-                                  )}
+                                  </div>
+                                  <div style={{ width: "90px", textAlign: "right", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                                    {formatCurrency(item.transport_price)}
+                                  </div>
+                                  <div style={{ width: "90px", textAlign: "center", fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                                    1 viaje
+                                  </div>
+                                  <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.9rem", fontWeight: 600, color: item.has_transport ? "var(--success)" : "var(--text-muted)" }}>
+                                    {formatCurrency(item.has_transport ? item.transport_price : 0)}
+                                  </div>
+                                  <div style={{ width: "32px" }}></div>
                                 </div>
-                              </div>
-                            )}
-                          </div>
+                              )}
 
-                          {/* Quantity control */}
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 500 }}>
-                              Cantidad:
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={(e) => handleQuantityChange(idx, Number(e.target.value))}
-                              style={{
-                                width: "70px",
-                                padding: "0.4rem 0.5rem",
-                                border: "1px solid var(--surface-border)",
-                                borderRadius: "var(--radius-sm)",
-                                fontSize: "0.9rem",
-                                fontWeight: 600,
-                                textAlign: "center",
-                              }}
-                            />
-                            <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{item.unit}</span>
-                          </div>
-
-                          {/* Subtotal */}
-                          <div style={{ textAlign: "right", minWidth: "100px" }}>
-                            <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text-primary)" }}>
-                              {formatCurrency(item.quantity * item.unit_price)}
+                              {item.has_design === false && (
+                                <div style={{ marginTop: 4, padding: 8, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--surface-divider)' }}>
+                                  <span style={{ fontSize: '0.75rem', display: 'block', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                                    * Importante: Como desmarcaste Diseño Gráfico, deberás enviar tu archivo final por WhatsApp.
+                                  </span>
+                                </div>
+                              )}
                             </div>
-                          </div>
-
-                          {/* Delete */}
-                          <button
-                            onClick={() => handleRemoveItem(idx)}
-                            style={{
-                              background: "transparent",
-                              border: "none",
-                              color: "var(--text-muted)",
-                              cursor: "pointer",
-                              padding: "0.4rem",
-                            }}
-                            title="Eliminar ítem"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          )}
                         </div>
                       ))}
                     </div>
