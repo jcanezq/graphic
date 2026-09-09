@@ -102,6 +102,24 @@ export default function NewQuotationPage() {
     if (clientRuc.length !== 11) return;
     try {
       setSearchingRuc(true);
+
+      // Check if client is already in our database
+      const { data: existingClient } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("ruc", clientRuc)
+        .maybeSingle();
+
+      if (existingClient) {
+        setClientName(existingClient.name);
+        setClientAddress(existingClient.address || "");
+        setClientPhone(existingClient.phone || "");
+        setClientEmail(existingClient.email || "");
+        showToast("Datos de cliente recuperados");
+        return;
+      }
+
+      // If not, fetch from external API
       const data = await fetchRucData(clientRuc);
       setClientName(data.razonSocial);
       setClientAddress(data.direccion);
