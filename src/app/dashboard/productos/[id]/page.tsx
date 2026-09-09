@@ -50,12 +50,6 @@ export default function ProductFormPage() {
     }
   });
 
-  useEffect(() => {
-    fetchCategories();
-    fetchMasterMaterials();
-    if (productId) fetchProduct();
-  }, [productId, fetchCategories, fetchMasterMaterials, fetchProduct]);
-
   const fetchMasterMaterials = useCallback(async () => {
     const { data } = await supabase.from("materials").select("*").order("name");
     // Also filter out deleted ones if soft deletes are used: .is("deleted_at", null)
@@ -100,6 +94,12 @@ export default function ProductFormPage() {
     }
     setLoading(false);
   }, [supabase, productId, form]);
+
+  useEffect(() => {
+    fetchCategories();
+    fetchMasterMaterials();
+    if (productId) fetchProduct();
+  }, [productId, fetchCategories, fetchMasterMaterials, fetchProduct]);
 
   const onSubmit = async (values: ProductFormValues) => {
     setSaving(true);

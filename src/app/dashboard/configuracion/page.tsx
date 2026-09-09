@@ -28,10 +28,6 @@ export default function SettingsPage() {
   const [quotationPrefix, setQuotationPrefix] = useState("COT");
   const [nextNumber, setNextNumber] = useState(1);
 
-  useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
-
   const fetchSettings = useCallback(async () => {
     const { data } = await supabase.from("company_settings").select("*").limit(1).single();
     if (data) {
@@ -50,6 +46,10 @@ export default function SettingsPage() {
     }
     setLoading(false);
   }, [supabase]);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   async function handleRucSearch() {
     if (ruc.length !== 11) return;
