@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
@@ -20,7 +20,7 @@ import { CostSummarySection } from "@/components/products/CostSummarySection";
 export default function ServiceFormPage() {
   const router = useRouter();
   const params = useParams();
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const { showToast } = useToast();
 
   const isNew = params.id === "nuevo";
@@ -54,20 +54,19 @@ export default function ServiceFormPage() {
     fetchCategories();
     fetchMasterMaterials();
     if (productId) fetchProduct();
-  }, [productId]);
+  }, [productId, fetchCategories, fetchMasterMaterials, fetchProduct]);
 
-  async function fetchMasterMaterials() {
+  const fetchMasterMaterials = useCallback(async () => {
     const { data } = await supabase.from("materials").select("*").order("name");
-    // Also filter out deleted ones if soft deletes are used: .is("deleted_at", null)
     setMasterMaterials((data as Material[]) || []);
-  }
+  }, [supabase]);
 
-  async function fetchCategories() {
+  const fetchCategories = useCallback(async () => {
     const { data } = await supabase.from("categories").select("*").order("sort_order");
     setCategories((data as Category[]) || []);
-  }
+  }, [supabase]);
 
-  async function fetchProduct() {
+  const fetchProduct = useCallback(async () => {
     const [prodRes, matRes, labRes, indRes] = await Promise.all([
       supabase.from("products").select("*").eq("id", productId).single(),
       supabase.from("product_materials").select("*, materials(id, cost, name, unit)").eq("product_id", productId),
@@ -99,7 +98,7 @@ export default function ServiceFormPage() {
       });
     }
     setLoading(false);
-  }
+  }, [supabase, productId, form]);
 
   const onSubmit = async (values: ProductFormValues) => {
     setSaving(true);

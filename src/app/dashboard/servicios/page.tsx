@@ -15,10 +15,11 @@ import {
   Package,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import type { Product, Category } from "@/types";
 
 export default function ServicesPage() {
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
@@ -322,20 +323,27 @@ export default function ServicesPage() {
                       <td className="primary">
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           {p.image_url ? (
-                            <img
-                              src={p.image_url}
-                              alt={p.name}
+                            <div 
                               onClick={() => setSelectedImage(p.image_url || null)}
                               style={{
+                                position: "relative",
                                 width: 40,
                                 height: 40,
                                 borderRadius: "var(--radius-sm)",
-                                objectFit: "cover",
+                                overflow: "hidden",
                                 flexShrink: 0,
                                 border: "1px solid var(--surface-border)",
                                 cursor: "pointer",
                               }}
-                            />
+                            >
+                              <Image
+                                src={p.image_url}
+                                alt={p.name}
+                                fill
+                                style={{ objectFit: "cover" }}
+                                sizes="40px"
+                              />
+                            </div>
                           ) : (
                             <div
                               style={{
@@ -489,17 +497,15 @@ export default function ServicesPage() {
           }}
           onClick={() => setSelectedImage(null)}
         >
-          <img
-            src={selectedImage}
-            alt="Vista previa"
-            style={{
-              maxWidth: "90%",
-              maxHeight: "90%",
-              borderRadius: "var(--radius-md)",
-              objectFit: "contain",
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)",
-            }}
-          />
+          <div style={{ position: "relative", width: "90%", height: "90%", borderRadius: "var(--radius-md)", overflow: "hidden", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)" }}>
+            <Image
+              src={selectedImage}
+              alt="Vista previa"
+              fill
+              style={{ objectFit: "contain" }}
+              sizes="90vw"
+            />
+          </div>
         </div>
       )}
     </div>

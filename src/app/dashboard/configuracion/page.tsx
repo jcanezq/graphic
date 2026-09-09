@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
 import { Save, Building2, Search, Upload, Image as ImageIcon, X } from "lucide-react";
@@ -8,7 +9,7 @@ import type { CompanySettings } from "@/types";
 import { fetchRucData } from "@/lib/ruc";
 
 export default function SettingsPage() {
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -29,9 +30,9 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchSettings();
-  }, []);
+  }, [fetchSettings]);
 
-  async function fetchSettings() {
+  const fetchSettings = useCallback(async () => {
     const { data } = await supabase.from("company_settings").select("*").limit(1).single();
     if (data) {
       const s = data as CompanySettings;
@@ -48,7 +49,7 @@ export default function SettingsPage() {
       setLogoUrl(s.logo_url || null);
     }
     setLoading(false);
-  }
+  }, [supabase]);
 
   async function handleRucSearch() {
     if (ruc.length !== 11) return;
@@ -182,7 +183,7 @@ export default function SettingsPage() {
                 }}>
                   {logoUrl ? (
                     <>
-                      <img src={logoUrl} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                      <Image src={logoUrl} alt="Logo" fill style={{ objectFit: "contain" }} sizes="120px" />
                       <button 
                         type="button" 
                         onClick={handleRemoveLogo}
