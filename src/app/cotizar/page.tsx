@@ -739,7 +739,7 @@ export default function CotizadorPage() {
                           </div>
 
                           {/* Components Rows */}
-                          {(item.product_type === 'Servicio' || item.product_code?.startsWith('SRV')) && (
+                          {((item.labor_price ?? 0) > 0 || (item.design_price ?? 0) > 0 || (item.transport_price ?? 0) > 0) && (
                             <div style={{ 
                               marginLeft: "1rem", 
                               padding: "0.75rem 1rem", 

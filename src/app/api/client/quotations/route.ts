@@ -230,6 +230,7 @@ export async function POST(request: Request) {
       quotationItems.map((item, idx) => ({
         quotation_id: quotation.id,
         product_id: item.product_id || null,
+        item_type: item.item_type || null,
         sort_order: idx,
         product_code: item.product_code,
         product_name: item.product_name,

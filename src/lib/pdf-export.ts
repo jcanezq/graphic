@@ -179,43 +179,41 @@ export async function generatePDF(quotation: Quotation, settings: CompanySetting
         formatCurrency(baseSubtotal),
       ]);
 
-      if (item.item_type === 'Servicio') {
-        if (item.has_labor && (item.labor_cost || 0) > 0) {
-          const up = calcUnitPrice(item.labor_unit_cost ?? 0, item.labor_margin_percent ?? item.margin_percent);
-          const sub = calcItemSubtotal(item.labor_quantity ?? 1, up);
-          rows.push([
-            "",
-            "   ↳ Mano de Obra",
-            "hr",
-            String(item.labor_quantity ?? 1),
-            formatCurrency(up),
-            formatCurrency(sub),
-          ]);
-        }
-        if (item.has_design && (item.design_cost || 0) > 0) {
-          const up = calcUnitPrice(item.design_unit_cost ?? 0, item.design_margin_percent ?? item.margin_percent);
-          const sub = calcItemSubtotal(item.design_quantity ?? 1, up);
-          rows.push([
-            "",
-            "   ↳ Diseño Gráfico",
-            "hr",
-            String(item.design_quantity ?? 1),
-            formatCurrency(up),
-            formatCurrency(sub),
-          ]);
-        }
-        if (item.has_transport && (item.transport_cost || 0) > 0) {
-          const up = calcUnitPrice(item.transport_unit_cost ?? 0, item.transport_margin_percent ?? item.margin_percent);
-          const sub = calcItemSubtotal(item.transport_quantity ?? 1, up);
-          rows.push([
-            "",
-            "   ↳ Transporte / Movilidad",
-            "viaje",
-            String(item.transport_quantity ?? 1),
-            formatCurrency(up),
-            formatCurrency(sub),
-          ]);
-        }
+      if (item.has_labor && (item.labor_cost || 0) > 0) {
+        const up = calcUnitPrice(item.labor_unit_cost ?? 0, item.labor_margin_percent ?? item.margin_percent);
+        const sub = calcItemSubtotal(item.labor_quantity ?? 1, up);
+        rows.push([
+          "",
+          "   ↳ Mano de Obra",
+          "hr",
+          String(item.labor_quantity ?? 1),
+          formatCurrency(up),
+          formatCurrency(sub),
+        ]);
+      }
+      if (item.has_design && (item.design_cost || 0) > 0) {
+        const up = calcUnitPrice(item.design_unit_cost ?? 0, item.design_margin_percent ?? item.margin_percent);
+        const sub = calcItemSubtotal(item.design_quantity ?? 1, up);
+        rows.push([
+          "",
+          "   ↳ Diseño Gráfico",
+          "hr",
+          String(item.design_quantity ?? 1),
+          formatCurrency(up),
+          formatCurrency(sub),
+        ]);
+      }
+      if (item.has_transport && (item.transport_cost || 0) > 0) {
+        const up = calcUnitPrice(item.transport_unit_cost ?? 0, item.transport_margin_percent ?? item.margin_percent);
+        const sub = calcItemSubtotal(item.transport_quantity ?? 1, up);
+        rows.push([
+          "",
+          "   ↳ Transporte / Movilidad",
+          "viaje",
+          String(item.transport_quantity ?? 1),
+          formatCurrency(up),
+          formatCurrency(sub),
+        ]);
       }
 
       return rows;

@@ -454,7 +454,7 @@ export default function QuotationDetailPage() {
                                   {item.product_code}
                                 </div>
                               )}
-                              {(item.item_type === 'Servicio' && item.has_design === false) && (
+                              {(item.has_design === false && (item.design_cost || 0) > 0) && (
                                 <div style={{ marginTop: 4, padding: 6, background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
                                   <span style={{ fontSize: '0.7rem', display: 'block', marginBottom: 4, fontWeight: 500 }}>
                                     Diseño adjunto por cliente
@@ -520,7 +520,7 @@ export default function QuotationDetailPage() {
                             </td>
                           </tr>
                           
-                          {item.item_type === 'Servicio' && (item.labor_cost || 0) > 0 && (
+                          {(item.labor_cost || 0) > 0 && (
                             <tr style={{ background: item.has_labor ? 'var(--bg-glass)' : 'transparent', opacity: item.has_labor ? 1 : 0.5 }}>
                               <td></td>
                               <td>
@@ -554,7 +554,7 @@ export default function QuotationDetailPage() {
                             </tr>
                           )}
                           
-                          {item.item_type === 'Servicio' && (item.design_cost || 0) > 0 && (
+                          {(item.design_cost || 0) > 0 && (
                             <tr style={{ background: item.has_design ? 'var(--bg-glass)' : 'transparent', opacity: item.has_design ? 1 : 0.5 }}>
                               <td></td>
                               <td>
@@ -588,7 +588,7 @@ export default function QuotationDetailPage() {
                             </tr>
                           )}
 
-                          {item.item_type === 'Servicio' && (item.transport_cost || 0) > 0 && (
+                          {(item.transport_cost || 0) > 0 && (
                             <tr style={{ background: item.has_transport ? 'var(--bg-glass)' : 'transparent', opacity: item.has_transport ? 1 : 0.5 }}>
                               <td></td>
                               <td>
