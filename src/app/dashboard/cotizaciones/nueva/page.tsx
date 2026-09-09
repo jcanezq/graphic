@@ -50,11 +50,12 @@ export default function NewQuotationPage() {
   const { data: initialData, isLoading } = useQuery({
     queryKey: ['quotation_form_data'],
     queryFn: async () => {
-      const [settingsRes, productsRes, clientsRes, categoriesRes] = await Promise.all([
+      const [settingsRes, productsRes, clientsRes, categoriesRes, materialsRes] = await Promise.all([
         supabase.from("company_settings").select("*").limit(1).single(),
         supabase.from("products").select("*").eq("is_active", true).order("name"),
         supabase.from("clients").select("*").order("name"),
         supabase.from("categories").select("*").is("deleted_at", null).order("name"),
+        supabase.from("materials").select("*").is("deleted_at", null).order("name"),
       ]);
 
       const stg = settingsRes.data as CompanySettings;
@@ -84,6 +85,26 @@ export default function NewQuotationPage() {
             indirect_costs: (indRes.data || []).filter((ic: any) => ic.product_id === p.id),
           };
         });
+      }
+
+      if (materialsRes.data && materialsRes.data.length > 0) {
+        const matsAsProducts: Product[] = materialsRes.data.map((m: any) => ({
+          id: m.id,
+          code: `MAT`,
+          name: m.name,
+          type: 'Material',
+          unit: m.unit,
+          description: '',
+          image_url: null,
+          category_id: null,
+          manual_unit_cost: m.cost,
+          default_margin: stg?.default_margin ?? 30,
+          is_active: true,
+          materials: [],
+          labor: [],
+          indirect_costs: []
+        }));
+        prods = [...prods, ...matsAsProducts];
       }
 
       return {
