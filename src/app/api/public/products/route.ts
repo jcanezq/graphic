@@ -49,7 +49,7 @@ export async function GET() {
         .in("product_id", productIds),
       supabase
         .from("product_indirect_costs")
-        .select("product_id, cost")
+        .select("product_id, concept, cost")
         .in("product_id", productIds),
     ]);
 
