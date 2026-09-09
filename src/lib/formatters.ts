@@ -6,7 +6,8 @@
  * Format a number as Peruvian Soles currency.
  * e.g. 1234.5 → "S/ 1,234.50"
  */
-export function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number | null | undefined): string {
+  if (amount == null || isNaN(amount)) return 'S/ 0.00';
   return `S/ ${amount.toLocaleString('es-PE', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -17,7 +18,8 @@ export function formatCurrency(amount: number): string {
  * Format a number as currency without the symbol.
  * e.g. 1234.5 → "1,234.50"
  */
-export function formatNumber(amount: number, decimals: number = 2): string {
+export function formatNumber(amount: number | null | undefined, decimals: number = 2): string {
+  if (amount == null || isNaN(amount)) return '0.00';
   return amount.toLocaleString('es-PE', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,

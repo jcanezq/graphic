@@ -112,7 +112,11 @@ export default function CotizadorPage() {
         if (savedDraft) {
           const parsed = JSON.parse(savedDraft);
           if (Array.isArray(parsed)) {
-            setItems(parsed);
+            const migrated = parsed.map(item => ({
+              ...item,
+              base_unit_price: item.base_unit_price ?? item.unit_price ?? 0
+            }));
+            setItems(migrated);
           }
         }
 
