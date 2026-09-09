@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: typecheck · lint · test · build
+    runs-on: ubuntu-latest
+    env:
+      # Valores dummy: el build construye el cliente de Supabase pero no hace
+      # peticiones de red. La URL debe ser parseable o @supabase/supabase-js
+      # lanza "Invalid URL"; son los mismos placeholders que ya usa
+      # src/lib/supabase/client.ts cuando faltan las variables.
+      # NO poner credenciales reales acá: van como GitHub Secrets si algún día
+      # el CI necesita hablar con Supabase de verdad.
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-key
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
