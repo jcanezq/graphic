@@ -100,6 +100,9 @@ export default function NewQuotationPage() {
           manual_unit_cost: m.cost,
           default_margin: stg?.default_margin ?? 30,
           is_active: true,
+          created_at: m.created_at || new Date().toISOString(),
+          updated_at: m.updated_at || new Date().toISOString(),
+          deleted_at: null,
           materials: [],
           labor: [],
           indirect_costs: []
