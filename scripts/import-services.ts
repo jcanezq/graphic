@@ -17,7 +17,15 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const EXCEL_PATH = path.join(__dirname, '../docs/Costos de Servicio.xlsx');
+// El libro de costos ya no vive en el repo (contiene márgenes internos).
+// Definir COSTS_XLSX_PATH en .env.local apuntando a la copia local.
+const EXCEL_PATH = process.env.COSTS_XLSX_PATH;
+if (!EXCEL_PATH) {
+  console.error(
+    "Falta COSTS_XLSX_PATH: ruta al libro de costos, que ya no se versiona en el repo."
+  );
+  process.exit(1);
+}
 
 function parseCurrency(str: any): number {
   if (!str) return 0;

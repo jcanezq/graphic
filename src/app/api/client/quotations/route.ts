@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { clientQuotationSchema } from "@/lib/validations/api";
+import { serverError } from "@/lib/api-error";
+import { createAdminClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/guards";
 import {
   createQuotationItemFromProduct,
   calcQuotationTotals,
@@ -10,19 +13,29 @@ import type { Product } from "@/types";
 
 export async function POST(request: Request) {
   try {
-    const userClient = createClient();
-    const {
-      data: { user },
-    } = await userClient.auth.getUser();
+    // AUTORIZACIÓN: solo exige sesión. La cotización se crea SIEMPRE a nombre
+    // del usuario autenticado (user_id abajo); el cuerpo no puede elegir dueño.
+    const auth = await requireUser();
+    if (auth instanceof NextResponse) return auth;
+    const { user } = auth;
 
-    if (!user) {
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Cuerpo de la petición inválido." }, { status: 400 });
+    }
+
+    const parsed = clientQuotationSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      // Solo el primer mensaje, y son mensajes propios: no se filtra la forma interna.
+      const first = parsed.error.issues[0];
       return NextResponse.json(
-        { error: "Debes iniciar sesión para generar la cotización." },
-        { status: 401 }
+        { error: first?.message || "Datos de la cotización inválidos." },
+        { status: 400 }
       );
     }
 
-    const body = await request.json();
     const {
       client_name,
       client_phone,
@@ -31,28 +44,7 @@ export async function POST(request: Request) {
       client_address,
       notes,
       items: rawItems,
-    } = body;
-
-    if (!client_name || !client_name.trim()) {
-      return NextResponse.json(
-        { error: "El nombre o razón social es obligatorio." },
-        { status: 400 }
-      );
-    }
-
-    if (!client_phone || !client_phone.trim()) {
-      return NextResponse.json(
-        { error: "El número de teléfono o WhatsApp es obligatorio para confirmar tu cotización." },
-        { status: 400 }
-      );
-    }
-
-    if (!rawItems || !Array.isArray(rawItems) || rawItems.length === 0) {
-      return NextResponse.json(
-        { error: "Debes incluir al menos un producto o servicio en tu cotización." },
-        { status: 400 }
-      );
-    }
+    } = parsed.data;
 
     const adminClient = createAdminClient();
 
@@ -123,7 +115,8 @@ export async function POST(request: Request) {
       const prod = productMap.get(raw.product_id);
       if (!prod) continue;
 
-      const qty = Math.max(1, Number(raw.quantity) || 1);
+      // Ya validado y acotado por clientQuotationItemSchema (1..MAX_QUANTITY_PER_ITEM).
+      const qty = raw.quantity;
       const margin = settings?.default_margin ?? prod.default_margin ?? 30;
       let snapItem = createQuotationItemFromProduct(prod, qty, margin, i);
       
@@ -165,9 +158,15 @@ export async function POST(request: Request) {
       }
     }
 
-    // 6. Upsert client record
+    // 6. Alta de cliente en el CRM — SOLO alta, nunca actualización.
+    //
+    // Antes esto era un upsert por `name`, con el cliente admin (service role, sin RLS):
+    // mandar el nombre de un cliente existente SOBREESCRIBÍA su teléfono, correo, RUC y
+    // dirección con los del atacante, desviando las comunicaciones de la empresa.
+    // `ignoreDuplicates` convierte la colisión en no-op: los datos de un cliente ya
+    // registrado solo los cambia un administrador desde el panel.
     const resolvedEmail = client_email?.trim() || user.email || null;
-    await adminClient.from("clients").upsert(
+    const { error: clientError } = await adminClient.from("clients").upsert(
       {
         name: client_name.trim(),
         ruc: client_ruc?.trim() || null,
@@ -175,8 +174,12 @@ export async function POST(request: Request) {
         phone: client_phone.trim(),
         email: resolvedEmail,
       },
-      { onConflict: "name" }
+      { onConflict: "name", ignoreDuplicates: true }
     );
+    if (clientError) {
+      // No es fatal: la cotización guarda su propio snapshot de client_* y es lo que vale.
+      console.error("[client/quotations] no se pudo registrar el cliente:", clientError);
+    }
 
     // 7. Insert quotation into database
     // We try 'solicitada', if DB check constraint fails, fall back to 'borrador'
@@ -218,10 +221,10 @@ export async function POST(request: Request) {
     }
 
     if (insertError || !quotation) {
-      console.error("Error creating quotation:", insertError);
-      return NextResponse.json(
-        { error: "Error al guardar la cotización: " + (insertError?.message || "Desconocido") },
-        { status: 500 }
+      return serverError(
+        "client/quotations:insert",
+        insertError,
+        "No se pudo guardar la cotización. Intenta nuevamente."
       );
     }
 
@@ -254,9 +257,10 @@ export async function POST(request: Request) {
 
     if (itemsError) {
       await adminClient.from("quotations").delete().eq("id", quotation.id);
-      return NextResponse.json(
-        { error: "Error guardando los ítems de la cotización: " + itemsError.message },
-        { status: 500 }
+      return serverError(
+        "client/quotations:items",
+        itemsError,
+        "No se pudo guardar el detalle de la cotización. Intenta nuevamente."
       );
     }
 
@@ -281,11 +285,7 @@ export async function POST(request: Request) {
       total: totals.total,
       whatsappUrl,
     });
-  } catch (error: any) {
-    console.error("[client/quotations error]:", error);
-    return NextResponse.json(
-      { error: "Error interno al procesar la cotización: " + error.message },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return serverError("client/quotations:unhandled", error);
   }
 }

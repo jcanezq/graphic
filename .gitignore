@@ -13,3 +13,7 @@ node_modules
 /playwright/.auth/
 
 seed-*.js
+
+# Estructura de costos y márgenes: NO versionar (auditoría 2026-09-09, hallazgo M-3)
+*.xlsx
+!docs/plantilla-*.xlsx

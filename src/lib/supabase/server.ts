@@ -36,12 +36,25 @@ export function createClient() {
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 export function createAdminClient() {
-  const serviceKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  // Antes había un fallback a la anon key. Era un fallo silencioso: la función
+  // seguía llamándose createAdminClient, devolvía un cliente sin privilegios y el
+  // catálogo público terminaba publicando productos a S/ 1.00 por el fallback de
+  // precio. Un error ruidoso en el arranque es infinitamente más barato que eso.
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    throw new Error(
+      "SUPABASE_SERVICE_ROLE_KEY no está configurada: createAdminClient() no puede operar. " +
+        "Definirla en el entorno del servidor (nunca como NEXT_PUBLIC_)."
+    );
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL no está configurada.");
+  }
 
   return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    url,
     serviceKey,
     {
       auth: { persistSession: false },

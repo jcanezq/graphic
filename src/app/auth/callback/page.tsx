@@ -14,19 +14,28 @@ export default function AuthCallback() {
         const params = new URLSearchParams(window.location.search);
         const code = params.get("code");
 
-        const resolveRedirect = (email?: string) => {
+        // Solo rutas internas conocidas. Un destino arbitrario acá era un open redirect
+        // (y, con esquema javascript:, un vector de XSS en el origen de la app).
+        const SAFE_DESTINATIONS = new Set(["/dashboard", "/cotizar", "/mis-cotizaciones"]);
+        const sanitizeDestination = (raw: string | null): string | null => {
+          if (!raw) return null;
+          if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+          const path = raw.split(/[?#]/)[0];
+          return SAFE_DESTINATIONS.has(path) ? raw : null;
+        };
+
+        const resolveRedirect = () => {
           const stored = localStorage.getItem("cotigrafic_auth_redirect");
           if (stored) {
             localStorage.removeItem("cotigrafic_auth_redirect");
-            return stored;
+            const safeStored = sanitizeDestination(stored);
+            if (safeStored) return safeStored;
           }
-          const redirectParam = params.get("redirect");
-          if (redirectParam) return redirectParam;
+          const safeParam = sanitizeDestination(params.get("redirect"));
+          if (safeParam) return safeParam;
 
-          const lowerEmail = email?.toLowerCase() || "";
-          if (lowerEmail.endsWith("@cotigrafic.local") || lowerEmail === "admin@graph.com") {
-            return "/dashboard";
-          }
+          // Sin destino explícito: el landing neutro. Si el usuario es admin, el middleware
+          // lo manda al panel; el privilegio no se adivina desde el correo.
           return "/cotizar";
         };
 
@@ -36,7 +45,7 @@ export default function AuthCallback() {
         } = await supabase.auth.getSession();
         if (existing) {
           setStatus("Sesión detectada. Redirigiendo...");
-          window.location.href = resolveRedirect(existing.user?.email);
+          window.location.href = resolveRedirect();
           return;
         }
 
@@ -46,7 +55,7 @@ export default function AuthCallback() {
           const { data, error } = await supabase.auth.exchangeCodeForSession(code);
           if (!error) {
             setStatus("Acceso confirmado. Redirigiendo...");
-            window.location.href = resolveRedirect(data.user?.email);
+            window.location.href = resolveRedirect();
             return;
           }
           setStatus("Error de autenticación. Redirigiendo...");
@@ -61,7 +70,7 @@ export default function AuthCallback() {
         } = supabase.auth.onAuthStateChange(async (_event, session) => {
           if (session) {
             subscription.unsubscribe();
-            window.location.href = resolveRedirect(session.user?.email);
+            window.location.href = resolveRedirect();
           }
         });
 

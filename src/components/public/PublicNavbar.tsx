@@ -19,11 +19,18 @@ export function PublicNavbar() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
 
-      if (user?.email) {
-        const email = user.email.toLowerCase();
-        if (email.endsWith("@cotigrafic.local") || email === "admin@graph.com") {
-          setIsAdmin(true);
-        }
+      // El privilegio lo resuelve el servidor (ADMIN_EMAILS nunca llega al navegador).
+      // Esto es solo presentación: la autorización real vive en el middleware y en cada handler.
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+      try {
+        const res = await fetch("/api/me", { cache: "no-store" });
+        const me = await res.json();
+        setIsAdmin(Boolean(me?.isAdmin));
+      } catch {
+        setIsAdmin(false);
       }
     }
     checkAuth();

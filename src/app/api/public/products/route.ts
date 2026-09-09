@@ -3,6 +3,17 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { calcUnitCost, calcUnitPrice, round2 } from "@/lib/calculations";
 import type { PublicProduct } from "@/types";
 
+// PÚBLICO DELIBERADO: este endpoint sirve el catálogo a visitantes sin sesión.
+//
+// CONTRATO: la respuesta expone SOLO precios de venta (costo x margen) y datos
+// descriptivos. Prohibido agregar `manual_unit_cost`, `default_margin`, `cost`,
+// `unit_cost`, `hourly_rate` ni ningún campo de proveedor: el margen de la empresa
+// no sale de acá. El mapeo de más abajo es una whitelist; mantenerla así.
+//
+// OJO: este handler NO es el único camino a los datos. La política
+// `public_read_products` (supabase/migrations/allow_public_read_catalog.sql) permite
+// al rol anónimo leer products.* directo por REST, márgenes incluidos. Cerrar eso
+// es trabajo de la lane SQL (hallazgo A-3): este comentario no lo resuelve.
 export const dynamic = "force-dynamic";
 
 export async function GET() {

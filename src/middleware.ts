@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isAdminEmail } from "@/lib/auth/admin";
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
@@ -35,19 +36,11 @@ export async function middleware(request: NextRequest) {
   const isDashboardRoute = pathname.startsWith("/dashboard");
   const isCustomerPortal = pathname.startsWith("/mis-cotizaciones");
 
-  // Determine if authenticated user has admin privileges
-  const allowedEmails = (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-
-  const userEmail = user?.email?.toLowerCase() || "";
-  const isAdmin =
-    user &&
-    (allowedEmails.includes(userEmail) ||
-      userEmail.endsWith("@cotigrafic.local") ||
-      userEmail === "admin@graph.com" ||
-      allowedEmails.length === 0);
+  // Privilegio de administrador: única fuente de verdad, fail-closed.
+  // Sin ADMIN_EMAILS configurada, NADIE es admin (ver src/lib/auth/admin.ts).
+  // Los atajos por sufijo de dominio y por correo hardcodeado se eliminaron:
+  // derivaban el privilegio de una cadena que el propio usuario elige al registrarse.
+  const isAdmin = Boolean(user) && isAdminEmail(user?.email);
 
   // If there's an OAuth code at root or cotizar, redirect to callback
   const code = request.nextUrl.searchParams.get("code");
