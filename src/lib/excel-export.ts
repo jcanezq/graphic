@@ -1,47 +1,50 @@
 // ============================================================
-// CotiGrafix — Excel Export (SheetJS / xlsx)
+// CotiGrafix — Excel Export (exceljs)
 // ============================================================
 
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import type { Quotation, CompanySettings } from "@/types";
 import { formatDate } from "@/lib/formatters";
 import { buildQuotationItemLines } from "@/lib/calculations";
 
-export function generateExcel(quotation: Quotation, settings: CompanySettings) {
-  const wb = XLSX.utils.book_new();
+export async function generateExcel(quotation: Quotation, settings: CompanySettings) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Cotización");
   const items = quotation.items || [];
 
-  // Build data rows
-  const data: (string | number)[][] = [];
+  // Helper to add rows
+  const addRow = (values: any[]) => {
+    ws.addRow(values);
+  };
 
   // Header rows
-  data.push([settings.company_name || "Mi Empresa"]);
-  if (settings.ruc) data.push([`RUC: ${settings.ruc}`]);
-  if (settings.address) data.push([settings.address]);
-  if (settings.phone) data.push([`Tel: ${settings.phone}`]);
-  data.push([]);
+  addRow([settings.company_name || "Mi Empresa"]);
+  if (settings.ruc) addRow([`RUC: ${settings.ruc}`]);
+  if (settings.address) addRow([settings.address]);
+  if (settings.phone) addRow([`Tel: ${settings.phone}`]);
+  addRow([]);
 
   // Quotation info
-  data.push(["COTIZACIÓN", quotation.number]);
-  data.push(["Fecha", formatDate(quotation.created_at)]);
-  data.push(["Validez", `${quotation.validity_days} días`]);
-  data.push([]);
+  addRow(["COTIZACIÓN", quotation.number]);
+  addRow(["Fecha", formatDate(quotation.created_at)]);
+  addRow(["Validez", `${quotation.validity_days} días`]);
+  addRow([]);
 
   // Client info
-  data.push(["CLIENTE", quotation.client_name]);
-  if (quotation.client_ruc) data.push(["RUC", quotation.client_ruc]);
-  if (quotation.client_address) data.push(["Dirección", quotation.client_address]);
-  if (quotation.client_phone) data.push(["Teléfono", quotation.client_phone]);
-  if (quotation.client_email) data.push(["Email", quotation.client_email]);
-  data.push([]);
+  addRow(["CLIENTE", quotation.client_name]);
+  if (quotation.client_ruc) addRow(["RUC", quotation.client_ruc]);
+  if (quotation.client_address) addRow(["Dirección", quotation.client_address]);
+  if (quotation.client_phone) addRow(["Teléfono", quotation.client_phone]);
+  if (quotation.client_email) addRow(["Email", quotation.client_email]);
+  addRow([]);
 
   // Items header
-  data.push(["#", "Descripción", "Unidad", "Cantidad", "P.U. (S/)", "Subtotal (S/)"]);
+  addRow(["#", "Descripción", "Unidad", "Cantidad", "P.U. (S/)", "Subtotal (S/)"]);
 
   // Items
   items.forEach((item, i) => {
     buildQuotationItemLines(item).forEach((l, k) => {
-      data.push([
+      addRow([
         k === 0 ? i + 1 : "",
         k === 0 ? item.product_name : `   ↳ ${l.label}`,
         l.unit,
@@ -52,36 +55,39 @@ export function generateExcel(quotation: Quotation, settings: CompanySettings) {
     });
   });
 
-  data.push([]);
+  addRow([]);
 
   // Totals
-  const subtotalRow = data.length;
-  data.push(["", "", "", "", "Subtotal", Number(quotation.subtotal)]);
+  addRow(["", "", "", "", "Subtotal", Number(quotation.subtotal)]);
   const igvPct = (Number(quotation.igv_rate) * 100).toFixed(0);
-  data.push(["", "", "", "", `IGV (${igvPct}%)`, Number(quotation.igv)]);
-  data.push(["", "", "", "", "TOTAL", Number(quotation.total)]);
+  addRow(["", "", "", "", `IGV (${igvPct}%)`, Number(quotation.igv)]);
+  addRow(["", "", "", "", "TOTAL", Number(quotation.total)]);
 
   // Notes
   if (quotation.notes) {
-    data.push([]);
-    data.push(["Observaciones:", quotation.notes]);
+    addRow([]);
+    addRow(["Observaciones:", quotation.notes]);
   }
 
-  // Create worksheet
-  const ws = XLSX.utils.aoa_to_sheet(data);
-
   // Set column widths
-  ws["!cols"] = [
-    { wch: 5 },   // #
-    { wch: 40 },  // Description
-    { wch: 10 },  // Unit
-    { wch: 10 },  // Quantity
-    { wch: 15 },  // Unit price
-    { wch: 15 },  // Subtotal
+  ws.columns = [
+    { width: 5 },   // #
+    { width: 40 },  // Description
+    { width: 10 },  // Unit
+    { width: 10 },  // Quantity
+    { width: 15 },  // Unit price
+    { width: 15 },  // Subtotal
   ];
 
-  XLSX.utils.book_append_sheet(wb, ws, "Cotización");
-
-  // Save file
-  XLSX.writeFile(wb, `${quotation.number}.xlsx`);
+  // Generate ArrayBuffer and trigger download
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${quotation.number}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
 }

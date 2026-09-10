@@ -70,6 +70,29 @@ export default function CotizadorPage() {
   const [clientEmail, setClientEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [searchingRuc, setSearchingRuc] = useState(false);
+  const [isRegisteredClient, setIsRegisteredClient] = useState(false);
+
+  // Auto-fill RUC from DB if available
+  useEffect(() => {
+    async function checkRucInDB() {
+      if (clientRuc.length === 11 && currentUser) {
+        const { data } = await supabase.from('clients').select('*').eq('ruc', clientRuc).maybeSingle();
+        if (data) {
+          setIsRegisteredClient(true);
+          setClientName(data.name || "");
+          setClientAddress(data.address || "");
+          if (data.phone) setClientPhone(data.phone);
+          if (data.email) setClientEmail(data.email);
+          showToast("Datos completados desde tus clientes registrados");
+        } else {
+          setIsRegisteredClient(false);
+        }
+      } else {
+        setIsRegisteredClient(false);
+      }
+    }
+    checkRucInDB();
+  }, [clientRuc, currentUser, supabase, showToast]);
 
   // Product selector dropdown
   const [productSearch, setProductSearch] = useState("");
@@ -889,6 +912,7 @@ export default function CotizadorPage() {
                 </div>
 
                 {/* Client Contact Info Form */}
+                {currentUser && (
                 <div
                   style={{
                     background: "var(--bg-secondary)",
@@ -905,34 +929,6 @@ export default function CotizadorPage() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                     <div style={{ gridColumn: "span 2" }}>
                       <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, marginBottom: "0.3rem" }}>
-                        Nombre completo o Razón Social *
-                      </label>
-                      <input
-                        type="text"
-                        value={clientName}
-                        onChange={(e) => setClientName(e.target.value)}
-                        placeholder="Ej: Impresos del Norte S.A.C. / Juan Pérez"
-                        className="form-input"
-                        style={{ width: "100%", padding: "0.55rem 0.8rem" }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, marginBottom: "0.3rem" }}>
-                        Teléfono / WhatsApp * (para coordinar)
-                      </label>
-                      <input
-                        type="tel"
-                        value={clientPhone}
-                        onChange={(e) => setClientPhone(e.target.value)}
-                        placeholder="Ej: 987654321"
-                        className="form-input"
-                        style={{ width: "100%", padding: "0.55rem 0.8rem" }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, marginBottom: "0.3rem" }}>
                         RUC o DNI (Opcional)
                       </label>
                       <div style={{ display: "flex", gap: "0.4rem" }}>
@@ -944,18 +940,48 @@ export default function CotizadorPage() {
                           className="form-input"
                           style={{ width: "100%", padding: "0.55rem 0.8rem" }}
                         />
-                        {clientRuc.length === 11 && (
+                        {clientRuc.length === 11 && !isRegisteredClient && (
                           <button
                             type="button"
                             onClick={handleSearchRuc}
                             disabled={searchingRuc}
                             className="btn btn-secondary"
                             style={{ padding: "0.45rem 0.75rem", fontSize: "0.75rem", whiteSpace: "nowrap" }}
+                            title="Consultar RUC en SUNAT"
                           >
-                            {searchingRuc ? "..." : "Sunat"}
+                            {searchingRuc ? "..." : "Consultar SUNAT"}
                           </button>
                         )}
                       </div>
+                    </div>
+
+                    <div style={{ gridColumn: "span 2" }}>
+                      <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, marginBottom: "0.3rem" }}>
+                        Nombre completo o Razón Social *
+                      </label>
+                      <input
+                        type="text"
+                        value={clientName}
+                        onChange={(e) => setClientName(e.target.value)}
+                        placeholder="Ej: Impresos del Norte S.A.C. / Juan Pérez"
+                        className="form-input"
+                        style={{ width: "100%", padding: "0.55rem 0.8rem" }}
+                        disabled={isRegisteredClient}
+                      />
+                    </div>
+
+                    <div style={{ gridColumn: "span 2" }}>
+                      <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, marginBottom: "0.3rem" }}>
+                        Teléfono / WhatsApp * (para coordinar)
+                      </label>
+                      <input
+                        type="tel"
+                        value={clientPhone}
+                        onChange={(e) => setClientPhone(e.target.value)}
+                        placeholder="Ej: 987654321"
+                        className="form-input"
+                        style={{ width: "100%", padding: "0.55rem 0.8rem" }}
+                      />
                     </div>
 
                     <div style={{ gridColumn: "span 2" }}>
@@ -987,6 +1013,7 @@ export default function CotizadorPage() {
                     </div>
                   </div>
                 </div>
+                )}
               </div>
 
               {/* Right Column: Totals & Generation CTA */}

@@ -8,147 +8,66 @@ import { unwrapList } from "@/lib/supabase/unwrap";
 
 export const dynamic = 'force-dynamic';
 
-interface StatusCount {
-  status: string;
-  count: number;
-}
-
-interface TopClient {
-  client_name: string;
-  total_amount: number;
-  count: number;
-}
-
 export default async function DashboardPage() {
   const supabase = createClient();
-  const now = new Date();
-  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const firstOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
-  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
 
-  const [quotRes, monthRes, lastMonthRes, productsRes, recentRes, allQuotRes, topProductsRes] = await Promise.all([
-    supabase.from("quotations").select("total", { count: "exact" }).is("deleted_at", null),
-    supabase.from("quotations").select("id, total, status", { count: "exact" }).gte("created_at", firstOfMonth).is("deleted_at", null),
-    supabase.from("quotations").select("id, total", { count: "exact" }).gte("created_at", firstOfLastMonth).lte("created_at", endOfLastMonth).is("deleted_at", null),
-    supabase.from("products").select("id", { count: "exact" }).eq("is_active", true),
+  const [metricsRes, recentRes, productsRes] = await Promise.all([
+    supabase.rpc('dashboard_metrics'),
     supabase.from("quotations").select("*").is("deleted_at", null).order("created_at", { ascending: false }).limit(5),
-    supabase.from("quotations").select("id, status, client_name, total, validity_days, created_at, number").is("deleted_at", null),
-    supabase.from("quotation_items").select("product_name"),
+    supabase.from("products").select("id", { count: "exact" }).eq("is_active", true),
   ]);
 
-  const totalAmount = unwrapList(quotRes as any, "dashboard.quotations_total").reduce(
-    (sum: number, q: { total: number }) => sum + Number(q.total),
-    0
-  );
-
-  const monthAmount = unwrapList(monthRes as any, "dashboard.month_quotations").reduce(
-    (sum: number, q: { total: number }) => sum + Number(q.total),
-    0
-  );
-
-  const lastMonthAmount = unwrapList(lastMonthRes as any, "dashboard.last_month_quotations").reduce(
-    (sum: number, q: { total: number }) => sum + Number(q.total),
-    0
-  );
-
-  const monthChange = lastMonthAmount > 0
-    ? ((monthAmount - lastMonthAmount) / lastMonthAmount * 100)
-    : monthAmount > 0 ? 100 : 0;
-
-  // Status distribution
-  const allQuotations = unwrapList(allQuotRes as any, "dashboard.all_quotations") as Array<{
-    id: string; status: string; client_name: string; total: number;
-    validity_days: number; created_at: string; number: string;
-  }>;
-
-  const statusCounts: StatusCount[] = ['borrador', 'enviada', 'aceptada', 'rechazada', 'vencida'].map(status => ({
-    status,
-    count: allQuotations.filter(q => q.status === status).length,
-  }));
-
-  const totalQuotCount = allQuotations.length;
-  const acceptedCount = statusCounts.find(s => s.status === 'aceptada')?.count || 0;
-  const conversionRate = totalQuotCount > 0 ? (acceptedCount / totalQuotCount * 100) : 0;
-
-  // Top 5 clients by total amount
-  const clientMap = new Map<string, { total_amount: number; count: number }>();
-  allQuotations.forEach(q => {
-    const existing = clientMap.get(q.client_name) || { total_amount: 0, count: 0 };
-    existing.total_amount += Number(q.total);
-    existing.count += 1;
-    clientMap.set(q.client_name, existing);
-  });
-  const topClients: TopClient[] = Array.from(clientMap.entries())
-    .map(([client_name, data]) => ({ client_name, ...data }))
-    .sort((a, b) => b.total_amount - a.total_amount)
-    .slice(0, 5);
-
-  // Expiring quotations (within 3 days)
-  const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-  const expiringQuotations = allQuotations.filter(q => {
-    if (q.status !== 'borrador' && q.status !== 'enviada') return false;
-    const expiryDate = new Date(new Date(q.created_at).getTime() + q.validity_days * 24 * 60 * 60 * 1000);
-    return expiryDate <= threeDaysFromNow && expiryDate >= now;
-  });
-
-  const metrics = {
-    totalQuotations: quotRes.count || 0,
-    monthQuotations: monthRes.count || 0,
-    lastMonthQuotations: lastMonthRes.count || 0,
-    totalAmount,
-    monthAmount,
-    totalProducts: productsRes.count || 0,
+  const metricsData = metricsRes.data as any || {
+    total_revenue: 0,
+    total_quotations: 0,
+    by_status: {},
+    top_clients: [],
+    expiring_soon: [],
+    monthly_series: []
   };
+
+  const totalAmount = metricsData.total_revenue || 0;
+  const totalQuotations = metricsData.total_quotations || 0;
+  const byStatus = metricsData.by_status || {};
+  const acceptedCount = byStatus['aceptada'] || 0;
+  const conversionRate = totalQuotations > 0 ? (acceptedCount / totalQuotations * 100) : 0;
+  
+  const topClients = metricsData.top_clients || [];
+  const expiringSoon = metricsData.expiring_soon || [];
+  const monthlySeries = metricsData.monthly_series || [];
+
+  // For month changes, we can calculate from the series
+  const currentMonthData = monthlySeries.length > 0 ? monthlySeries[monthlySeries.length - 1] : { revenue: 0, count: 0 };
+  const lastMonthData = monthlySeries.length > 1 ? monthlySeries[monthlySeries.length - 2] : { revenue: 0, count: 0 };
+  
+  const monthChange = lastMonthData.revenue > 0
+    ? ((currentMonthData.revenue - lastMonthData.revenue) / lastMonthData.revenue * 100)
+    : currentMonthData.revenue > 0 ? 100 : 0;
 
   const recentQuotations = unwrapList<Quotation>(recentRes as any, "dashboard.recent_quotations");
 
-  // ---- CHART DATA ----
-
-  // Monthly data (last 6 months)
-  const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-  const monthlyData = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-    const monthStart = d.toISOString();
-    const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString();
-    const monthQuots = allQuotations.filter(q => q.created_at >= monthStart && q.created_at <= monthEnd);
-    return {
-      month: `${monthNames[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`,
-      count: monthQuots.length,
-      amount: monthQuots.reduce((sum, q) => sum + Number(q.total), 0),
-    };
-  });
-
-  // Status data for pie chart
+  // Format data for charts
   const statusData = ['borrador', 'enviada', 'aceptada', 'rechazada', 'vencida'].map(status => ({
     name: getStatusLabel(status),
-    value: allQuotations.filter(q => q.status === status).length,
-    amount: allQuotations.filter(q => q.status === status).reduce((sum, q) => sum + Number(q.total), 0),
+    value: byStatus[status] || 0,
+    amount: 0,
     color: getStatusColor(status),
   }));
 
-  // Revenue data (accepted quotations per month, last 6 months)
-  const revenueData = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-    const monthStart = d.toISOString();
-    const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString();
-    const accepted = allQuotations.filter(q => q.status === 'aceptada' && q.created_at >= monthStart && q.created_at <= monthEnd);
-    return {
-      month: `${monthNames[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`,
-      count: accepted.length,
-      amount: accepted.reduce((sum, q) => sum + Number(q.total), 0),
-    };
-  });
+  const monthlyData = monthlySeries.map((m: any) => ({
+    month: m.month, // YYYY-MM
+    count: m.count,
+    amount: m.revenue,
+  }));
 
-  // Top 5 products by quotation frequency
-  const productFreqMap = new Map<string, number>();
-  unwrapList(topProductsRes as any, "dashboard.top_products").forEach((item: { product_name: string }) => {
-    const name = item.product_name;
-    productFreqMap.set(name, (productFreqMap.get(name) || 0) + 1);
-  });
-  const topProducts = Array.from(productFreqMap.entries())
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+  const metrics = {
+    totalQuotations,
+    monthQuotations: currentMonthData.count,
+    lastMonthQuotations: lastMonthData.count,
+    totalAmount,
+    monthAmount: currentMonthData.revenue,
+    totalProducts: productsRes.count || 0,
+  };
 
   return (
     <div className="animate-fadeIn">
@@ -212,7 +131,7 @@ export default async function DashboardPage() {
             </div>
             <div className="metric-value gradient-text">{formatCurrency(metrics.monthAmount)}</div>
             <div className="metric-label">Monto Este Mes</div>
-            {lastMonthAmount > 0 && (
+            {lastMonthData.revenue > 0 && (
               <div style={{
                 display: "flex", alignItems: "center", gap: 4,
                 fontSize: "0.75rem", fontWeight: 600, marginTop: 4,
@@ -234,7 +153,7 @@ export default async function DashboardPage() {
             <div className="metric-value gradient-text">{conversionRate.toFixed(1)}%</div>
             <div className="metric-label">Tasa de Aceptación</div>
             <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: 4 }}>
-              {acceptedCount} aceptadas de {totalQuotCount}
+              {acceptedCount} aceptadas de {totalQuotations}
             </div>
           </div>
         </div>
@@ -243,8 +162,8 @@ export default async function DashboardPage() {
         <DashboardCharts
           monthlyData={monthlyData}
           statusData={statusData}
-          revenueData={revenueData}
-          topProducts={topProducts}
+          revenueData={monthlyData}
+          topProducts={[]}
         />
 
         {/* Top Clients */}
@@ -262,7 +181,7 @@ export default async function DashboardPage() {
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {topClients.map((client, i) => (
+                {topClients.map((client: any, i: number) => (
                   <div key={client.client_name} style={{
                     display: "flex", alignItems: "center", gap: 12,
                     padding: "8px 10px", borderRadius: "var(--radius-md)",
@@ -285,12 +204,9 @@ export default async function DashboardPage() {
                       }}>
                         {client.client_name}
                       </div>
-                      <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
-                        {client.count} cotizacion{client.count !== 1 ? "es" : ""}
-                      </div>
                     </div>
                     <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--success)", whiteSpace: "nowrap" }}>
-                      {formatCurrency(client.total_amount)}
+                      {formatCurrency(client.ltv)}
                     </div>
                   </div>
                 ))}
@@ -306,15 +222,13 @@ export default async function DashboardPage() {
                 Próximas a Vencer
               </h3>
             </div>
-            {expiringQuotations.length === 0 ? (
+            {expiringSoon.length === 0 ? (
               <div style={{ padding: "2rem", color: "var(--text-muted)", fontSize: "0.85rem", textAlign: "center" }}>
                 ✅ No hay cotizaciones próximas a vencer
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {expiringQuotations.slice(0, 5).map((q) => {
-                  const expiryDate = new Date(new Date(q.created_at).getTime() + q.validity_days * 24 * 60 * 60 * 1000);
-                  const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+                {expiringSoon.map((q: any) => {
                   return (
                     <Link
                       key={q.id}
@@ -336,10 +250,10 @@ export default async function DashboardPage() {
                         </span>
                       </div>
                       <span className="badge" style={{
-                        background: daysLeft <= 1 ? "var(--error-light)" : "var(--warning-light)",
-                        color: daysLeft <= 1 ? "var(--error)" : "var(--warning)",
+                        background: "var(--warning-light)",
+                        color: "var(--warning)",
                       }}>
-                        {daysLeft <= 0 ? "Vence hoy" : `${daysLeft} día${daysLeft !== 1 ? "s" : ""} restante${daysLeft !== 1 ? "s" : ""}`}
+                        {new Date(q.expires_at).toLocaleDateString()}
                       </span>
                     </Link>
                   );

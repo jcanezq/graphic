@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import * as xlsx from 'xlsx';
+import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
 import * as path from 'path';
 import dotenv from 'dotenv';
@@ -40,11 +40,14 @@ async function main() {
     return;
   }
   
-  const workbook = xlsx.readFile(EXCEL_PATH);
-  const sheetName = workbook.SheetNames[0]; // 'Estructura de Costos'
-  const worksheet = workbook.Sheets[sheetName];
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(EXCEL_PATH);
   
-  const rows: any[] = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
+  const worksheet = workbook.getWorksheet('Estructura de Costos') || workbook.worksheets[0];
+  if (!worksheet) {
+    console.error("No worksheet found.");
+    return;
+  }
   
   const products: any[] = [];
   const uniqueMaterials = new Map();
@@ -54,22 +57,22 @@ async function main() {
   // We map by categories assuming there's a category called 'Servicios' or similar. 
   // For now, we will assign them to the first category if we don't know, or create a 'Servicios' category.
   
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    
-    // Skip empty rows or title rows
-    if (row.length === 0) continue;
-    if (typeof row[0] === 'string' && row[0].includes('Estructura de Costos')) continue;
-    if (typeof row[0] === 'string' && row[0].startsWith('Valores de referencia')) continue;
-    if (row[0] === 'Producto / Servicio') continue;
+  worksheet.eachRow((row, rowNumber) => {
+    // In exceljs, row.values is an array starting at index 1
+    const rowValues = row.values as any[];
+    if (!rowValues || rowValues.length === 0) return;
 
-    const col0 = row[0]; // Product Name
-    const col1 = row[1]; // Unidad de referencia
-    const col2 = row[2]; // Ítem
-    const col3 = row[3]; // Categoría
-    const col4 = row[4]; // Unidad
-    const col5 = row[5]; // Costo Unitario
-    const col6 = row[6]; // Cantidad
+    const col0 = rowValues[1]; // Product Name
+    const col1 = rowValues[2]; // Unidad de referencia
+    const col2 = rowValues[3]; // Ítem
+    const col3 = rowValues[4]; // Categoría
+    const col4 = rowValues[5]; // Unidad
+    const col5 = rowValues[6]; // Costo Unitario
+    const col6 = rowValues[7]; // Cantidad
+
+    if (typeof col0 === 'string' && col0.includes('Estructura de Costos')) return;
+    if (typeof col0 === 'string' && col0.startsWith('Valores de referencia')) return;
+    if (col0 === 'Producto / Servicio') return;
     
     // If we have a product name in the first column, start a new product
     if (col0 && typeof col0 === 'string' && col0.trim() !== '') {
@@ -128,7 +131,7 @@ async function main() {
         });
       }
     }
-  }
+  });
 
   console.log(`Parsed ${products.length} services from Excel.`);
 

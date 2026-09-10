@@ -462,6 +462,7 @@ export type Database = {
         Row: {
           client_address: string | null
           client_email: string | null
+          client_id: string | null
           client_name: string
           client_phone: string | null
           client_ruc: string | null
@@ -484,6 +485,7 @@ export type Database = {
         Insert: {
           client_address?: string | null
           client_email?: string | null
+          client_id?: string | null
           client_name: string
           client_phone?: string | null
           client_ruc?: string | null
@@ -506,6 +508,7 @@ export type Database = {
         Update: {
           client_address?: string | null
           client_email?: string | null
+          client_id?: string | null
           client_name?: string
           client_phone?: string | null
           client_ruc?: string | null
@@ -526,6 +529,20 @@ export type Database = {
           validity_days?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "quotations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients_with_stats"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quotations_parent_id_fkey"
             columns: ["parent_id"]
@@ -555,15 +572,34 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      clients_with_stats: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          deleted_at: string | null
+          email: string | null
+          id: string | null
+          last_quotation_date: string | null
+          name: string | null
+          phone: string | null
+          ruc: string | null
+          total_quotations: number | null
+          total_spent: number | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      dashboard_metrics: { Args: never; Returns: Json }
       generate_quotation_number: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       replace_quotation_items: {
         Args: { p_items: Json; p_quotation_id: string }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never
