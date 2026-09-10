@@ -76,7 +76,7 @@ export default function CotizadorPage() {
   useEffect(() => {
     async function checkRucInDB() {
       if (clientRuc.length === 11 && currentUser) {
-        const { data } = await supabase.from('clients').select('*').eq('ruc', clientRuc).maybeSingle();
+        const { data } = await supabase.from('clients').select('*').eq('ruc', clientRuc).limit(1).maybeSingle();
         if (data) {
           setIsRegisteredClient(true);
           setClientName(data.name || "");

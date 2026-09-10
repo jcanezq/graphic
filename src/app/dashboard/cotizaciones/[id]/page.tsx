@@ -115,6 +115,7 @@ export default function QuotationDetailPage() {
         .from("clients")
         .select("*")
         .eq("ruc", clientRuc)
+        .limit(1)
         .maybeSingle();
 
       if (existingClient) {

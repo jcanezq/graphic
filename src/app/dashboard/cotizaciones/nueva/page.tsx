@@ -129,7 +129,7 @@ export default function NewQuotationPage() {
   React.useEffect(() => {
     async function checkRucInDB() {
       if (clientRuc.length === 11) {
-        const { data } = await supabase.from('clients').select('*').eq('ruc', clientRuc).maybeSingle();
+        const { data } = await supabase.from('clients').select('*').eq('ruc', clientRuc).limit(1).maybeSingle();
         if (data) {
           setClientName(data.name || "");
           setClientAddress(data.address || "");
@@ -152,6 +152,7 @@ export default function NewQuotationPage() {
         .from("clients")
         .select("*")
         .eq("ruc", clientRuc)
+        .limit(1)
         .maybeSingle();
 
       if (existingClient) {
