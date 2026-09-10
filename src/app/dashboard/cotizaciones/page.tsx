@@ -1,22 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { formatCurrency, formatDate, getStatusLabel, getStatusColor } from "@/lib/formatters";
-import { Search, Plus, FileText, Eye, Edit2, Trash2, Copy, Download, LayoutGrid, List, GitBranch, MessageCircle, Globe } from "lucide-react";
+import { formatCurrency, formatDate, getStatusLabel, getStatusColor, sanitizeSearch } from "@/lib/formatters";
+import { Search, Plus, FileText, Eye, Edit2, Trash2, Copy, Download, LayoutGrid, List, GitBranch, MessageCircle, Globe, ShieldAlert } from "lucide-react";
 import Link from "next/link";
+import { toQuotationItemRow } from "@/lib/quotation-item-row";
 import { useToast } from "@/components/ToastProvider";
 
-import { generateExcel } from "@/lib/excel-export";
-import { KanbanBoard } from "@/components/quotations/KanbanBoard";
+import dynamic from "next/dynamic";
+const KanbanBoard = dynamic(
+  () => import("@/components/quotations/KanbanBoard").then((m) => m.KanbanBoard),
+  { ssr: false, loading: () => <div className="skeleton" style={{ height: 400, borderRadius: 14 }} /> }
+);
 import { generateAdminToClientWhatsAppUrl } from "@/lib/whatsapp";
 import type { Quotation, CompanySettings } from "@/types";
 
-/** Escape PostgREST special characters in search input to prevent query injection */
-function sanitizeSearch(input: string): string {
-  return input.replace(/[,\.\(\)]/g, '');
-}
 
 export default function QuotationsPage() {
   const supabase = createClient();
@@ -57,7 +57,7 @@ export default function QuotationsPage() {
     }
   });
 
-  const { data: queryData, isLoading: loading } = useQuery({
+  const { data: queryData, isLoading: loading, isError: catalogError, refetch: refetchCatalog } = useQuery({
     queryKey: ['quotations_list', viewMode, currentPage, debouncedSearch, statusFilter],
     queryFn: async () => {
       if (viewMode === "table") {
@@ -129,7 +129,8 @@ export default function QuotationsPage() {
 
         return { quotations: sortedQuotations, count: d.length };
       }
-    }
+    },
+    placeholderData: keepPreviousData
   });
 
   useEffect(() => {
@@ -177,14 +178,7 @@ export default function QuotationsPage() {
       if (!rpcError && rpcNumber) {
         number = rpcNumber;
       } else {
-        const { data: stg } = await supabase.from("company_settings").select("id, quotation_prefix, quotation_next_number").limit(1).single();
-        const prefix = stg?.quotation_prefix || "COT";
-        const nextNum = stg?.quotation_next_number || 1;
-        const year = new Date().getFullYear();
-        number = `${prefix}-${year}-${String(nextNum).padStart(4, "0")}`;
-        if (stg?.id) {
-          await supabase.from("company_settings").update({ quotation_next_number: nextNum + 1 }).eq("id", stg.id);
-        }
+        throw new Error("No se pudo generar el número de cotización. Reintentá en unos segundos.");
       }
 
       const { data: newQuot, error } = await supabase
@@ -212,30 +206,7 @@ export default function QuotationsPage() {
 
       if (newQuot && items?.length) {
         const { error: itemsError } = await supabase.from("quotation_items").insert(
-          items.map((item: any) => ({
-            quotation_id: newQuot.id,
-            product_id: item.product_id,
-            sort_order: item.sort_order,
-            product_code: item.product_code,
-            product_name: item.product_name,
-            product_description: item.product_description,
-            unit: item.unit,
-            material_cost: item.material_cost,
-            labor_cost: item.labor_cost,
-            indirect_cost: item.indirect_cost,
-            unit_cost: item.unit_cost,
-            quantity: item.quantity,
-            margin_percent: item.margin_percent,
-            unit_price: item.unit_price,
-            subtotal: item.subtotal,
-            item_type: item.item_type,
-            has_labor: item.has_labor,
-            has_design: item.has_design,
-            design_cost: item.design_cost,
-            has_transport: item.has_transport,
-            transport_cost: item.transport_cost,
-            client_design_url: item.client_design_url,
-          }))
+          items.map((item: any, idx: number) => toQuotationItemRow(item, item.sort_order ?? idx, newQuot.id))
         );
 
         if (itemsError) {
@@ -262,18 +233,23 @@ export default function QuotationsPage() {
         .from("quotations")
         .select("revision")
         .eq("parent_id", parentId)
-        .order("revision", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(1);
 
-      let nextRevision = "A";
-      if (existingRevisions && existingRevisions.length > 0 && existingRevisions[0].revision) {
-        const lastLetter = existingRevisions[0].revision;
-        nextRevision = String.fromCharCode(lastLetter.charCodeAt(0) + 1);
-      } else if (q.revision) {
-        nextRevision = String.fromCharCode(q.revision.charCodeAt(0) + 1);
-      }
+      // Etiqueta en base 26: A..Z, AA, AB... `String.fromCharCode(charCode+1)`
+      // producía '[' después de la Z y rompía el recorte del sufijo.
+      const labelToIndex = (label: string): number =>
+        label.split("").reduce((acc, ch) => acc * 26 + (ch.charCodeAt(0) - 64), 0);
+      const indexToLabel = (n: number): string => {
+        let s = "", x = n;
+        while (x > 0) { const r = (x - 1) % 26; s = String.fromCharCode(65 + r) + s; x = Math.floor((x - 1) / 26); }
+        return s || "A";
+      };
 
-      const baseNumber = q.number.replace(/-[A-Z]$/, "");
+      const prev = existingRevisions?.[0]?.revision || q.revision || null;
+      const nextRevision = indexToLabel(prev ? labelToIndex(prev) + 1 : 1);
+
+      const baseNumber = q.number.replace(/-[A-Z]{1,2}$/, "");
       const revisionNumber = `${baseNumber}-${nextRevision}`;
 
       const { data: newQuot, error } = await supabase
@@ -303,30 +279,7 @@ export default function QuotationsPage() {
 
       if (newQuot && items?.length) {
         const { error: itemsError } = await supabase.from("quotation_items").insert(
-          items.map((item: any) => ({
-            quotation_id: newQuot.id,
-            product_id: item.product_id,
-            sort_order: item.sort_order,
-            product_code: item.product_code,
-            product_name: item.product_name,
-            product_description: item.product_description,
-            unit: item.unit,
-            material_cost: item.material_cost,
-            labor_cost: item.labor_cost,
-            indirect_cost: item.indirect_cost,
-            unit_cost: item.unit_cost,
-            quantity: item.quantity,
-            margin_percent: item.margin_percent,
-            unit_price: item.unit_price,
-            subtotal: item.subtotal,
-            item_type: item.item_type,
-            has_labor: item.has_labor,
-            has_design: item.has_design,
-            design_cost: item.design_cost,
-            has_transport: item.has_transport,
-            transport_cost: item.transport_cost,
-            client_design_url: item.client_design_url,
-          }))
+          items.map((item: any, idx: number) => toQuotationItemRow(item, item.sort_order ?? idx, newQuot.id))
         );
 
         if (itemsError) {
@@ -372,6 +325,7 @@ export default function QuotationsPage() {
     if (!settings) return;
     const { data: items } = await supabase.from("quotation_items").select("*").eq("quotation_id", q.id).order("sort_order");
     const quotWithItems = { ...q, items: (items as any) || [] };
+    const { generateExcel } = await import("@/lib/excel-export");
     generateExcel(quotWithItems, settings);
     showToast("Excel generado");
   }
@@ -472,6 +426,17 @@ export default function QuotationsPage() {
             {[1, 2, 3].map((i) => (
               <div key={i} className="skeleton" style={{ height: 48, marginBottom: 8, borderRadius: 8 }} />
             ))}
+          </div>
+        ) : catalogError ? (
+          <div className="card" style={{ padding: "1.5rem", textAlign: "center" }}>
+            <ShieldAlert size={28} style={{ color: "var(--danger)", marginBottom: 8 }} />
+            <h3>No pudimos cargar las cotizaciones</h3>
+            <p className="subtitle" style={{ marginBottom: 12 }}>
+              Puede ser una falla momentánea de conexión.
+            </p>
+            <button className="btn btn-secondary" onClick={() => refetchCatalog()}>
+              Reintentar
+            </button>
           </div>
         ) : localQuotations.length === 0 ? (
           <div className="card empty-state">

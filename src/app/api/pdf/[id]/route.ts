@@ -31,6 +31,7 @@ export async function GET(
     let query = supabase
       .from("quotations")
       .select("*, items:quotation_items(*)")
+      .order("sort_order", { referencedTable: "quotation_items", ascending: true })
       .eq("id", quotationId);
 
     if (!isAdmin) {

@@ -44,7 +44,9 @@ export default function MisCotizacionesPage() {
           const { data, error } = await supabase
             .from("quotations")
             .select("*, quotation_items(*)")
+            .order("sort_order", { referencedTable: "quotation_items", ascending: true })
             .eq("user_id", user.id)
+            .is("deleted_at", null)
             .order("created_at", { ascending: false });
 
           if (!error && data) {

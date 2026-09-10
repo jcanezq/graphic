@@ -3,7 +3,8 @@ import { formatCurrency, formatRelativeTime, getStatusLabel, getStatusColor } fr
 import { FileText, Package, TrendingUp, Plus, AlertTriangle, Users, BarChart3, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import Link from "next/link";
 import type { Quotation } from "@/types";
-import DashboardCharts from "@/components/dashboard/DashboardCharts";
+import DashboardCharts from "@/components/dashboard/DashboardChartsLazy";
+import { unwrapList } from "@/lib/supabase/unwrap";
 
 export const dynamic = 'force-dynamic';
 
@@ -35,17 +36,17 @@ export default async function DashboardPage() {
     supabase.from("quotation_items").select("product_name"),
   ]);
 
-  const totalAmount = (quotRes.data || []).reduce(
+  const totalAmount = unwrapList(quotRes as any, "dashboard.quotations_total").reduce(
     (sum: number, q: { total: number }) => sum + Number(q.total),
     0
   );
 
-  const monthAmount = (monthRes.data || []).reduce(
+  const monthAmount = unwrapList(monthRes as any, "dashboard.month_quotations").reduce(
     (sum: number, q: { total: number }) => sum + Number(q.total),
     0
   );
 
-  const lastMonthAmount = (lastMonthRes.data || []).reduce(
+  const lastMonthAmount = unwrapList(lastMonthRes as any, "dashboard.last_month_quotations").reduce(
     (sum: number, q: { total: number }) => sum + Number(q.total),
     0
   );
@@ -55,7 +56,7 @@ export default async function DashboardPage() {
     : monthAmount > 0 ? 100 : 0;
 
   // Status distribution
-  const allQuotations = (allQuotRes.data || []) as Array<{
+  const allQuotations = unwrapList(allQuotRes as any, "dashboard.all_quotations") as Array<{
     id: string; status: string; client_name: string; total: number;
     validity_days: number; created_at: string; number: string;
   }>;
@@ -99,7 +100,7 @@ export default async function DashboardPage() {
     totalProducts: productsRes.count || 0,
   };
 
-  const recentQuotations = (recentRes.data as Quotation[]) || [];
+  const recentQuotations = unwrapList<Quotation>(recentRes as any, "dashboard.recent_quotations");
 
   // ---- CHART DATA ----
 
@@ -140,7 +141,7 @@ export default async function DashboardPage() {
 
   // Top 5 products by quotation frequency
   const productFreqMap = new Map<string, number>();
-  (topProductsRes.data || []).forEach((item: { product_name: string }) => {
+  unwrapList(topProductsRes as any, "dashboard.top_products").forEach((item: { product_name: string }) => {
     const name = item.product_name;
     productFreqMap.set(name, (productFreqMap.get(name) || 0) + 1);
   });

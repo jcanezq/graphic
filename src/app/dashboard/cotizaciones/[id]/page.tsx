@@ -1,16 +1,22 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
 import { formatCurrency, formatDate, formatDateLong, getStatusLabel, getStatusColor } from "@/lib/formatters";
-import { recalcQuotationItem, calcQuotationTotals, calcUnitPrice, calcItemSubtotal } from "@/lib/calculations";
-import { ArrowLeft, Save, FileDown, Trash2, Search, MessageCircle, GitBranch } from "lucide-react";
+import {
+  calcQuotationTotals,
+  createQuotationItemFromProduct,
+  recalcQuotationItem,
+  calcUnitPrice,
+  calcItemSubtotal,
+} from "@/lib/calculations";
+import { toQuotationItemRow } from "@/lib/quotation-item-row";
+import { ArrowLeft, Save, FileDown, Trash2, Search, MessageCircle, GitBranch, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
-import { generateExcel } from "@/lib/excel-export";
 import { fetchRucData } from "@/lib/ruc";
 import type { Quotation, QuotationItem, QuotationStatus, CompanySettings } from "@/types";
 
@@ -42,7 +48,7 @@ export default function QuotationDetailPage() {
   const [items, setItems] = useState<QuotationItem[]>([]);
   const [searchingRuc, setSearchingRuc] = useState(false);
 
-  const { data: initialData, isLoading: loading } = useQuery({
+  const { data: initialData, isLoading: loading, isError: catalogError, refetch: refetchCatalog } = useQuery({
     queryKey: ['quotation_detail', quotationId],
     queryFn: async () => {
       const [quotRes, itemsRes, settingsRes] = await Promise.all([
@@ -59,6 +65,7 @@ export default function QuotationDetailPage() {
           .from("quotations")
           .select("id, number, revision, status, created_at")
           .or(`id.eq.${parentId},parent_id.eq.${parentId}`)
+          .is("deleted_at", null)
           .order("created_at", { ascending: true });
         
         revList = (revData || []).filter(r => r.id !== quotationId);
@@ -73,7 +80,10 @@ export default function QuotationDetailPage() {
     }
   });
 
+  const seededFor = useRef<string | null>(null);
+
   useEffect(() => {
+    if (seededFor.current === quotationId) return;
     if (initialData?.quotation) {
       const q = initialData.quotation;
       setClientName(q.client_name);
@@ -84,11 +94,12 @@ export default function QuotationDetailPage() {
       setNotes(q.notes || "");
       setValidityDays(q.validity_days);
       setStatus(q.status as QuotationStatus);
+      if (initialData.items) {
+        setItems(initialData.items);
+      }
+      seededFor.current = quotationId;
     }
-    if (initialData?.items) {
-      setItems(initialData.items);
-    }
-  }, [initialData]);
+  }, [initialData, quotationId]);
 
   const quotation = initialData?.quotation;
   const settings = initialData?.settings;
@@ -129,14 +140,10 @@ export default function QuotationDetailPage() {
 
   function updateItem(index: number, changes: Partial<QuotationItem>) {
     const updated = [...items];
-    updated[index] = recalcQuotationItem(updated[index], {
-      quantity: changes.quantity,
-      margin_percent: changes.margin_percent,
-      unit_cost: changes.unit_cost,
-      has_labor: changes.has_labor,
-      has_design: changes.has_design,
-      has_transport: changes.has_transport,
-    });
+    // Reenviar `changes` COMPLETO. recalcQuotationItem resuelve cada campo con
+    // `overrides?.x ?? item.x`, así que pasarlo tal cual es seguro y elimina la
+    // lista blanca de 6 campos que dejaba inertes los 9 inputs de componente.
+    updated[index] = recalcQuotationItem(updated[index], changes as any);
     setItems(updated);
   }
 
@@ -185,29 +192,7 @@ export default function QuotationDetailPage() {
 
       if (error) throw new Error(error.message);
 
-      const itemsPayload = items.map((item, idx) => ({
-        product_id: item.product_id || null,
-        item_type: item.item_type || 'Producto',
-        has_labor: item.has_labor ?? true,
-        has_design: item.has_design ?? true,
-        design_cost: item.design_cost || 0,
-        has_transport: item.has_transport ?? true,
-        transport_cost: item.transport_cost || 0,
-        client_design_url: item.client_design_url || null,
-        sort_order: idx,
-        product_code: item.product_code || null,
-        product_name: item.product_name,
-        product_description: item.product_description || null,
-        unit: item.unit,
-        material_cost: item.material_cost,
-        labor_cost: item.labor_cost,
-        indirect_cost: item.indirect_cost,
-        unit_cost: item.unit_cost,
-        quantity: item.quantity,
-        margin_percent: item.margin_percent,
-        unit_price: item.unit_price,
-        subtotal: item.subtotal,
-      }));
+      const itemsPayload = items.map((item, idx) => toQuotationItemRow(item, idx));
 
       const { error: rpcError } = await supabase.rpc("replace_quotation_items", {
         p_quotation_id: quotationId,
@@ -252,9 +237,15 @@ export default function QuotationDetailPage() {
     showToast("PDF generado");
   }
 
-  function handleExportExcel() {
+  async function handleExportExcel() {
     if (!quotation || !settings) return;
-    generateExcel({ ...quotation, items, subtotal: totals.subtotal, igv: totals.igv, total: totals.total } as Quotation, settings);
+    if (saveMutation.isPending) { showToast("Esperá a que termine el guardado", "error"); return; }
+    if (totals.total !== Number(quotation.total)) {
+      showToast("Hay cambios sin guardar: guardá antes de exportar", "error");
+      return;
+    }
+    const { generateExcel } = await import("@/lib/excel-export");
+    generateExcel({ ...quotation, items } as Quotation, settings);
     showToast("Excel generado");
   }
 
@@ -291,6 +282,23 @@ export default function QuotationDetailPage() {
     return (
       <div className="page-body">
         <div className="skeleton" style={{ height: 400, borderRadius: 14 }} />
+      </div>
+    );
+  }
+
+  if (catalogError) {
+    return (
+      <div className="page-body">
+        <div className="card" style={{ padding: "2rem", textAlign: "center", maxWidth: 500, margin: "2rem auto" }}>
+          <ShieldAlert size={36} style={{ color: "var(--danger)", marginBottom: 12 }} />
+          <h3>No pudimos cargar la cotización</h3>
+          <p className="subtitle" style={{ marginBottom: 16 }}>
+            Puede ser una falla momentánea de conexión.
+          </p>
+          <button className="btn btn-secondary" onClick={() => refetchCatalog()}>
+            Reintentar
+          </button>
+        </div>
       </div>
     );
   }
@@ -520,7 +528,7 @@ export default function QuotationDetailPage() {
                             </td>
                           </tr>
                           
-                          {(item.labor_cost || 0) > 0 && (
+                          {(item.labor_unit_cost ?? item.labor_cost ?? 0) > 0 && (
                             <tr style={{ background: item.has_labor ? 'var(--bg-glass)' : 'transparent', opacity: item.has_labor ? 1 : 0.5 }}>
                               <td></td>
                               <td>
@@ -554,7 +562,7 @@ export default function QuotationDetailPage() {
                             </tr>
                           )}
                           
-                          {(item.design_cost || 0) > 0 && (
+                          {(item.design_unit_cost ?? item.design_cost ?? 0) > 0 && (
                             <tr style={{ background: item.has_design ? 'var(--bg-glass)' : 'transparent', opacity: item.has_design ? 1 : 0.5 }}>
                               <td></td>
                               <td>
@@ -588,7 +596,7 @@ export default function QuotationDetailPage() {
                             </tr>
                           )}
 
-                          {(item.transport_cost || 0) > 0 && (
+                          {(item.transport_unit_cost ?? item.transport_cost ?? 0) > 0 && (
                             <tr style={{ background: item.has_transport ? 'var(--bg-glass)' : 'transparent', opacity: item.has_transport ? 1 : 0.5 }}>
                               <td></td>
                               <td>

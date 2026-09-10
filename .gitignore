@@ -17,3 +17,8 @@ seed-*.js
 # Estructura de costos y márgenes: NO versionar (auditoría 2026-09-09, hallazgo M-3)
 *.xlsx
 !docs/plantilla-*.xlsx
+
+# F3-T13: Untracked artifacts
+supabase/.temp/
+tsconfig.tsbuildinfo
+scratch.json

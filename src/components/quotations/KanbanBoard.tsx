@@ -86,7 +86,7 @@ export function KanbanBoard({
 
         if (items[activeIndex].status !== items[overIndex].status) {
           const newItems = [...items];
-          newItems[activeIndex].status = items[overIndex].status;
+          newItems[activeIndex] = { ...newItems[activeIndex], status: items[overIndex].status };
           return arrayMove(newItems, activeIndex, overIndex);
         }
 
@@ -100,7 +100,7 @@ export function KanbanBoard({
       setQuotations((items) => {
         const activeIndex = items.findIndex((q) => q.id === activeId);
         const newItems = [...items];
-        newItems[activeIndex].status = overId as Quotation["status"];
+        newItems[activeIndex] = { ...newItems[activeIndex], status: overId as Quotation["status"] };
         return arrayMove(newItems, activeIndex, activeIndex);
       });
     }

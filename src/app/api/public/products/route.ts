@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import { calcUnitCost, calcUnitPrice, round2 } from "@/lib/calculations";
+import { calcUnitPrice, round2, findIndirectByKind } from "@/lib/calculations";
+import { COMPONENT_SCOPE_DEFAULTS } from "@/lib/pricing";
 import type { PublicProduct } from "@/types";
 
 // PÚBLICO DELIBERADO: este endpoint sirve el catálogo a visitantes sin sesión.
@@ -100,33 +101,36 @@ export async function GET() {
       const pLabor = laborData.filter((l: any) => l.product_id === p.id);
       const pIndirect = indirectData.filter((i: any) => i.product_id === p.id);
 
-      const unitCost = calcUnitCost({
-        manual_unit_cost: p.manual_unit_cost,
-        materials: pMaterials as any,
-        labor: pLabor as any,
-        indirect_costs: pIndirect as any,
-      });
-
+      // Precio BASE: material + indirectos que NO son diseño ni transporte.
+      // La mano de obra, el diseño y el transporte se publican aparte, cada uno
+      // con su scope, para que el carrito escale igual que el servidor (C-1).
       const margin = p.default_margin ?? 30;
-      const unitPrice = round2(calcUnitPrice(unitCost, margin));
+      const materialCostRaw = pMaterials.reduce((acc: number, m: any) => acc + (m.quantity * m.unit_cost), 0);
+      const laborCostRaw = pLabor.reduce((acc: number, l: any) => acc + (l.hours * l.hourly_rate), 0);
+      const designCostRaw = findIndirectByKind(pIndirect as any, 'design')?.cost ?? 0;
+      const transportCostRaw = findIndirectByKind(pIndirect as any, 'transport')?.cost ?? 0;
+      const otherIndirectRaw = pIndirect.reduce((acc: number, i: any) => acc + i.cost, 0) - designCostRaw - transportCostRaw;
+
+      const baseCost = (p.manual_unit_cost != null && p.manual_unit_cost > 0)
+        ? p.manual_unit_cost
+        : (materialCostRaw + otherIndirectRaw);
+      const baseUnitPrice = round2(calcUnitPrice(baseCost, margin));
+
+      // `unit_price` se conserva por compatibilidad de la vista de catálogo:
+      // es el precio de UNA unidad con sus componentes, o sea el total de cantidad 1.
+      const unitPrice = round2(
+        baseUnitPrice
+        + round2(calcUnitPrice(laborCostRaw, margin))
+        + round2(calcUnitPrice(designCostRaw, margin))
+        + round2(calcUnitPrice(transportCostRaw, margin))
+      );
       
       // Calculate components with margin for public display
-      const laborCost = pLabor.reduce((acc, l) => acc + (l.hours * l.hourly_rate), 0);
-      const laborPrice = round2(calcUnitPrice(laborCost, margin));
-      
-      const designCostItem = pIndirect.find((ic: any) => ic.concept?.toLowerCase().includes('diseño') || ic.concept?.toLowerCase().includes('design'));
-      const designCost = designCostItem ? designCostItem.cost : 0;
-      const designPrice = round2(calcUnitPrice(designCost, margin));
-
-      const transportCostItem = pIndirect.find((ic: any) => ic.concept?.toLowerCase().includes('transporte') || ic.concept?.toLowerCase().includes('movilidad') || ic.concept?.toLowerCase().includes('flete'));
-      const transportCost = transportCostItem ? transportCostItem.cost : 0;
-      const transportPrice = round2(calcUnitPrice(transportCost, margin));
-
-      const materialCost = pMaterials.reduce((acc, m) => acc + (m.quantity * m.unit_cost), 0);
-      const materialPrice = round2(calcUnitPrice(materialCost, margin));
-
-      const otherCost = pIndirect.reduce((acc, i) => acc + i.cost, 0) - designCost - transportCost;
-      const otherPrice = round2(calcUnitPrice(otherCost, margin));
+      const laborPrice = round2(calcUnitPrice(laborCostRaw, margin));
+      const designPrice = round2(calcUnitPrice(designCostRaw, margin));
+      const transportPrice = round2(calcUnitPrice(transportCostRaw, margin));
+      const materialPrice = round2(calcUnitPrice(materialCostRaw, margin));
+      const otherPrice = round2(calcUnitPrice(otherIndirectRaw, margin));
 
       return {
         id: p.id,
@@ -138,12 +142,16 @@ export async function GET() {
         image_url: p.image_url,
         category_id: p.category_id,
         category_name: p.category_id ? categoryMap.get(p.category_id) || null : null,
-        unit_price: unitPrice > 0 ? unitPrice : 1.0,
+        unit_price: unitPrice,
+        base_unit_price: baseUnitPrice,
         labor_price: laborPrice,
         design_price: designPrice,
         transport_price: transportPrice,
         material_price: materialPrice,
         other_price: otherPrice,
+        labor_scope: COMPONENT_SCOPE_DEFAULTS.labor,
+        design_scope: COMPONENT_SCOPE_DEFAULTS.design,
+        transport_scope: COMPONENT_SCOPE_DEFAULTS.transport,
       };
     });
 

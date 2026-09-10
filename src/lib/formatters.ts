@@ -131,3 +131,14 @@ export function normalizeText(text?: string | null): string {
     .toLowerCase()
     .trim();
 }
+
+/**
+ * Escapa una búsqueda para usarla dentro de un filtro `.or()` de PostgREST.
+ * En esa gramática la coma separa condiciones y el punto separa
+ * `columna.operador.valor`, así que ambos caracteres tienen que salir.
+ * `%` y `_` son comodines de ilike y se neutralizan para que la búsqueda
+ * signifique lo que el usuario tipeó.
+ */
+export function sanitizeSearch(input: string): string {
+  return input.replace(/[,.()]/g, '').replace(/[%_]/g, '');
+}

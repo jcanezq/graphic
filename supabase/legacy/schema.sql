@@ -1,3 +1,5 @@
+-- ⚠️ HISTÓRICO — NO es el esquema vigente. Último cambio real: commit 592923a.
+-- La fuente de verdad es supabase/migrations/00000000000000_baseline.sql. NO ejecutar.
 -- ============================================================
 -- CotiGrafix — Esquema de base de datos
 -- Ejecutar en: Supabase Dashboard → SQL Editor
@@ -157,14 +159,23 @@ ALTER TABLE quotations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quotation_items ENABLE ROW LEVEL SECURITY;
 
 -- Políticas: Usuarios autenticados tienen acceso completo
+DROP POLICY IF EXISTS "auth_all_settings" ON company_settings;
 CREATE POLICY "auth_all_settings" ON company_settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "auth_all_categories" ON categories;
 CREATE POLICY "auth_all_categories" ON categories FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "auth_all_master_materials" ON materials;
 CREATE POLICY "auth_all_master_materials" ON materials FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "auth_all_products" ON products;
 CREATE POLICY "auth_all_products" ON products FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "auth_all_materials" ON product_materials;
 CREATE POLICY "auth_all_materials" ON product_materials FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "auth_all_labor" ON product_labor;
 CREATE POLICY "auth_all_labor" ON product_labor FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "auth_all_indirects" ON product_indirect_costs;
 CREATE POLICY "auth_all_indirects" ON product_indirect_costs FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "auth_all_quotations" ON quotations;
 CREATE POLICY "auth_all_quotations" ON quotations FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "auth_all_items" ON quotation_items;
 CREATE POLICY "auth_all_items" ON quotation_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- 10) Clientes
@@ -183,6 +194,7 @@ CREATE TABLE IF NOT EXISTS clients (
 CREATE INDEX IF NOT EXISTS idx_clients_name ON clients(name);
 
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "auth_all_clients" ON clients;
 CREATE POLICY "auth_all_clients" ON clients FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- ============================================================
@@ -192,12 +204,16 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('product-images', 'product-images', true)
 ON CONFLICT (id) DO NOTHING;
 
+DROP POLICY IF EXISTS "auth_upload_images" ON storage.objects;
 CREATE POLICY "auth_upload_images" ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'product-images');
+DROP POLICY IF EXISTS "public_read_images" ON storage.objects;
 CREATE POLICY "public_read_images" ON storage.objects FOR SELECT TO public
   USING (bucket_id = 'product-images');
+DROP POLICY IF EXISTS "auth_delete_images" ON storage.objects;
 CREATE POLICY "auth_delete_images" ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'product-images');
+DROP POLICY IF EXISTS "auth_update_images" ON storage.objects;
 CREATE POLICY "auth_update_images" ON storage.objects FOR UPDATE TO authenticated
   USING (bucket_id = 'product-images');
 
@@ -205,12 +221,16 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('company-assets', 'company-assets', true)
 ON CONFLICT (id) DO NOTHING;
 
+DROP POLICY IF EXISTS "auth_upload_assets" ON storage.objects;
 CREATE POLICY "auth_upload_assets" ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'company-assets');
+DROP POLICY IF EXISTS "public_read_assets" ON storage.objects;
 CREATE POLICY "public_read_assets" ON storage.objects FOR SELECT TO public
   USING (bucket_id = 'company-assets');
+DROP POLICY IF EXISTS "auth_delete_assets" ON storage.objects;
 CREATE POLICY "auth_delete_assets" ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'company-assets');
+DROP POLICY IF EXISTS "auth_update_assets" ON storage.objects;
 CREATE POLICY "auth_update_assets" ON storage.objects FOR UPDATE TO authenticated
   USING (bucket_id = 'company-assets');
 

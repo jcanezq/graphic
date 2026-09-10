@@ -5,6 +5,7 @@
 import * as XLSX from "xlsx";
 import type { Quotation, CompanySettings } from "@/types";
 import { formatDate } from "@/lib/formatters";
+import { buildQuotationItemLines } from "@/lib/calculations";
 
 export function generateExcel(quotation: Quotation, settings: CompanySettings) {
   const wb = XLSX.utils.book_new();
@@ -39,14 +40,16 @@ export function generateExcel(quotation: Quotation, settings: CompanySettings) {
 
   // Items
   items.forEach((item, i) => {
-    data.push([
-      i + 1,
-      item.product_name,
-      item.unit,
-      item.quantity,
-      Number(item.unit_price),
-      Number(item.subtotal),
-    ]);
+    buildQuotationItemLines(item).forEach((l, k) => {
+      data.push([
+        k === 0 ? i + 1 : "",
+        k === 0 ? item.product_name : `   ↳ ${l.label}`,
+        l.unit,
+        l.quantity,
+        l.unit_price,
+        l.subtotal,
+      ]);
+    });
   });
 
   data.push([]);

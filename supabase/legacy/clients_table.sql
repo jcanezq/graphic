@@ -34,6 +34,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger de updated_at
+DROP TRIGGER IF EXISTS set_clients_updated_at ON clients;
 CREATE TRIGGER set_clients_updated_at
   BEFORE UPDATE ON clients
   FOR EACH ROW

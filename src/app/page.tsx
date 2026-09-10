@@ -29,7 +29,7 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<"Todos" | "Producto" | "Servicio" | "Material">("Todos");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError: catalogError, refetch: refetchCatalog } = useQuery({
     queryKey: ["public_products"],
     queryFn: async () => {
       const res = await fetch("/api/public/products");
@@ -75,7 +75,7 @@ export default function HomePage() {
           product_code: product.code,
           product_type: product.type,
           unit: product.unit,
-          base_unit_price: product.unit_price,
+          base_unit_price: product.base_unit_price ?? product.unit_price,
           unit_price: product.unit_price,
           quantity: 1,
           has_labor: true,
@@ -84,6 +84,9 @@ export default function HomePage() {
           labor_price: product.labor_price,
           design_price: product.design_price,
           transport_price: product.transport_price,
+          labor_scope: product.labor_scope,
+          design_scope: product.design_scope,
+          transport_scope: product.transport_scope,
           material_price: product.material_price,
           other_price: product.other_price,
         });
@@ -460,6 +463,17 @@ export default function HomePage() {
                 }}
               />
               <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>Cargando catálogo...</p>
+            </div>
+          ) : catalogError ? (
+            <div className="card" style={{ padding: "1.5rem", textAlign: "center" }}>
+              <ShieldAlert size={28} style={{ color: "var(--danger)", marginBottom: 8 }} />
+              <h3>No pudimos cargar el catálogo</h3>
+              <p className="subtitle" style={{ marginBottom: 12 }}>
+                Puede ser una falla momentánea de conexión.
+              </p>
+              <button className="btn btn-secondary" onClick={() => refetchCatalog()}>
+                Reintentar
+              </button>
             </div>
           ) : filteredProducts.length === 0 ? (
             <div

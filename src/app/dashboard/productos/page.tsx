@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
-import { formatCurrency } from "@/lib/formatters";
+import { formatCurrency, sanitizeSearch } from "@/lib/formatters";
 import { calcUnitCost } from "@/lib/calculations";
 import {
   Plus,
@@ -13,6 +13,7 @@ import {
   Trash2,
   Copy,
   Package,
+  ShieldAlert
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -47,7 +48,7 @@ export default function ProductsPage() {
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [debouncedSearch, categoryFilter]);
 
-  const { data: queryData, isLoading: loading } = useQuery({
+  const { data: queryData, isLoading: loading, isError: catalogError, refetch: refetchCatalog } = useQuery({
     queryKey: ['productos_list', currentPage, debouncedSearch, categoryFilter],
     queryFn: async () => {
       const from = (currentPage - 1) * PAGE_SIZE;
@@ -60,7 +61,8 @@ export default function ProductsPage() {
         .eq("type", "Producto");
 
       if (debouncedSearch) {
-        query = query.or(`name.ilike.%${debouncedSearch}%,code.ilike.%${debouncedSearch}%`);
+        const s = sanitizeSearch(debouncedSearch);
+        query = query.or(`name.ilike.%${s}%,code.ilike.%${s}%`);
       }
       if (categoryFilter) {
         query = query.eq("category_id", categoryFilter);
@@ -107,7 +109,8 @@ export default function ProductsPage() {
       }) as Product[];
 
       return { products, count: count || 0 };
-    }
+    },
+    placeholderData: keepPreviousData
   });
 
   const products = queryData?.products || [];
@@ -120,9 +123,9 @@ export default function ProductsPage() {
       if (error) throw error;
     },
     onMutate: async (deletedId) => {
-      await queryClient.cancelQueries({ queryKey: ['products'] });
-      const previousData = queryClient.getQueryData(['products', currentPage, debouncedSearch, categoryFilter]);
-      queryClient.setQueryData(['products', currentPage, debouncedSearch, categoryFilter], (old: any) => {
+      await queryClient.cancelQueries({ queryKey: ['productos_list'] });
+      const previousData = queryClient.getQueryData(['productos_list', currentPage, debouncedSearch, categoryFilter]);
+      queryClient.setQueryData(['productos_list', currentPage, debouncedSearch, categoryFilter], (old: any) => {
         if (!old) return old;
         return {
           ...old,
@@ -135,11 +138,11 @@ export default function ProductsPage() {
     onError: (err, newTodo, context) => {
       showToast("Error al eliminar producto", "error");
       if (context?.previousData) {
-        queryClient.setQueryData(['products', currentPage, debouncedSearch, categoryFilter], context.previousData);
+        queryClient.setQueryData(['productos_list', currentPage, debouncedSearch, categoryFilter], context.previousData);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['productos_list'] });
     },
     onSuccess: () => {
       showToast("Producto eliminado");
@@ -167,24 +170,43 @@ export default function ProductsPage() {
       if (error) throw error;
 
       if (data && product.materials?.length) {
-        await supabase.from("product_materials").insert(
-          product.materials.map((m) => ({ ...m, id: undefined, product_id: data.id }))
+        const { error: matError } = await supabase.from("product_materials").insert(
+          product.materials.map((m: any) => ({
+            product_id: data.id,
+            material_id: m.material_id ?? null,
+            name: m.name,
+            unit: m.unit,
+            quantity: m.quantity,
+            unit_cost: m.unit_cost,
+          }))
         );
+        if (matError) throw new Error("No se pudieron copiar los materiales: " + matError.message);
       }
       if (data && product.labor?.length) {
-        await supabase.from("product_labor").insert(
-          product.labor.map((l) => ({ ...l, id: undefined, product_id: data.id }))
+        const { error: labError } = await supabase.from("product_labor").insert(
+          product.labor.map((l: any) => ({
+            product_id: data.id,
+            work_type: l.work_type,
+            hours: l.hours,
+            hourly_rate: l.hourly_rate,
+          }))
         );
+        if (labError) throw new Error("No se pudo copiar la mano de obra: " + labError.message);
       }
       if (data && product.indirect_costs?.length) {
-        await supabase.from("product_indirect_costs").insert(
-          product.indirect_costs.map((ic) => ({ ...ic, id: undefined, product_id: data.id }))
+        const { error: indError } = await supabase.from("product_indirect_costs").insert(
+          product.indirect_costs.map((ic: any) => ({
+            product_id: data.id,
+            concept: ic.concept,
+            cost: ic.cost,
+          }))
         );
+        if (indError) throw new Error("No se pudieron copiar los costos indirectos: " + indError.message);
       }
     },
     onSuccess: () => {
       showToast("Producto duplicado correctamente");
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['productos_list'] });
     },
     onError: (e: any) => showToast("Error al duplicar: " + e.message, "error")
   });
@@ -277,6 +299,17 @@ export default function ProductsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        ) : catalogError ? (
+          <div className="card" style={{ padding: "1.5rem", textAlign: "center" }}>
+            <ShieldAlert size={28} style={{ color: "var(--danger)", margin: "0 auto 8px" }} />
+            <h3>No pudimos cargar los productos</h3>
+            <p className="subtitle" style={{ marginBottom: 12 }}>
+              Puede ser una falla momentánea de conexión.
+            </p>
+            <button className="btn btn-secondary" onClick={() => refetchCatalog()}>
+              Reintentar
+            </button>
           </div>
         ) : products.length === 0 ? (
           <div className="card empty-state">

@@ -40,7 +40,7 @@ export interface Product extends Omit<Tables<'products'>, 'type' | 'unit'> {
   computed_unit_cost?: number;
 }
 
-export interface QuotationItem extends Omit<Tables<'quotation_items'>, 'id' | 'quotation_id' | 'item_type' | 'has_labor' | 'has_design' | 'design_cost' | 'has_transport' | 'transport_cost' | 'client_design_url' | 'labor_quantity' | 'labor_unit_cost' | 'labor_margin_percent' | 'design_quantity' | 'design_unit_cost' | 'design_margin_percent' | 'transport_quantity' | 'transport_unit_cost' | 'transport_margin_percent'> {
+export interface QuotationItem extends Omit<Tables<'quotation_items'>, 'id' | 'quotation_id' | 'item_type' | 'has_labor' | 'has_design' | 'design_cost' | 'has_transport' | 'transport_cost' | 'client_design_url' | 'labor_quantity' | 'labor_unit_cost' | 'labor_margin_percent' | 'design_quantity' | 'design_unit_cost' | 'design_margin_percent' | 'transport_quantity' | 'transport_unit_cost' | 'transport_margin_percent' | 'labor_scope' | 'design_scope' | 'transport_scope'> {
   id?: string;
   quotation_id?: string;
   item_type?: string | null;
@@ -62,6 +62,9 @@ export interface QuotationItem extends Omit<Tables<'quotation_items'>, 'id' | 'q
   transport_quantity?: number | null;
   transport_unit_cost?: number | null;
   transport_margin_percent?: number | null;
+  labor_scope?: string | null;
+  design_scope?: string | null;
+  transport_scope?: string | null;
 }
 
 export type QuotationStatus = 'solicitada' | 'borrador' | 'enviada' | 'aceptada' | 'rechazada' | 'vencida';
@@ -90,6 +93,12 @@ export interface PublicProduct {
   transport_price?: number;
   material_price?: number;
   other_price?: number;
+  /** Precio unitario de la fila BASE (sin componentes de servicio). */
+  base_unit_price: number;
+  /** Regla de escalado de cada componente, tal como la publica el catálogo. */
+  labor_scope?: string;
+  design_scope?: string;
+  transport_scope?: string;
 }
 
 export interface ClientQuotationRequest {

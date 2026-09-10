@@ -1,4 +1,5 @@
 "use client";
+import { usePathname } from "next/navigation";
 
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
@@ -11,10 +12,12 @@ interface MobileShellProps {
 export default function MobileShell({ sidebar, children }: MobileShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const pathname = usePathname();
+
   // Close sidebar on route change
   useEffect(() => {
     setSidebarOpen(false);
-  }, [children]);
+  }, [pathname]);
 
   // Close sidebar on escape key
   useEffect(() => {

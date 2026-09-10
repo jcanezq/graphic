@@ -26,7 +26,8 @@ BEGIN
       has_transport, transport_cost, client_design_url,
       labor_quantity, labor_unit_cost, labor_margin_percent,
       design_quantity, design_unit_cost, design_margin_percent,
-      transport_quantity, transport_unit_cost, transport_margin_percent
+      transport_quantity, transport_unit_cost, transport_margin_percent,
+      labor_scope, design_scope, transport_scope
     )
     SELECT
       p_quotation_id,
@@ -59,7 +60,10 @@ BEGIN
       (elem->>'design_margin_percent')::NUMERIC,
       (elem->>'transport_quantity')::NUMERIC,
       (elem->>'transport_unit_cost')::NUMERIC,
-      (elem->>'transport_margin_percent')::NUMERIC
+      (elem->>'transport_margin_percent')::NUMERIC,
+      COALESCE(elem->>'labor_scope', 'order'),
+      COALESCE(elem->>'design_scope', 'order'),
+      COALESCE(elem->>'transport_scope', 'order')
     FROM jsonb_array_elements(p_items) AS elem;
   END IF;
 

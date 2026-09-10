@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, normalizeText } from "@/lib/formatters";
 import { fetchRucData } from "@/lib/ruc";
 import type { PublicProduct } from "@/types";
+import { round2 } from "@/lib/pricing";
 import {
   Calculator,
   Plus,
@@ -44,6 +45,9 @@ interface DraftItem {
   transport_price?: number;
   material_price?: number;
   other_price?: number;
+  labor_scope?: string;
+  design_scope?: string;
+  transport_scope?: string;
 }
 
 export default function CotizadorPage() {
@@ -82,7 +86,7 @@ export default function CotizadorPage() {
   } | null>(null);
 
   // Load catalog
-  const { data: catalogData } = useQuery({
+  const { data: catalogData, isError: catalogError, refetch: refetchCatalog } = useQuery({
     queryKey: ["public_products"],
     queryFn: async () => {
       const res = await fetch("/api/public/products");
@@ -167,13 +171,9 @@ export default function CotizadorPage() {
     if (option === 'design') item.has_design = value;
     if (option === 'transport') item.has_transport = value;
     
-    // Recalculate unit_price
-    let newPrice = item.base_unit_price;
-    if (item.has_labor === false && item.labor_price) newPrice -= item.labor_price;
-    if (item.has_design === false && item.design_price) newPrice -= item.design_price;
-    if (item.has_transport === false && item.transport_price) newPrice -= item.transport_price;
-    
-    item.unit_price = Math.max(0, newPrice);
+    // El precio ya NO se muta acá: lineTotal() lo deriva de los flags.
+    // Mutarlo era lo que permitía que un carrito viejo congelara como base
+    // un precio ya descontado y no se pudiera recuperar.
     
     persistItems(updated);
   }
@@ -191,7 +191,7 @@ export default function CotizadorPage() {
         product_code: product.code,
         product_type: product.type,
         unit: product.unit,
-        base_unit_price: product.unit_price,
+        base_unit_price: product.base_unit_price ?? product.unit_price,
         unit_price: product.unit_price,
         quantity: 1,
         has_labor: true,
@@ -200,6 +200,9 @@ export default function CotizadorPage() {
         labor_price: product.labor_price,
         design_price: product.design_price,
         transport_price: product.transport_price,
+        labor_scope: product.labor_scope,
+        design_scope: product.design_scope,
+        transport_scope: product.transport_scope,
         material_price: product.material_price,
         other_price: product.other_price,
       };
@@ -226,9 +229,28 @@ export default function CotizadorPage() {
   }
 
   // Calculate totals
-  const subtotal = items.reduce((acc, it) => acc + it.quantity * it.unit_price, 0);
-  const igv = subtotal * igvRate;
-  const total = subtotal + igv;
+  // Mismo modelo de filas que el servidor (src/lib/pricing.ts): el carrito
+  // ya no multiplica los componentes por la cantidad si su scope es 'order'.
+  function lineTotal(it: DraftItem): number {
+    const qty = Math.max(1, Number(it.quantity) || 1);
+    const base = round2(qty * (Number(it.base_unit_price) || 0));
+    const comp = (price: number | undefined, enabled: boolean | undefined, scope: string | undefined) => {
+      if (enabled === false) return 0;
+      const p = Number(price) || 0;
+      if (!(p > 0)) return 0;
+      return round2((scope === 'unit' ? qty : 1) * p);
+    };
+    return round2(
+      base
+      + comp(it.labor_price, it.has_labor, it.labor_scope)
+      + comp(it.design_price, it.has_design, it.design_scope)
+      + comp(it.transport_price, it.has_transport, it.transport_scope)
+    );
+  }
+
+  const subtotal = round2(items.reduce((acc, it) => acc + lineTotal(it), 0));
+  const igv = round2(subtotal * igvRate);
+  const total = round2(subtotal + igv);
 
   // Filter products for dropdown
   const normalizedProductSearch = normalizeText(productSearch);
@@ -565,7 +587,18 @@ export default function CotizadorPage() {
                           zIndex: 40,
                         }}
                       >
-                        {filteredProducts.length === 0 ? (
+                        {catalogError ? (
+                          <div className="card" style={{ padding: "1.5rem", textAlign: "center" }}>
+                            <ShieldAlert size={28} style={{ color: "var(--danger)", marginBottom: 8 }} />
+                            <h3>No pudimos cargar el catálogo</h3>
+                            <p className="subtitle" style={{ marginBottom: 12 }}>
+                              Puede ser una falla momentánea de conexión.
+                            </p>
+                            <button className="btn btn-secondary" onClick={() => refetchCatalog()}>
+                              Reintentar
+                            </button>
+                          </div>
+                        ) : filteredProducts.length === 0 ? (
                           <div style={{ padding: "0.85rem 1rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
                             No se encontraron coincidencias
                           </div>
@@ -723,8 +756,8 @@ export default function CotizadorPage() {
                             {/* Subtotal */}
                             <div style={{ textAlign: "right", minWidth: "90px" }}>
                               <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", display: "block", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Subtotal</span>
-                              <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text-primary)" }}>
-                                {formatCurrency(item.quantity * item.base_unit_price)}
+                              <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.95rem", fontWeight: 700, color: "var(--primary-color)" }}>
+                                {formatCurrency(lineTotal(item))}
                               </div>
                             </div>
 
@@ -777,10 +810,10 @@ export default function CotizadorPage() {
                                     {formatCurrency(item.labor_price)}
                                   </div>
                                   <div style={{ width: "90px", textAlign: "center", fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                                    1 hr
+                                    {item.labor_scope === 'unit' ? Math.max(1, item.quantity) : 1} hr
                                   </div>
                                   <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.9rem", fontWeight: 600, color: item.has_labor ? "var(--success)" : "var(--text-muted)" }}>
-                                    {formatCurrency(item.has_labor ? item.labor_price : 0)}
+                                    {formatCurrency(item.has_labor ? round2((item.labor_scope === 'unit' ? Math.max(1, item.quantity) : 1) * (item.labor_price ?? 0)) : 0)}
                                   </div>
                                   <div style={{ width: "32px" }}></div>
                                 </div>
@@ -804,10 +837,10 @@ export default function CotizadorPage() {
                                     {formatCurrency(item.design_price)}
                                   </div>
                                   <div style={{ width: "90px", textAlign: "center", fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                                    1 hr
+                                    {item.design_scope === 'unit' ? Math.max(1, item.quantity) : 1} hr
                                   </div>
                                   <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.9rem", fontWeight: 600, color: item.has_design ? "var(--success)" : "var(--text-muted)" }}>
-                                    {formatCurrency(item.has_design ? item.design_price : 0)}
+                                    {formatCurrency(item.has_design ? round2((item.design_scope === 'unit' ? Math.max(1, item.quantity) : 1) * (item.design_price ?? 0)) : 0)}
                                   </div>
                                   <div style={{ width: "32px" }}></div>
                                 </div>
@@ -831,10 +864,10 @@ export default function CotizadorPage() {
                                     {formatCurrency(item.transport_price)}
                                   </div>
                                   <div style={{ width: "90px", textAlign: "center", fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                                    1 viaje
+                                    {item.transport_scope === 'unit' ? Math.max(1, item.quantity) : 1} viaje
                                   </div>
                                   <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.9rem", fontWeight: 600, color: item.has_transport ? "var(--success)" : "var(--text-muted)" }}>
-                                    {formatCurrency(item.has_transport ? item.transport_price : 0)}
+                                    {formatCurrency(item.has_transport ? round2((item.transport_scope === 'unit' ? Math.max(1, item.quantity) : 1) * (item.transport_price ?? 0)) : 0)}
                                   </div>
                                   <div style={{ width: "32px" }}></div>
                                 </div>

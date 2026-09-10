@@ -7,7 +7,8 @@ import {
   calcUnitPrice,
   calcItemSubtotal,
   round2,
-  calcQuotationTotals
+  calcQuotationTotals,
+  createQuotationItemFromProduct
 } from '@/lib/calculations';
 import type { ProductMaterial, ProductLabor, ProductIndirectCost, QuotationItem } from '@/types';
 
@@ -43,8 +44,8 @@ describe('Calculations Library', () => {
 
     it('should calculate indirect cost correctly', () => {
       const indirects: ProductIndirectCost[] = [
-        { concept: 'Energy', cost: 5 },
-        { concept: 'Transport', cost: 15 },
+        { concept: 'Energy', cost: 5, kind: 'other' },
+        { concept: 'Transport', cost: 15, kind: 'transport' },
       ];
       expect(calcIndirectCost(indirects)).toBe(20);
     });
@@ -68,7 +69,7 @@ describe('Calculations Library', () => {
         manual_unit_cost: 0,
         materials: [{ name: 'M1', quantity: 1, unit_cost: 10, unit: 'un', material_id: null }] as any[],
         labor: [{ work_type: 'L1', hours: 2, hourly_rate: 10 }], // 20
-        indirect_costs: [{ concept: 'I1', cost: 5 }]
+        indirect_costs: [{ concept: 'I1', cost: 5, kind: 'other' as const }]
       };
       expect(calcUnitCost(product)).toBe(35); // 10 + 20 + 5
     });
@@ -100,4 +101,17 @@ describe('Calculations Library', () => {
     });
   });
 
+  describe('contrato de unit_price tras la FASE 2', () => {
+    it('unit_price es el precio de la fila base, no el promedio ponderado', () => {
+      const item = createQuotationItemFromProduct({
+        id: 'p', code: 'C', name: 'N', type: 'Servicio', unit: 'm²', description: '',
+        manual_unit_cost: null, default_margin: 35,
+        materials: [{ name: 'M', quantity: 1, unit_cost: 10, unit: 'm2', material_id: null }],
+        labor: [{ work_type: 'L', hours: 1, hourly_rate: 20 }],
+        indirect_costs: [],
+      } as any, 3, 35, 0);
+      expect(item.unit_price).toBe(13.50);   // base: 10 * 1.35
+      expect(item.subtotal).toBe(121.50);    // 40.50 base + 81.00 labor (scope 'unit')
+    });
+  });
 });

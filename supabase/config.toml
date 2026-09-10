@@ -1,0 +1,9 @@
+project_id = "cotigrafic"
+
+[db]
+major_version = 15
+
+[api]
+enabled = true
+schemas = ["public", "storage"]
+extra_search_path = ["public"]

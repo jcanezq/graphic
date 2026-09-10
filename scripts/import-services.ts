@@ -19,7 +19,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // El libro de costos ya no vive en el repo (contiene márgenes internos).
 // Definir COSTS_XLSX_PATH en .env.local apuntando a la copia local.
-const EXCEL_PATH = process.env.COSTS_XLSX_PATH;
+const EXCEL_PATH = process.env.COSTS_XLSX_PATH as string;
 if (!EXCEL_PATH) {
   console.error(
     "Falta COSTS_XLSX_PATH: ruta al libro de costos, que ya no se versiona en el repo."

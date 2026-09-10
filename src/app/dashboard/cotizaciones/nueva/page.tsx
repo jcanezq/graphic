@@ -11,9 +11,10 @@ import {
   recalcQuotationItem,
   calcQuotationTotals,
   calcUnitPrice,
-  calcItemSubtotal
+  calcItemSubtotal,
 } from "@/lib/calculations";
-import { Save, ArrowLeft, Plus, Trash2, Search } from "lucide-react";
+import { toQuotationItemRow } from "@/lib/quotation-item-row";
+import { Save, ArrowLeft, Plus, Trash2, Search, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
 import { fetchRucData } from "@/lib/ruc";
@@ -47,7 +48,7 @@ export default function NewQuotationPage() {
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [searchingRuc, setSearchingRuc] = useState(false);
 
-  const { data: initialData, isLoading } = useQuery({
+  const { data: initialData, isLoading, isError: catalogError, refetch: refetchCatalog } = useQuery({
     queryKey: ['quotation_form_data'],
     queryFn: async () => {
       const [settingsRes, productsRes, clientsRes, categoriesRes, materialsRes] = await Promise.all([
@@ -160,6 +161,7 @@ export default function NewQuotationPage() {
   function addProduct(product: Product) {
     const margin = settings?.default_margin ?? product.default_margin ?? 30;
     const newItem = createQuotationItemFromProduct(product, 1, margin, items.length);
+    (newItem as any).row_key = `row-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     setItems([...items, newItem]);
     setProductSearch("");
     setShowProductDropdown(false);
@@ -167,14 +169,10 @@ export default function NewQuotationPage() {
 
   function updateItem(index: number, changes: Partial<QuotationItem>) {
     const updated = [...items];
-    updated[index] = recalcQuotationItem(updated[index], {
-      quantity: changes.quantity,
-      margin_percent: changes.margin_percent,
-      unit_cost: changes.unit_cost,
-      has_labor: changes.has_labor,
-      has_design: changes.has_design,
-      has_transport: changes.has_transport,
-    });
+    // Reenviar `changes` COMPLETO. recalcQuotationItem resuelve cada campo con
+    // `overrides?.x ?? item.x`, así que pasarlo tal cual es seguro y elimina la
+    // lista blanca de 6 campos que dejaba inertes los 9 inputs de componente.
+    updated[index] = recalcQuotationItem(updated[index], changes as any);
     setItems(updated);
   }
 
@@ -229,23 +227,7 @@ export default function NewQuotationPage() {
       if (!rpcError && rpcNumber) {
         number = rpcNumber;
       } else {
-        const { data: settingsData } = await supabase
-          .from("company_settings")
-          .select("id, quotation_prefix, quotation_next_number")
-          .limit(1)
-          .single();
-
-        const prefix = settingsData?.quotation_prefix || "COT";
-        const nextNum = settingsData?.quotation_next_number || 1;
-        const year = new Date().getFullYear();
-        number = `${prefix}-${year}-${String(nextNum).padStart(4, "0")}`;
-
-        if (settingsData?.id) {
-          await supabase
-            .from("company_settings")
-            .update({ quotation_next_number: nextNum + 1 })
-            .eq("id", settingsData.id);
-        }
+        throw new Error("No se pudo generar el número de cotización. Reintentá en unos segundos.");
       }
 
       const { data: { user } } = await supabase.auth.getUser();
@@ -302,30 +284,7 @@ export default function NewQuotationPage() {
         }
 
         const { error: itemsError } = await supabase.from("quotation_items").insert(
-          finalItems.map((item, idx) => ({
-            quotation_id: quotation.id,
-            product_id: item.product_id || null,
-            item_type: item.item_type || 'Producto',
-            has_labor: item.has_labor ?? true,
-            has_design: item.has_design ?? true,
-            design_cost: item.design_cost || 0,
-            has_transport: item.has_transport ?? true,
-            transport_cost: item.transport_cost || 0,
-            client_design_url: item.client_design_url || null,
-            sort_order: idx,
-            product_code: item.product_code,
-            product_name: item.product_name,
-            product_description: item.product_description,
-            unit: item.unit,
-            material_cost: item.material_cost,
-            labor_cost: item.labor_cost,
-            indirect_cost: item.indirect_cost,
-            unit_cost: item.unit_cost,
-            quantity: item.quantity,
-            margin_percent: item.margin_percent,
-            unit_price: item.unit_price,
-            subtotal: item.subtotal,
-          }))
+          finalItems.map((item, idx) => toQuotationItemRow(item, idx, quotation.id))
         );
 
         if (itemsError) {
@@ -562,7 +521,15 @@ export default function NewQuotationPage() {
                       boxShadow: "var(--shadow-lg)",
                     }}
                   >
-                    {filteredProducts.length === 0 ? (
+                    {catalogError ? (
+                      <div style={{ padding: 16, textAlign: "center" }}>
+                        <ShieldAlert size={28} style={{ color: "var(--danger)", marginBottom: 8 }} />
+                        <h4 style={{ margin: "0 0 8px 0", fontSize: "0.95rem" }}>Error al cargar catálogo</h4>
+                        <button className="btn btn-secondary" onClick={() => refetchCatalog()}>
+                          Reintentar
+                        </button>
+                      </div>
+                    ) : filteredProducts.length === 0 ? (
                       <div style={{ padding: 16, color: "var(--text-muted)", fontSize: "0.85rem" }}>
                         No se encontraron productos
                       </div>
@@ -631,7 +598,7 @@ export default function NewQuotationPage() {
                     </thead>
                     <tbody>
                        {items.map((item, i) => (
-                        <React.Fragment key={i}>
+                        <React.Fragment key={(item as any).row_key ?? `idx-${i}`}>
                           <tr>
                             <td style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>{i + 1}</td>
                             <td className="primary" style={{ fontSize: "0.82rem" }}>
@@ -650,14 +617,13 @@ export default function NewQuotationPage() {
                                     Sube el diseño del cliente:
                                   </span>
                                   <input 
+                                    key={`file-${(item as any).row_key ?? i}`}
                                     type="file" 
                                     accept="image/*,.pdf,.ai,.psd" 
                                     style={{ fontSize: '0.7rem', width: '100%' }} 
                                     onChange={(e) => {
                                       const file = e.target.files?.[0] || null;
-                                      const updated = [...items];
-                                      updated[i].client_design_file = file;
-                                      setItems(updated);
+                                      setItems((prev) => prev.map((it, k) => k === i ? { ...it, client_design_file: file } : it));
                                     }} 
                                   />
                                 </div>
@@ -716,7 +682,7 @@ export default function NewQuotationPage() {
                             </td>
                           </tr>
                           
-                          {item.item_type === 'Servicio' && (item.labor_cost || 0) > 0 && (
+                          {(item.labor_unit_cost ?? item.labor_cost ?? 0) > 0 && (
                             <tr style={{ background: item.has_labor ? 'var(--bg-glass)' : 'transparent', opacity: item.has_labor ? 1 : 0.5 }}>
                               <td></td>
                               <td>
@@ -750,7 +716,7 @@ export default function NewQuotationPage() {
                             </tr>
                           )}
                           
-                          {item.item_type === 'Servicio' && (item.design_cost || 0) > 0 && (
+                          {(item.design_unit_cost ?? item.design_cost ?? 0) > 0 && (
                             <tr style={{ background: item.has_design ? 'var(--bg-glass)' : 'transparent', opacity: item.has_design ? 1 : 0.5 }}>
                               <td></td>
                               <td>
@@ -784,7 +750,7 @@ export default function NewQuotationPage() {
                             </tr>
                           )}
 
-                          {item.item_type === 'Servicio' && (item.transport_cost || 0) > 0 && (
+                          {(item.transport_unit_cost ?? item.transport_cost ?? 0) > 0 && (
                             <tr style={{ background: item.has_transport ? 'var(--bg-glass)' : 'transparent', opacity: item.has_transport ? 1 : 0.5 }}>
                               <td></td>
                               <td>

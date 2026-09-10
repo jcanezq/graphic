@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import ClientTable from "./ClientTable";
 import type { Client } from "@/types";
+import { unwrapList } from "@/lib/supabase/unwrap";
 
 export const dynamic = 'force-dynamic';
 
@@ -12,8 +13,8 @@ export default async function ClientsPage() {
     supabase.from("quotations").select("client_name, total, status, created_at").is("deleted_at", null),
   ]);
 
-  const clients = (clientsRes.data as Client[]) || [];
-  const quotations = (quotationsRes.data || []) as Array<{
+  const clients = unwrapList<Client>(clientsRes as any, "clientes.list");
+  const quotations = unwrapList(quotationsRes as any, "clientes.quotations") as Array<{
     client_name: string;
     total: number;
     status: string;

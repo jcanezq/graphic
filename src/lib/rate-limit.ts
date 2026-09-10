@@ -27,7 +27,7 @@ export function rateLimit(key: string, limit: number, windowMs: number): RateLim
   if (!existing || now > existing.resetAt) {
     // Barrido perezoso para que el mapa no crezca sin control.
     if (buckets.size > MAX_TRACKED_KEYS) {
-      for (const [k, v] of buckets) {
+      for (const [k, v] of Array.from(buckets.entries())) {
         if (now > v.resetAt) buckets.delete(k);
       }
     }

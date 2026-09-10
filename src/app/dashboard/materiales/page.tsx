@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
 import { formatCurrency } from "@/lib/formatters";
-import { Plus, Search, Edit2, Trash2, Layers } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Layers, ShieldAlert } from "lucide-react";
 import type { Material } from "@/types";
 
 export default function MaterialsPage() {
@@ -27,7 +27,7 @@ export default function MaterialsPage() {
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [debouncedSearch]);
 
-  const { data: queryData, isLoading: loading } = useQuery({
+  const { data: queryData, isLoading: loading, isError: catalogError, refetch: refetchCatalog } = useQuery({
     queryKey: ['materials', currentPage, debouncedSearch],
     queryFn: async () => {
       const from = (currentPage - 1) * PAGE_SIZE;
@@ -47,7 +47,8 @@ export default function MaterialsPage() {
         .range(from, to);
 
       return { materials: (data as Material[]) || [], count: count || 0 };
-    }
+    },
+    placeholderData: keepPreviousData
   });
 
   const materials = queryData?.materials || [];
@@ -193,6 +194,17 @@ export default function MaterialsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        ) : catalogError ? (
+          <div className="card" style={{ padding: "1.5rem", textAlign: "center" }}>
+            <ShieldAlert size={28} style={{ color: "var(--danger)", margin: "0 auto 8px" }} />
+            <h3>No pudimos cargar el catálogo</h3>
+            <p className="subtitle" style={{ marginBottom: 12 }}>
+              Puede ser una falla momentánea de conexión.
+            </p>
+            <button className="btn btn-secondary" onClick={() => refetchCatalog()}>
+              Reintentar
+            </button>
           </div>
         ) : materials.length === 0 && editingId !== "new" ? (
           <div className="card empty-state">

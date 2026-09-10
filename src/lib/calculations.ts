@@ -3,6 +3,13 @@
 // ============================================================
 
 import type { Product, ProductMaterial, ProductLabor, ProductIndirectCost, QuotationItem } from '@/types';
+import { normalizeText } from '@/lib/formatters';
+import {
+  buildItemLines, itemSubtotal, quotationTotals,
+  COMPONENT_SCOPE_DEFAULTS, LEGACY_SCOPE,
+  type PricedItemInput, type Scope, type PriceLine,
+} from '@/lib/pricing';
+export type { PriceLine } from '@/lib/pricing';
 
 /**
  * Calculate total material cost for a product.
@@ -29,6 +36,11 @@ export function calcIndirectCost(indirects: ProductIndirectCost[]): number {
 }
 
 /**
+ * ⚠ NO USAR PARA PRECIOS DE VENTA. Suma materiales + mano de obra + TODOS los
+ * indirectos, es decir mete los componentes de servicio dentro del costo base.
+ * Usarla para cotizar fue la causa de C-1 (el carrito cobraba los componentes
+ * x cantidad y el servidor x 1). Para precios: src/lib/pricing.ts.
+ *
  * Calculate the unit cost of a product.
  * If manual_unit_cost is set, use that. Otherwise, sum materials + labor + indirects.
  */
@@ -87,7 +99,7 @@ export function recalcQuotationItem(
   const hasTransport = overrides?.has_transport ?? item.has_transport ?? true;
   
   const laborQty = overrides?.labor_quantity ?? item.labor_quantity ?? 1;
-  const laborUC = overrides?.labor_unit_cost ?? item.labor_unit_cost ?? item.labor_cost;
+  const laborUC = overrides?.labor_unit_cost ?? item.labor_unit_cost ?? item.labor_cost ?? 0;
   const laborMargin = overrides?.labor_margin_percent ?? item.labor_margin_percent ?? marginPercent;
 
   const designQty = overrides?.design_quantity ?? item.design_quantity ?? 1;
@@ -98,25 +110,19 @@ export function recalcQuotationItem(
   const transportUC = overrides?.transport_unit_cost ?? item.transport_unit_cost ?? item.transport_cost ?? 0;
   const transportMargin = overrides?.transport_margin_percent ?? item.transport_margin_percent ?? marginPercent;
 
-  // Base item subtotal
-  const baseUnitPrice = calcUnitPrice(unitCost, marginPercent);
-  const baseSubtotal = calcItemSubtotal(quantity, baseUnitPrice);
-
-  // Component subtotals
-  const laborUP = calcUnitPrice(laborUC, laborMargin);
-  const laborSubtotal = hasLabor ? calcItemSubtotal(laborQty, laborUP) : 0;
-
-  const designUP = calcUnitPrice(designUC, designMargin);
-  const designSubtotal = hasDesign ? calcItemSubtotal(designQty, designUP) : 0;
-
-  const transportUP = calcUnitPrice(transportUC, transportMargin);
-  const transportSubtotal = hasTransport ? calcItemSubtotal(transportQty, transportUP) : 0;
-
-  // Total subtotal
-  const totalSubtotal = baseSubtotal + laborSubtotal + designSubtotal + transportSubtotal;
-  
-  // Represent average unit price
-  const totalUnitPrice = quantity > 0 ? (totalSubtotal / quantity) : 0;
+  // Todo el cálculo vive en el motor canónico (src/lib/pricing.ts).
+  const priced = toPricedItem({
+    ...item,
+    quantity, margin_percent: marginPercent, unit_cost: unitCost,
+    has_labor: hasLabor, has_design: hasDesign, has_transport: hasTransport,
+    labor_quantity: laborQty, labor_unit_cost: laborUC, labor_margin_percent: laborMargin,
+    design_quantity: designQty, design_unit_cost: designUC, design_margin_percent: designMargin,
+    transport_quantity: transportQty, transport_unit_cost: transportUC, transport_margin_percent: transportMargin,
+  } as QuotationItem);
+  const totalSubtotal = itemSubtotal(priced);
+  // unit_price = precio unitario de la fila BASE (ya no el promedio ponderado):
+  // así toda fila impresa cumple cantidad x P.U. = subtotal (M-1).
+  const baseUnitPrice = buildItemLines(priced)[0].unit_price;
 
   return {
     ...item,
@@ -135,8 +141,8 @@ export function recalcQuotationItem(
     transport_quantity: transportQty,
     transport_unit_cost: transportUC,
     transport_margin_percent: transportMargin,
-    unit_price: round2(totalUnitPrice),
-    subtotal: round2(totalSubtotal),
+    unit_price: baseUnitPrice,
+    subtotal: totalSubtotal,
   };
 }
 
@@ -152,12 +158,12 @@ export function createQuotationItemFromProduct(
   const materialCost = calcMaterialCost(product.materials || []);
   const laborCost = calcLaborCost(product.labor || []);
   
-  // Extract design cost from indirect costs if it exists
-  const designCostItem = (product.indirect_costs || []).find(ic => ic.concept.toLowerCase().includes('diseño') || ic.concept.toLowerCase().includes('design'));
+  // Design / transport se identifican por `kind` (columna estable), no por texto.
+  // Fallback por texto normalizado sólo para filas anteriores a la migración de `kind`.
+  const designCostItem = findIndirectByKind(product.indirect_costs, 'design');
   const designCost = designCostItem ? designCostItem.cost : 0;
-  
-  // Extract transport cost from indirect costs if it exists
-  const transportCostItem = (product.indirect_costs || []).find(ic => ic.concept.toLowerCase().includes('transporte') || ic.concept.toLowerCase().includes('movilidad') || ic.concept.toLowerCase().includes('flete'));
+
+  const transportCostItem = findIndirectByKind(product.indirect_costs, 'transport');
   const transportCost = transportCostItem ? transportCostItem.cost : 0;
   
   const indirectCost = calcIndirectCost(product.indirect_costs || []);
@@ -169,20 +175,15 @@ export function createQuotationItemFromProduct(
     
   const margin = marginPercent ?? (product.default_margin ?? 0);
   
-  const baseUnitPrice = calcUnitPrice(unitCost, margin);
-  const baseSubtotal = calcItemSubtotal(quantity, baseUnitPrice);
-
-  const laborUP = calcUnitPrice(laborCost, margin);
-  const laborSubtotal = calcItemSubtotal(1, laborUP);
-
-  const designUP = calcUnitPrice(designCost, margin);
-  const designSubtotal = calcItemSubtotal(1, designUP);
-
-  const transportUP = calcUnitPrice(transportCost, margin);
-  const transportSubtotal = calcItemSubtotal(1, transportUP);
-
-  const totalSubtotal = baseSubtotal + laborSubtotal + designSubtotal + transportSubtotal;
-  const totalUnitPrice = quantity > 0 ? (totalSubtotal / quantity) : 0;
+  // Ítem NUEVO: toma la regla de escalado vigente del catálogo (la semilla).
+  const priced: PricedItemInput = {
+    quantity, unit_cost: unitCost, margin_percent: margin, unit: product.unit,
+    labor:     { enabled: true, quantity: 1, unit_cost: laborCost,     margin_percent: margin, scope: COMPONENT_SCOPE_DEFAULTS.labor },
+    design:    { enabled: true, quantity: 1, unit_cost: designCost,    margin_percent: margin, scope: COMPONENT_SCOPE_DEFAULTS.design },
+    transport: { enabled: true, quantity: 1, unit_cost: transportCost, margin_percent: margin, scope: COMPONENT_SCOPE_DEFAULTS.transport },
+  };
+  const totalSubtotal = itemSubtotal(priced);
+  const baseUnitPrice = buildItemLines(priced)[0].unit_price;
 
   return {
     item_type: product.type,
@@ -218,8 +219,11 @@ export function createQuotationItemFromProduct(
     transport_quantity: 1,
     transport_unit_cost: round2(transportCost),
     transport_margin_percent: margin,
-    unit_price: round2(totalUnitPrice),
-    subtotal: round2(totalSubtotal),
+    labor_scope: COMPONENT_SCOPE_DEFAULTS.labor,
+    design_scope: COMPONENT_SCOPE_DEFAULTS.design,
+    transport_scope: COMPONENT_SCOPE_DEFAULTS.transport,
+    unit_price: baseUnitPrice,
+    subtotal: totalSubtotal,
   };
 }
 
@@ -227,15 +231,7 @@ export function createQuotationItemFromProduct(
  * Calculate quotation totals from items.
  */
 export function calcQuotationTotals(items: QuotationItem[], igvRate: number = 0.18) {
-  const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
-  const igv = subtotal * igvRate;
-  const total = subtotal + igv;
-
-  return {
-    subtotal: round2(subtotal),
-    igv: round2(igv),
-    total: round2(total),
-  };
+  return quotationTotals(items.map((i) => Number(i.subtotal) || 0), igvRate);
 }
 
 /**
@@ -243,4 +239,68 @@ export function calcQuotationTotals(items: QuotationItem[], igvRate: number = 0.
  */
 export function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * Localiza un indirecto por su `kind`. Si la fila todavía no tiene `kind`
+ * (dato previo a la migración), cae a coincidencia de texto NORMALIZADA
+ * — sin tildes y en minúsculas — para que "Diseno" y "Diseño" sean lo mismo.
+ */
+export function findIndirectByKind(
+  indirects: Array<{ concept: string; cost: number; kind?: string | null }> | undefined | null,
+  kind: 'design' | 'transport',
+) {
+  const list = indirects || [];
+  const byKind = list.find((ic) => ic.kind === kind);
+  if (byKind) return byKind;
+  const needles = kind === 'design'
+    ? ['diseno', 'design']
+    : ['transporte', 'movilidad', 'flete'];
+  return list.find((ic) => {
+    if (ic.kind && ic.kind !== 'other') return false;
+    const n = normalizeText(ic.concept);
+    return needles.some((x) => n.includes(x));
+  });
+}
+
+/**
+ * Traduce un QuotationItem al modelo canónico del motor de precios.
+ * El scope se toma de la fila (persistido); si falta, LEGACY_SCOPE ('order'),
+ * que es la regla con la que se calcularon las cotizaciones anteriores.
+ */
+export function toPricedItem(item: QuotationItem): PricedItemInput {
+  const margin = Number(item.margin_percent) || 0;
+  const asScope = (v: unknown): Scope => (v === 'unit' ? 'unit' : LEGACY_SCOPE);
+  return {
+    quantity: Number(item.quantity) || 0,
+    unit_cost: Number(item.unit_cost) || 0,
+    margin_percent: margin,
+    unit: item.unit,
+    labor: {
+      enabled: item.has_labor ?? true,
+      quantity: Number(item.labor_quantity ?? 1) || 0,
+      unit_cost: Number(item.labor_unit_cost ?? item.labor_cost ?? 0) || 0,
+      margin_percent: Number(item.labor_margin_percent ?? margin) || 0,
+      scope: asScope((item as any).labor_scope),
+    },
+    design: {
+      enabled: item.has_design ?? true,
+      quantity: Number(item.design_quantity ?? 1) || 0,
+      unit_cost: Number(item.design_unit_cost ?? item.design_cost ?? 0) || 0,
+      margin_percent: Number(item.design_margin_percent ?? margin) || 0,
+      scope: asScope((item as any).design_scope),
+    },
+    transport: {
+      enabled: item.has_transport ?? true,
+      quantity: Number(item.transport_quantity ?? 1) || 0,
+      unit_cost: Number(item.transport_unit_cost ?? item.transport_cost ?? 0) || 0,
+      margin_percent: Number(item.transport_margin_percent ?? margin) || 0,
+      scope: asScope((item as any).transport_scope),
+    },
+  };
+}
+
+/** Filas cobrables de un ítem ya persistido. Lo que imprimen PDF y Excel. */
+export function buildQuotationItemLines(item: QuotationItem): PriceLine[] {
+  return buildItemLines(toPricedItem(item));
 }

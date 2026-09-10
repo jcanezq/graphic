@@ -8,6 +8,7 @@ import {
   calcQuotationTotals,
   recalcQuotationItem,
 } from "@/lib/calculations";
+import { toQuotationItemRow } from "@/lib/quotation-item-row";
 import { generateClientToAdminWhatsAppUrl } from "@/lib/whatsapp";
 import type { Product } from "@/types";
 
@@ -145,17 +146,14 @@ export async function POST(request: Request) {
     if (!rpcError && rpcNumber) {
       number = rpcNumber;
     } else {
-      const prefix = settings?.quotation_prefix || "COT";
-      const nextNum = settings?.quotation_next_number || 1;
-      const year = new Date().getFullYear();
-      number = `${prefix}-${year}-${String(nextNum).padStart(4, "0")}`;
-
-      if (settings?.id) {
-        await adminClient
-          .from("company_settings")
-          .update({ quotation_next_number: nextNum + 1 })
-          .eq("id", settings.id);
-      }
+      // Sin fallback: una numeración sin lock produce duplicados que chocan
+      // contra el UNIQUE de quotations.number y pierden la cotización.
+      // El RPC generate_quotation_number es la única vía correcta.
+      console.error("generate_quotation_number falló:", rpcError);
+      return NextResponse.json(
+        { error: "No se pudo generar el número de cotización. Reintentá en unos segundos." },
+        { status: 503 }
+      );
     }
 
     // 6. Alta de cliente en el CRM — SOLO alta, nunca actualización.
@@ -230,29 +228,7 @@ export async function POST(request: Request) {
 
     // 8. Insert quotation items
     const { error: itemsError } = await adminClient.from("quotation_items").insert(
-      quotationItems.map((item, idx) => ({
-        quotation_id: quotation.id,
-        product_id: item.product_id || null,
-        item_type: item.item_type || null,
-        sort_order: idx,
-        product_code: item.product_code,
-        product_name: item.product_name,
-        product_description: item.product_description,
-        unit: item.unit,
-        material_cost: item.material_cost,
-        labor_cost: item.labor_cost,
-        indirect_cost: item.indirect_cost,
-        unit_cost: item.unit_cost,
-        quantity: item.quantity,
-        margin_percent: item.margin_percent,
-        unit_price: item.unit_price,
-        subtotal: item.subtotal,
-        has_labor: item.has_labor,
-        has_design: item.has_design,
-        has_transport: item.has_transport,
-        design_cost: item.design_cost,
-        transport_cost: item.transport_cost,
-      }))
+      quotationItems.map((item, idx) => toQuotationItemRow(item, idx, quotation.id))
     );
 
     if (itemsError) {

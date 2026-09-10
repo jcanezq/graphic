@@ -1,3 +1,23 @@
+
+-- ============================================================================
+-- ⚠️  DESTRUCTIVO — LEER ANTES DE EJECUTAR
+--
+-- Este archivo contiene 30 sentencias DELETE que BORRAN los materiales, la mano
+-- de obra y los costos indirectos de los productos PRD-2026-0001 … PRD-2026-0010
+-- antes de reinsertarlos con los valores de acá.
+--
+-- Consecuencia: se PIERDE todo ajuste de costos hecho desde la aplicación para
+-- esos 10 productos, sin confirmación y sin aviso. Y como los precios cotizados
+-- se calculan a partir de esos costos, el efecto sobre las cotizaciones nuevas
+-- es inmediato.
+--
+-- USO PREVISTO: sólo para poblar una base NUEVA y vacía.
+-- NO EJECUTAR EN PRODUCCIÓN sin respaldo previo:
+--   pg_dump -t product_materials -t product_labor -t product_indirect_costs \
+--           > backup-bom-$(date +%F).sql
+--
+-- Este archivo NO es una migración y NO debe estar en supabase/migrations/.
+-- ============================================================================
 -- ============================================================
 -- SEED: Insert products and cost structures from Excel
 -- Auto-generated script
