@@ -17,12 +17,20 @@ export async function generatePDF(quotation: Quotation, settings: CompanySetting
   async function getBase64ImageFromUrl(imageUrl: string): Promise<string> {
     const res = await fetch(imageUrl);
     const blob = await res.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    if (typeof window === 'undefined') {
+      // Server-side (Node.js / Next.js API)
+      const arrayBuffer = await blob.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      return `data:${blob.type};base64,${buffer.toString("base64")}`;
+    } else {
+      // Client-side (Browser)
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
   }
 
   // Colors (Palette A - Indigo Profesional)
