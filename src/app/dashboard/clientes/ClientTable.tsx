@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatCurrency, formatRelativeTime } from "@/lib/formatters";
 import type { Client } from "@/types";
+import ClientModal from "./ClientModal";
 
 interface ClientWithStats extends Client {
   ltv?: number;
@@ -27,6 +28,9 @@ export default function ClientTable({ initialClients }: Props) {
   const { showToast } = useToast();
   const router = useRouter();
   const PAGE_SIZE = 20;
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [clientToEdit, setClientToEdit] = useState<ClientWithStats | null>(null);
 
   const filtered = useMemo(() => {
     return clients.filter((c) => {
@@ -68,6 +72,15 @@ export default function ClientTable({ initialClients }: Props) {
             }}
           />
         </div>
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            setClientToEdit(null);
+            setIsModalOpen(true);
+          }}
+        >
+          + Nuevo Cliente
+        </button>
       </div>
 
       {clients.length === 0 ? (
@@ -129,6 +142,16 @@ export default function ClientTable({ initialClients }: Props) {
                         </Link>
                         <button
                           className="btn-icon"
+                          title="Editar"
+                          onClick={() => {
+                            setClientToEdit(c);
+                            setIsModalOpen(true);
+                          }}
+                        >
+                          <Edit2 size={15} />
+                        </button>
+                        <button
+                          className="btn-icon"
                           title="Eliminar"
                           onClick={() => handleDelete(c.id, c.name)}
                           style={{ color: "var(--error)" }}
@@ -176,6 +199,16 @@ export default function ClientTable({ initialClients }: Props) {
           )}
         </div>
       )}
+
+      <ClientModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        client={clientToEdit}
+        onSuccess={() => {
+          // Si quisieras actualizar el estado local sin recargar:
+          // router.refresh() ya se llama en el modal.
+        }}
+      />
     </>
   );
 }

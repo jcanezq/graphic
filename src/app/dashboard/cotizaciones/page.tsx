@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, formatDate, getStatusLabel, getStatusColor, sanitizeSearch } from "@/lib/formatters";
-import { Search, Plus, FileText, Eye, Edit2, Trash2, Copy, Download, LayoutGrid, List, GitBranch, MessageCircle, Globe, ShieldAlert } from "lucide-react";
+import { Search, Plus, FileText, Eye, Edit2, Trash2, Copy, Download, LayoutGrid, List, GitBranch, MessageCircle, Globe, ShieldAlert, Filter, Calendar, Package } from "lucide-react";
 import Link from "next/link";
 import { toQuotationItemRow } from "@/lib/quotation-item-row";
 import { useToast } from "@/components/ToastProvider";
@@ -29,6 +29,14 @@ export default function QuotationsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 20;
 
+  // Advanced Filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [itemSearch, setItemSearch] = useState("");
+  const [debouncedItemSearch, setDebouncedItemSearch] = useState("");
+  const [itemType, setItemType] = useState("");
+
   const [viewMode, setViewMode] = useState<"table" | "kanban">(() => {
     if (typeof window !== "undefined") {
       return (localStorage.getItem("cotigrafic_view_mode") as "table" | "kanban") || "kanban";
@@ -40,14 +48,17 @@ export default function QuotationsPage() {
   const [localQuotations, setLocalQuotations] = useState<Quotation[]>([]);
 
   useEffect(() => {
-    const handler = setTimeout(() => setDebouncedSearch(search), 300);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setDebouncedItemSearch(itemSearch);
+    }, 300);
     return () => clearTimeout(handler);
-  }, [search]);
+  }, [search, itemSearch]);
 
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, dateFrom, dateTo, debouncedItemSearch, itemType]);
 
   const { data: settings } = useQuery({
     queryKey: ['company_settings'],
@@ -58,12 +69,16 @@ export default function QuotationsPage() {
   });
 
   const { data: queryData, isLoading: loading, isError: catalogError, refetch: refetchCatalog } = useQuery({
-    queryKey: ['quotations_list', viewMode, currentPage, debouncedSearch, statusFilter],
+    queryKey: ['quotations_list', viewMode, currentPage, debouncedSearch, statusFilter, dateFrom, dateTo, debouncedItemSearch, itemType],
     queryFn: async () => {
+      const selectColumns = debouncedItemSearch || itemType 
+        ? "*, quotation_items!inner(product_name, item_type)"
+        : "*";
+
       if (viewMode === "table") {
         let query = supabase
           .from("quotations")
-          .select("*", { count: "exact" })
+          .select(selectColumns, { count: "exact" })
           .is("deleted_at", null)
           .order("created_at", { ascending: false });
 
@@ -71,20 +86,22 @@ export default function QuotationsPage() {
           const s = sanitizeSearch(debouncedSearch);
           query = query.or(`client_name.ilike.%${s}%,number.ilike.%${s}%`);
         }
-        if (statusFilter) {
-          query = query.eq("status", statusFilter);
-        }
+        if (statusFilter) query = query.eq("status", statusFilter);
+        if (dateFrom) query = query.gte("created_at", `${dateFrom}T00:00:00`);
+        if (dateTo) query = query.lte("created_at", `${dateTo}T23:59:59`);
+        if (debouncedItemSearch) query = query.ilike("quotation_items.product_name", `%${sanitizeSearch(debouncedItemSearch)}%`);
+        if (itemType) query = query.eq("quotation_items.item_type", itemType);
 
         const from = (currentPage - 1) * PAGE_SIZE;
         const to = from + PAGE_SIZE - 1;
         query = query.range(from, to);
 
         const { data, count } = await query;
-        return { quotations: (data as Quotation[]) || [], count: count || 0 };
+        return { quotations: (data as any as Quotation[]) || [], count: count || 0 };
       } else {
         let query = supabase
           .from("quotations")
-          .select("*")
+          .select(selectColumns)
           .is("deleted_at", null)
           .order("created_at", { ascending: false })
           .limit(200);
@@ -93,12 +110,14 @@ export default function QuotationsPage() {
           const s = sanitizeSearch(debouncedSearch);
           query = query.or(`client_name.ilike.%${s}%,number.ilike.%${s}%`);
         }
-        if (statusFilter) {
-          query = query.eq("status", statusFilter);
-        }
+        if (statusFilter) query = query.eq("status", statusFilter);
+        if (dateFrom) query = query.gte("created_at", `${dateFrom}T00:00:00`);
+        if (dateTo) query = query.lte("created_at", `${dateTo}T23:59:59`);
+        if (debouncedItemSearch) query = query.ilike("quotation_items.product_name", `%${sanitizeSearch(debouncedItemSearch)}%`);
+        if (itemType) query = query.eq("quotation_items.item_type", itemType);
 
         const { data } = await query;
-        const d = (data as Quotation[]) || [];
+        const d = (data as any as Quotation[]) || [];
 
         const groups = new Map<string, Quotation[]>();
         d.forEach(q => {
@@ -364,29 +383,101 @@ export default function QuotationsPage() {
       </div>
 
       <div className="page-body">
-        <div className="toolbar">
-          <div className="search-bar" style={{ flex: 1, maxWidth: 400 }}>
-            <Search size={18} />
-            <input
-              type="text"
-              placeholder="Buscar por cliente o N° cotización..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+        <div className="card" style={{ marginBottom: "1rem", padding: "16px" }}>
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
+            <div className="search-bar" style={{ flex: 1, minWidth: 280 }}>
+              <Search size={18} />
+              <input
+                type="text"
+                placeholder="Buscar por cliente o N° cotización..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{ width: 180, padding: "0.5rem 0.75rem", borderRadius: "var(--radius-md)", border: "1px solid var(--surface-border)", background: "var(--bg-primary)" }}
+            >
+              <option value="">Todos los estados</option>
+              <option value="solicitada">Solicitudes Web</option>
+              <option value="borrador">Generada</option>
+              <option value="enviada">Enviada</option>
+              <option value="aceptada">Aceptada</option>
+              <option value="rechazada">Rechazada</option>
+              <option value="vencida">Vencida</option>
+            </select>
+            <button 
+              className={`btn ${showFilters ? "btn-primary" : "btn-secondary"}`} 
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter size={16} /> Filtros Avanzados
+            </button>
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ width: 180 }}
-          >
-            <option value="">Todos los estados</option>
-            <option value="solicitada">Solicitudes Web</option>
-            <option value="borrador">Generada</option>
-            <option value="enviada">Enviada</option>
-            <option value="aceptada">Aceptada</option>
-            <option value="rechazada">Rechazada</option>
-            <option value="vencida">Vencida</option>
-          </select>
+
+          {showFilters && (
+            <div style={{ 
+              marginTop: "16px", paddingTop: "16px", 
+              borderTop: "1px solid var(--surface-divider)", 
+              display: "flex", gap: "16px", flexWrap: "wrap",
+              animation: "fadeIn 0.2s ease" 
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "var(--bg-tertiary)", padding: "4px 8px", borderRadius: "var(--radius-md)" }}>
+                <Calendar size={16} style={{ color: "var(--text-muted)" }} />
+                <input 
+                  type="date" 
+                  value={dateFrom} 
+                  onChange={(e) => setDateFrom(e.target.value)} 
+                  style={{ border: "none", background: "transparent", fontSize: "0.85rem", outline: "none", color: "var(--text-primary)" }}
+                  title="Fecha de inicio"
+                />
+                <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>—</span>
+                <input 
+                  type="date" 
+                  value={dateTo} 
+                  onChange={(e) => setDateTo(e.target.value)} 
+                  style={{ border: "none", background: "transparent", fontSize: "0.85rem", outline: "none", color: "var(--text-primary)" }}
+                  title="Fecha de fin"
+                />
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "var(--bg-tertiary)", padding: "4px 8px", borderRadius: "var(--radius-md)", flex: 1, minWidth: 300 }}>
+                <Package size={16} style={{ color: "var(--text-muted)" }} />
+                <select
+                  value={itemType}
+                  onChange={(e) => setItemType(e.target.value)}
+                  style={{ border: "none", background: "transparent", fontSize: "0.85rem", outline: "none", color: "var(--text-primary)", fontWeight: 600, paddingRight: 4, borderRight: "1px solid var(--surface-divider)" }}
+                >
+                  <option value="">Todo tipo</option>
+                  <option value="Producto">Producto</option>
+                  <option value="Servicio">Servicio</option>
+                  <option value="Material">Material</option>
+                </select>
+                <input 
+                  type="text" 
+                  value={itemSearch} 
+                  onChange={(e) => setItemSearch(e.target.value)} 
+                  placeholder="Contiene producto / material..."
+                  style={{ border: "none", background: "transparent", fontSize: "0.85rem", outline: "none", color: "var(--text-primary)", flex: 1, paddingLeft: 8 }}
+                />
+              </div>
+
+              {(dateFrom || dateTo || itemSearch || itemType) && (
+                <button 
+                  className="btn btn-ghost btn-sm" 
+                  style={{ color: "var(--error)" }}
+                  onClick={() => {
+                    setDateFrom("");
+                    setDateTo("");
+                    setItemSearch("");
+                    setItemType("");
+                  }}
+                >
+                  Limpiar Filtros
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Pipeline Summary Bar */}
