@@ -20,7 +20,7 @@ import Image from "next/image";
 import type { Product, Category } from "@/types";
 
 export interface CatalogListPageProps {
-  type: "Producto" | "Servicio";
+  type: "Producto" | "Servicio" | "Material";
   queryKey: string;
   basePath: string;
   labels: { plural: string; singular: string; nuevo: string };
@@ -276,7 +276,7 @@ export default function CatalogListPage({ type, queryKey, basePath, labels }: Ca
               <thead>
                 <tr>
                   <th>Código</th>
-                  <th>{type}</th>
+                  <th>Descripción</th>
                   <th>Tipo</th>
                   <th>Categoría</th>
                   <th>Unidad</th>
@@ -342,7 +342,7 @@ export default function CatalogListPage({ type, queryKey, basePath, labels }: Ca
               <thead>
                 <tr>
                   <th>Código</th>
-                  <th>{type}</th>
+                  <th>Descripción</th>
                   <th>Tipo</th>
                   <th>Categoría</th>
                   <th>Unidad</th>

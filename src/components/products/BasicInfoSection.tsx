@@ -7,7 +7,7 @@ interface Props {
   control: Control<ProductFormValues>;
   categories: Category[];
   errors: any;
-  fixedType?: "Producto" | "Servicio";
+  fixedType?: "Producto" | "Servicio" | "Material";
 }
 
 const UNITS = [
@@ -65,6 +65,7 @@ export function BasicInfoSection({ register, control, categories, errors, fixedT
           <select {...register("type")}>
             <option value="Producto">Producto</option>
             <option value="Servicio">Servicio</option>
+            <option value="Material">Material</option>
           </select>
         </div>
         <div className="form-group">

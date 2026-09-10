@@ -18,7 +18,7 @@ import { IndirectCostsSection } from "@/components/products/IndirectCostsSection
 import { CostSummarySection } from "@/components/products/CostSummarySection";
 
 export interface CatalogFormPageProps {
-  type: "Producto" | "Servicio";
+  type: "Producto" | "Servicio" | "Material";
   basePath: string;
   labels: { 
     titleNew: string; 
