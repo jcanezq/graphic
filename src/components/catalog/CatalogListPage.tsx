@@ -276,7 +276,7 @@ export default function CatalogListPage({ type, queryKey, basePath, labels }: Ca
               <thead>
                 <tr>
                   <th>Código</th>
-                  <th>Descripción</th>
+                  <th>Nombre</th>
                   <th>Tipo</th>
                   <th>Categoría</th>
                   <th>Unidad</th>
@@ -342,7 +342,7 @@ export default function CatalogListPage({ type, queryKey, basePath, labels }: Ca
               <thead>
                 <tr>
                   <th>Código</th>
-                  <th>Descripción</th>
+                  <th>Nombre</th>
                   <th>Tipo</th>
                   <th>Categoría</th>
                   <th>Unidad</th>
