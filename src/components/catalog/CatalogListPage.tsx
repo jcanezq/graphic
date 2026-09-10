@@ -1,0 +1,554 @@
+"use client";
+
+import { useState, useMemo, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/components/ToastProvider";
+import { formatCurrency, sanitizeSearch } from "@/lib/formatters";
+import { calcUnitCost } from "@/lib/calculations";
+import {
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
+  Copy,
+  Package,
+  ShieldAlert
+} from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import type { Product, Category } from "@/types";
+
+export interface CatalogListPageProps {
+  type: "Producto" | "Servicio";
+  queryKey: string;
+  basePath: string;
+  labels: { plural: string; singular: string; nuevo: string };
+}
+
+export default function CatalogListPage({ type, queryKey, basePath, labels }: CatalogListPageProps) {
+  const [supabase] = useState(() => createClient());
+  const { showToast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data } = await supabase.from("categories").select("*").order("sort_order");
+      return (data as Category[]) || [];
+    }
+  });
+
+  const PAGE_SIZE = 15;
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // Debounce search
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [debouncedSearch, categoryFilter]);
+
+  const { data: queryData, isLoading: loading, isError: catalogError, refetch: refetchCatalog } = useQuery({
+    queryKey: [queryKey, currentPage, debouncedSearch, categoryFilter],
+    queryFn: async () => {
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      let query = supabase
+        .from("products")
+        .select("*, categories(id, name, color, slug)", { count: 'exact' })
+        .is("deleted_at", null)
+        .eq("type", type);
+
+      if (debouncedSearch) {
+        const s = sanitizeSearch(debouncedSearch);
+        query = query.or(`name.ilike.%${s}%,code.ilike.%${s}%`);
+      }
+      if (categoryFilter) {
+        query = query.eq("category_id", categoryFilter);
+      }
+      
+      const { data: prodRes, count } = await query
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (!prodRes || prodRes.length === 0) return { products: [], count: count || 0 };
+
+      const productIds = prodRes.map((p: Product) => p.id);
+      const [matRes, labRes, indRes] = await Promise.all([
+        supabase.from("product_materials").select("*, materials(id, cost, name, unit)").in("product_id", productIds),
+        supabase.from("product_labor").select("*").in("product_id", productIds),
+        supabase.from("product_indirect_costs").select("*").in("product_id", productIds),
+      ]);
+
+      const products = prodRes.map((p: any) => {
+        const materials = (matRes.data || [])
+          .filter((m: any) => m.product_id === p.id)
+          .map((m: any) => ({
+             ...m,
+             unit_cost: m.materials?.cost ?? m.unit_cost,
+             name: m.materials?.name ?? m.name,
+             unit: m.materials?.unit ?? m.unit
+          }));
+        const labor = (labRes.data || []).filter((l: any) => l.product_id === p.id);
+        const indirect_costs = (indRes.data || []).filter((ic: any) => ic.product_id === p.id);
+
+        return {
+          ...p,
+          category: p.categories,
+          materials,
+          labor,
+          indirect_costs,
+          computed_unit_cost: calcUnitCost({
+            manual_unit_cost: p.manual_unit_cost as number | null,
+            materials,
+            labor,
+            indirect_costs,
+          }),
+        };
+      }) as Product[];
+
+      return { products, count: count || 0 };
+    },
+    placeholderData: keepPreviousData
+  });
+
+  const products = queryData?.products || [];
+  const totalItems = queryData?.count || 0;
+  const totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("products").update({ deleted_at: new Date().toISOString() }).eq("id", id);
+      if (error) throw error;
+    },
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: [queryKey] });
+      const previousData = queryClient.getQueryData([queryKey, currentPage, debouncedSearch, categoryFilter]);
+      queryClient.setQueryData([queryKey, currentPage, debouncedSearch, categoryFilter], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          products: old.products.filter((p: Product) => p.id !== deletedId),
+          count: old.count - 1
+        };
+      });
+      return { previousData };
+    },
+    onError: (err, newTodo, context) => {
+      showToast(`Error al eliminar ${labels.singular}`, "error");
+      if (context?.previousData) {
+        queryClient.setQueryData([queryKey, currentPage, debouncedSearch, categoryFilter], context.previousData);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: [queryKey] });
+    },
+    onSuccess: () => {
+      showToast(`${labels.singular.charAt(0).toUpperCase() + labels.singular.slice(1)} eliminado`);
+    }
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: async (product: Product) => {
+      const newCode = product.code + "-COPIA";
+      const { data, error } = await supabase
+        .from("products")
+        .insert({
+          code: newCode,
+          name: product.name + " (Copia)",
+          category_id: product.category_id,
+          description: product.description,
+          unit: product.unit,
+          manual_unit_cost: product.manual_unit_cost,
+          default_margin: product.default_margin,
+          is_active: product.is_active,
+          type: product.type,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data && product.materials?.length) {
+        const { error: matError } = await supabase.from("product_materials").insert(
+          product.materials.map((m: any) => ({
+            product_id: data.id,
+            material_id: m.material_id ?? null,
+            name: m.name,
+            unit: m.unit,
+            quantity: m.quantity,
+            unit_cost: m.unit_cost,
+          }))
+        );
+        if (matError) throw new Error("No se pudieron copiar los materiales: " + matError.message);
+      }
+      if (data && product.labor?.length) {
+        const { error: labError } = await supabase.from("product_labor").insert(
+          product.labor.map((l: any) => ({
+            product_id: data.id,
+            work_type: l.work_type,
+            hours: l.hours,
+            hourly_rate: l.hourly_rate,
+          }))
+        );
+        if (labError) throw new Error("No se pudo copiar la mano de obra: " + labError.message);
+      }
+      if (data && product.indirect_costs?.length) {
+        const { error: indError } = await supabase.from("product_indirect_costs").insert(
+          product.indirect_costs.map((ic: any) => ({
+            product_id: data.id,
+            concept: ic.concept,
+            cost: ic.cost,
+          }))
+        );
+        if (indError) throw new Error("No se pudieron copiar los costos indirectos: " + indError.message);
+      }
+    },
+    onSuccess: () => {
+      showToast(`${labels.singular.charAt(0).toUpperCase() + labels.singular.slice(1)} duplicado correctamente`);
+      queryClient.invalidateQueries({ queryKey: [queryKey] });
+    },
+    onError: (e: any) => showToast("Error al duplicar: " + e.message, "error")
+  });
+
+  async function handleDelete(id: string) {
+    if (!confirm(`¿Eliminar este ${labels.singular}?`)) return;
+    deleteMutation.mutate(id);
+  }
+
+  async function handleDuplicate(product: Product) {
+    duplicateMutation.mutate(product);
+  }
+
+  return (
+    <div className="animate-fadeIn">
+      <div className="page-header">
+        <div>
+          <h1>{labels.plural}</h1>
+          <p className="subtitle">{totalItems} {labels.plural.toLowerCase()} registrados</p>
+        </div>
+        <div className="page-header-actions">
+          <Link href={`${basePath}/nuevo`} className="btn btn-primary">
+            <Plus size={18} />
+            {labels.nuevo}
+          </Link>
+        </div>
+      </div>
+
+      <div className="page-body">
+        {/* Toolbar */}
+        <div className="toolbar">
+          <div className="search-bar" style={{ flex: 1, maxWidth: 400 }}>
+            <Search size={18} />
+            <input
+              type="text"
+              placeholder="Buscar por nombre o código..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            style={{ width: 220 }}
+          >
+            <option value="">Todas las categorías</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Table */}
+        {loading ? (
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>{type}</th>
+                  <th>Tipo</th>
+                  <th>Categoría</th>
+                  <th>Unidad</th>
+                  <th>Costo Unit.</th>
+                  <th>P.V. (c/margen)</th>
+                  <th>Estado</th>
+                  <th style={{ textAlign: "right" }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <tr key={i}>
+                    <td><div className="skeleton" style={{ height: 20, width: 80, borderRadius: 4 }} /></td>
+                    <td>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        <div className="skeleton" style={{ height: 40, width: 40, borderRadius: 4 }} />
+                        <div className="skeleton" style={{ height: 20, width: 150, borderRadius: 4 }} />
+                      </div>
+                    </td>
+                    <td><div className="skeleton" style={{ height: 24, width: 60, borderRadius: 12 }} /></td>
+                    <td><div className="skeleton" style={{ height: 24, width: 80, borderRadius: 12 }} /></td>
+                    <td><div className="skeleton" style={{ height: 20, width: 40, borderRadius: 4 }} /></td>
+                    <td><div className="skeleton" style={{ height: 20, width: 60, borderRadius: 4 }} /></td>
+                    <td><div className="skeleton" style={{ height: 20, width: 60, borderRadius: 4 }} /></td>
+                    <td><div className="skeleton" style={{ height: 24, width: 60, borderRadius: 12 }} /></td>
+                    <td><div className="skeleton" style={{ height: 28, width: 100, borderRadius: 4, marginLeft: "auto" }} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : catalogError ? (
+          <div className="card" style={{ padding: "1.5rem", textAlign: "center" }}>
+            <ShieldAlert size={28} style={{ color: "var(--danger)", margin: "0 auto 8px" }} />
+            <h3>No pudimos cargar los {labels.plural.toLowerCase()}</h3>
+            <p className="subtitle" style={{ marginBottom: 12 }}>
+              Puede ser una falla momentánea de conexión.
+            </p>
+            <button className="btn btn-secondary" onClick={() => refetchCatalog()}>
+              Reintentar
+            </button>
+          </div>
+        ) : products.length === 0 ? (
+          <div className="card empty-state">
+            <Package size={48} />
+            <h3>No se encontraron {labels.plural.toLowerCase()}</h3>
+            <p>
+              {search || categoryFilter
+                ? "Prueba con otros filtros de búsqueda."
+                : `Crea tu primer ${labels.singular} para empezar a cotizar.`}
+            </p>
+            {!search && !categoryFilter && (
+              <Link href={`${basePath}/nuevo`} className="btn btn-primary">
+                <Plus size={16} />
+                {labels.nuevo}
+              </Link>
+            )}
+          </div>
+        ) : (
+          <>
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>{type}</th>
+                  <th>Tipo</th>
+                  <th>Categoría</th>
+                  <th>Unidad</th>
+                  <th>Costo Unit.</th>
+                  <th>P.V. (c/margen)</th>
+                  <th>Estado</th>
+                  <th style={{ textAlign: "right" }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.map((p) => {
+                  const unitCost = p.computed_unit_cost || 0;
+                  const salePrice = unitCost * (1 + (p.default_margin || 0) / 100);
+                  return (
+                    <tr key={p.id}>
+                      <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>
+                        {p.code}
+                      </td>
+                      <td className="primary">
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          {p.image_url ? (
+                            <div 
+                              onClick={() => setSelectedImage(p.image_url || null)}
+                              style={{
+                                position: "relative",
+                                width: 40,
+                                height: 40,
+                                borderRadius: "var(--radius-sm)",
+                                overflow: "hidden",
+                                flexShrink: 0,
+                                border: "1px solid var(--surface-border)",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Image
+                                src={p.image_url}
+                                alt={p.name}
+                                fill
+                                style={{ objectFit: "cover" }}
+                                sizes="40px"
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: "var(--radius-sm)",
+                                background: "var(--bg-tertiary)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                                border: "1px solid var(--surface-border)",
+                              }}
+                            >
+                              <Package size={18} style={{ color: "var(--text-muted)" }} />
+                            </div>
+                          )}
+                          <span>{p.name}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="badge badge-muted">
+                          {p.type || type}
+                        </span>
+                      </td>
+                      <td>
+                        {p.category && (
+                            <span
+                              className="badge"
+                              style={{
+                                background: `${p.category.color || '#ccc'}20`,
+                                color: p.category.color || '#ccc',
+                              }}
+                            >
+                            {p.category.name}
+                          </span>
+                        )}
+                      </td>
+                      <td>{p.unit}</td>
+                      <td>{formatCurrency(unitCost)}</td>
+                      <td style={{ fontWeight: 600, color: "var(--success)" }}>
+                        {formatCurrency(salePrice)}
+                      </td>
+                      <td>
+                        <span className={`badge ${p.is_active ? "badge-success" : "badge-muted"}`}>
+                          {p.is_active ? "Activo" : "Inactivo"}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                          <Link href={`${basePath}/${p.id}`} className="btn-icon" title="Editar">
+                            <Edit2 size={15} />
+                          </Link>
+                          <button
+                            className="btn-icon"
+                            title="Duplicar"
+                            onClick={() => handleDuplicate(p)}
+                          >
+                            <Copy size={15} />
+                          </button>
+                          <button
+                            className="btn-icon"
+                            title="Eliminar"
+                            onClick={() => handleDelete(p.id)}
+                            style={{ color: "var(--error)" }}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px 16px",
+              borderTop: "1px solid var(--surface-divider)",
+              fontSize: "0.85rem",
+              color: "var(--text-secondary)",
+            }}>
+              <span>
+                {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, totalItems)} de {totalItems} {labels.plural.toLowerCase()}
+              </span>
+              <div style={{ display: "flex", gap: 4 }}>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                >
+                  ← Anterior
+                </button>
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                  let page: number;
+                  if (totalPages <= 7) {
+                    page = i + 1;
+                  } else if (currentPage <= 4) {
+                    page = i + 1;
+                  } else if (currentPage >= totalPages - 3) {
+                    page = totalPages - 6 + i;
+                  } else {
+                    page = currentPage - 3 + i;
+                  }
+                  return (
+                    <button
+                      key={page}
+                      className={`btn btn-sm ${page === currentPage ? "btn-primary" : "btn-ghost"}`}
+                      onClick={() => setCurrentPage(page)}
+                      style={{ minWidth: 36 }}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+                <button
+                  className="btn btn-ghost btn-sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                >
+                  Siguiente →
+                </button>
+              </div>
+            </div>
+          )}
+          </>
+        )}
+      </div>
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.8)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+          }}
+          onClick={() => setSelectedImage(null)}
+        >
+          <div style={{ position: "relative", width: "90%", height: "90%", borderRadius: "var(--radius-md)", overflow: "hidden", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)" }}>
+            <Image
+              src={selectedImage}
+              alt="Vista previa"
+              fill
+              style={{ objectFit: "contain" }}
+              sizes="90vw"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
