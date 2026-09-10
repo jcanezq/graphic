@@ -31,18 +31,22 @@ export function CostSummarySection({ watch, saving, isNew }: Props) {
       <h3 className="card-title" style={{ marginBottom: "var(--space-md)" }}>
         Resumen de Costos
       </h3>
-      <div className="cost-breakdown-row">
-        <span>Materiales</span>
-        <span>{formatCurrency(materialTotal)}</span>
-      </div>
-      <div className="cost-breakdown-row">
-        <span>Mano de obra</span>
-        <span>{formatCurrency(laborTotal)}</span>
-      </div>
-      <div className="cost-breakdown-row">
-        <span>Costos indirectos</span>
-        <span>{formatCurrency(indirectTotal)}</span>
-      </div>
+      {watch("type") === "Servicio" && (
+        <>
+          <div className="cost-breakdown-row">
+            <span>Materiales</span>
+            <span>{formatCurrency(materialTotal)}</span>
+          </div>
+          <div className="cost-breakdown-row">
+            <span>Mano de obra</span>
+            <span>{formatCurrency(laborTotal)}</span>
+          </div>
+          <div className="cost-breakdown-row">
+            <span>Costos indirectos</span>
+            <span>{formatCurrency(indirectTotal)}</span>
+          </div>
+        </>
+      )}
       <div className="cost-breakdown-row total">
         <span>Costo Unitario</span>
         <span>{formatCurrency(unitCost)}</span>

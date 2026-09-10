@@ -225,9 +225,13 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
                 errors={form.formState.errors} 
                 fixedType={type}
               />
-              <MaterialsSection control={form.control} masterMaterials={masterMaterials} />
-              <LaborSection control={form.control} />
-              <IndirectCostsSection control={form.control} />
+              {form.watch("type") === "Servicio" && (
+                <>
+                  <MaterialsSection control={form.control} masterMaterials={masterMaterials} />
+                  <LaborSection control={form.control} />
+                  <IndirectCostsSection control={form.control} />
+                </>
+              )}
             </div>
 
             {/* Right Column — Cost Summary */}
