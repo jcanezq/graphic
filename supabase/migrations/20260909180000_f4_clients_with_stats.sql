@@ -3,7 +3,8 @@
 -- Vista que devuelve los clientes junto con sus estadísticas agregadas desde la tabla de cotizaciones.
 -- Esto evita tener que descargar ambas tablas completas en memoria.
 
-CREATE OR REPLACE VIEW clients_with_stats AS
+DROP VIEW IF EXISTS clients_with_stats;
+CREATE VIEW clients_with_stats AS
 SELECT 
     c.id,
     c.ruc,

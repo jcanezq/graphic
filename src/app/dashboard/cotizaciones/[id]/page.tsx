@@ -24,6 +24,7 @@ const STATUSES: { value: QuotationStatus; label: string }[] = [
   { value: "borrador", label: "Generada" },
   { value: "enviada", label: "Enviada" },
   { value: "aceptada", label: "Aceptada" },
+  { value: "pagado", label: "Pagada" },
   { value: "rechazada", label: "Rechazada" },
   { value: "vencida", label: "Vencida" },
 ];
@@ -45,6 +46,7 @@ export default function QuotationDetailPage() {
   const [notes, setNotes] = useState("");
   const [validityDays, setValidityDays] = useState(15);
   const [status, setStatus] = useState<QuotationStatus>("borrador");
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [items, setItems] = useState<QuotationItem[]>([]);
   const [searchingRuc, setSearchingRuc] = useState(false);
 
@@ -94,6 +96,7 @@ export default function QuotationDetailPage() {
       setNotes(q.notes || "");
       setValidityDays(q.validity_days);
       setStatus(q.status as QuotationStatus);
+      setPaymentMethod(q.payment_method || "");
       if (initialData.items) {
         setItems(initialData.items);
       }
@@ -187,6 +190,7 @@ export default function QuotationDetailPage() {
           notes: notes || null,
           validity_days: validityDays,
           status,
+          payment_method: status === "pagado" ? (paymentMethod || null) : null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", quotationId);
@@ -649,6 +653,19 @@ export default function QuotationDetailPage() {
                     ))}
                   </select>
                 </div>
+                {status === "pagado" && (
+                  <div className="form-group">
+                    <label>Método de Pago</label>
+                    <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+                      <option value="">Seleccione...</option>
+                      <option value="Yape">Yape</option>
+                      <option value="Plin">Plin</option>
+                      <option value="Efectivo">Efectivo</option>
+                      <option value="Transferencia">Transferencia</option>
+                      <option value="Tarjeta">Tarjeta</option>
+                    </select>
+                  </div>
+                )}
                 <div className="form-group">
                   <label>Validez (días)</label>
                   <input

@@ -12,7 +12,7 @@ GROUP BY client_name;
 */
 
 -- 2. Modificaciones estructurales
-ALTER TABLE quotations ADD COLUMN client_id UUID REFERENCES clients(id) ON DELETE SET NULL;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE SET NULL;
 
 -- 3. Backfill de datos de producción
 UPDATE quotations q

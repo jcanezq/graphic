@@ -92,6 +92,7 @@ export function getStatusLabel(status: string): string {
     aceptada: 'Aceptada',
     rechazada: 'Rechazada',
     vencida: 'Vencida',
+    pagado: 'Pagada',
   };
   return labels[status] || status;
 }
@@ -107,6 +108,7 @@ export function getStatusColor(status: string): string {
     aceptada: '#10b981',
     rechazada: '#ef4444',
     vencida: '#f59e0b',
+    pagado: '#10b981',
   };
   return colors[status] || '#94a3b8';
 }

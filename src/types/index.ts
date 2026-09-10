@@ -67,10 +67,11 @@ export interface QuotationItem extends Omit<Tables<'quotation_items'>, 'id' | 'q
   transport_scope?: string | null;
 }
 
-export type QuotationStatus = 'solicitada' | 'borrador' | 'enviada' | 'aceptada' | 'rechazada' | 'vencida';
+export type QuotationStatus = 'solicitada' | 'borrador' | 'enviada' | 'aceptada' | 'rechazada' | 'vencida' | 'pagado';
 
 export interface Quotation extends Omit<Tables<'quotations'>, 'status'> {
   status: QuotationStatus;
+  payment_method?: 'Yape' | 'Plin' | 'Efectivo' | 'Transferencia' | 'Tarjeta' | null;
   items?: QuotationItem[];
 }
 

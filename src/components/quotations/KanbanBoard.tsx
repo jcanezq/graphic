@@ -32,6 +32,7 @@ const COLUMNS = [
   { id: "borrador", title: "Generada" },
   { id: "enviada", title: "Enviada" },
   { id: "aceptada", title: "Aceptada" },
+  { id: "pagado", title: "Pagada" },
   { id: "rechazada", title: "Rechazada" },
   { id: "vencida", title: "Vencida" }
 ];

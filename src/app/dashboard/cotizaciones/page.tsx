@@ -404,6 +404,7 @@ export default function QuotationsPage() {
               <option value="borrador">Generada</option>
               <option value="enviada">Enviada</option>
               <option value="aceptada">Aceptada</option>
+              <option value="pagado">Pagada</option>
               <option value="rechazada">Rechazada</option>
               <option value="vencida">Vencida</option>
             </select>
@@ -483,7 +484,7 @@ export default function QuotationsPage() {
         {/* Pipeline Summary Bar */}
         {!loading && localQuotations.length > 0 && (
           <div style={{ display: "flex", gap: "12px", marginBottom: "var(--space-lg)", flexWrap: "wrap" }}>
-            {(["solicitada", "borrador", "enviada", "aceptada", "rechazada", "vencida"] as const).map(status => {
+            {(["solicitada", "borrador", "enviada", "aceptada", "pagado", "rechazada", "vencida"] as const).map(status => {
               const statusQuots = localQuotations.filter(q => q.status === status);
               const statusTotal = statusQuots.reduce((sum, q) => sum + Number(q.total), 0);
               const color = getStatusColor(status);
