@@ -125,6 +125,23 @@ export default function NewQuotationPage() {
   const clients = initialData?.clients || [];
   const categories = initialData?.categories || [];
 
+  // Auto-fill RUC from DB if available (same as public page)
+  React.useEffect(() => {
+    async function checkRucInDB() {
+      if (clientRuc.length === 11) {
+        const { data } = await supabase.from('clients').select('*').eq('ruc', clientRuc).maybeSingle();
+        if (data) {
+          setClientName(data.name || "");
+          setClientAddress(data.address || "");
+          if (data.phone) setClientPhone(data.phone);
+          if (data.email) setClientEmail(data.email);
+          showToast("Datos completados desde tus clientes registrados");
+        }
+      }
+    }
+    checkRucInDB();
+  }, [clientRuc, supabase, showToast]);
+
   async function handleRucSearch() {
     if (clientRuc.length !== 11) return;
     try {
