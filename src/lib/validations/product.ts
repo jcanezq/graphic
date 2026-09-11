@@ -6,6 +6,7 @@ export const productSchema = z.object({
   type: z.enum(["Producto", "Servicio", "Material"]),
   category_id: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
+  image_url: z.string().optional().nullable(),
   unit: z.enum(["m²", "unidad", "kit", "servicio", "ml", "metro", "hora-técnico / visita", "m² de vehículo", "m² instalado", "m² de mueble/tabique"]),
   manual_unit_cost: z.number().nullable().optional(),
   useManualCost: z.boolean(),

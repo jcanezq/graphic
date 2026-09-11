@@ -56,6 +56,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
       manual_unit_cost: null,
       default_margin: 30,
       is_active: true,
+      image_url: null,
       materials: [],
       labor: [],
       indirects: []
@@ -88,6 +89,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
         type: p.type || type,
         category_id: p.category_id || "",
         description: p.description || "",
+        image_url: p.image_url || null,
         unit: p.unit || "unidad",
         manual_unit_cost: p.manual_unit_cost,
         useManualCost: p.manual_unit_cost != null,
@@ -121,6 +123,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
       type: values.type,
       category_id: values.category_id || null,
       description: values.description,
+      image_url: values.image_url || null,
       unit: values.unit,
       manual_unit_cost: values.useManualCost ? values.manual_unit_cost : null,
       default_margin: values.default_margin,
@@ -223,6 +226,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
                 control={form.control} 
                 categories={categories} 
                 errors={form.formState.errors} 
+                setValue={form.setValue}
                 fixedType={type}
               />
               {form.watch("type") === "Servicio" && (
