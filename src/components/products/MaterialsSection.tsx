@@ -51,6 +51,7 @@ export function MaterialsSection({ control, register, watch, masterMaterials }: 
                   <tr key={field.id}>
                     <td>
                       <select
+                        defaultValue={field.material_id || ""}
                         {...(() => {
                           const { onChange: rhfOnChange, ...rest } = register(`materials.${i}.material_id` as const);
                           return {
@@ -87,6 +88,7 @@ export function MaterialsSection({ control, register, watch, masterMaterials }: 
                         step="0.01"
                         min={0}
                         {...register(`materials.${i}.quantity` as const, { valueAsNumber: true })}
+                        defaultValue={field.quantity}
                       />
                     </td>
                     <td>

@@ -166,7 +166,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
 
     // Insert related data
     if (values.materials.length > 0) {
-      await supabase.from("product_materials").insert(
+      const { error } = await supabase.from("product_materials").insert(
         values.materials.map((m) => ({
           product_id: savedId,
           material_id: m.material_id || null,
@@ -176,9 +176,14 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
           unit: m.unit || "unidad",
         }))
       );
+      if (error) {
+        showToast("Error guardando materiales: " + error.message, "error");
+        setSaving(false);
+        return;
+      }
     }
     if (values.labor.length > 0) {
-      await supabase.from("product_labor").insert(
+      const { error } = await supabase.from("product_labor").insert(
         values.labor.map((l) => ({
           product_id: savedId,
           work_type: l.work_type,
@@ -186,6 +191,11 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
           hourly_rate: Number(l.hourly_rate),
         }))
       );
+      if (error) {
+        showToast("Error guardando mano de obra: " + error.message, "error");
+        setSaving(false);
+        return;
+      }
     }
     
     const indirectsToInsert = [
@@ -194,7 +204,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
     ];
     
     if (indirectsToInsert.length > 0) {
-      await supabase.from("product_indirect_costs").insert(
+      const { error } = await supabase.from("product_indirect_costs").insert(
         indirectsToInsert.map((ic) => ({
           product_id: savedId,
           concept: ic.concept,
@@ -202,6 +212,11 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
           kind: ic.kind
         }))
       );
+      if (error) {
+        showToast("Error guardando indirectos: " + error.message, "error");
+        setSaving(false);
+        return;
+      }
     }
 
     showToast(isNew ? labels.successNew : labels.successEdit);

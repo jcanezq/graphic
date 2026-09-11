@@ -50,6 +50,7 @@ export function LaborSection({ control, register, watch }: Props) {
                     <td>
                       <input
                         {...register(`labor.${i}.work_type` as const)}
+                        defaultValue={field.work_type}
                         placeholder="Instalación"
                       />
                     </td>
@@ -59,6 +60,7 @@ export function LaborSection({ control, register, watch }: Props) {
                         step="0.5"
                         min={0}
                         {...register(`labor.${i}.hours` as const, { valueAsNumber: true })}
+                        defaultValue={field.hours}
                       />
                     </td>
                     <td>
@@ -67,6 +69,7 @@ export function LaborSection({ control, register, watch }: Props) {
                         step="0.01"
                         min={0}
                         {...register(`labor.${i}.hourly_rate` as const, { valueAsNumber: true })}
+                        defaultValue={field.hourly_rate}
                       />
                     </td>
                     <td style={{ color: "var(--text-primary)", fontWeight: 500 }}>

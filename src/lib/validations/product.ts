@@ -15,22 +15,22 @@ export const productSchema = z.object({
   materials: z.array(z.object({
     material_id: z.string().nullable().optional(),
     name: z.string(),
-    quantity: z.number().min(0),
-    unit_cost: z.number().min(0),
+    quantity: z.number().min(0).catch(0),
+    unit_cost: z.number().min(0).catch(0),
     unit: z.string(),
   })),
   labor: z.array(z.object({
     work_type: z.string(),
-    hours: z.number().min(0),
-    hourly_rate: z.number().min(0),
+    hours: z.number().min(0).catch(0),
+    hourly_rate: z.number().min(0).catch(0),
   })),
   production_costs: z.array(z.object({
     concept: z.string(),
-    cost: z.number().min(0),
+    cost: z.number().min(0).catch(0),
   })),
   other_costs: z.array(z.object({
     concept: z.string(),
-    cost: z.number().min(0),
+    cost: z.number().min(0).catch(0),
   }))
 });
 

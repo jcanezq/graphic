@@ -45,6 +45,7 @@ export function IndirectCostsSection({ control, register, name, title, buttonTex
                     <td>
                       <input
                         {...register(`${name}.${i}.concept` as const)}
+                        defaultValue={field.concept}
                         placeholder="Transporte"
                       />
                     </td>
@@ -54,6 +55,7 @@ export function IndirectCostsSection({ control, register, name, title, buttonTex
                         step="0.01"
                         min={0}
                         {...register(`${name}.${i}.cost` as const, { valueAsNumber: true })}
+                        defaultValue={field.cost}
                       />
                     </td>
                     <td className="row-actions">
