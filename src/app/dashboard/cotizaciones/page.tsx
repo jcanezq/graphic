@@ -167,7 +167,7 @@ export default function QuotationsPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      showToast("Cotización eliminada");
+      showToast("Cotización desactivada correctamente");
       queryClient.invalidateQueries({ queryKey: ['quotations_list'] });
     },
     onError: () => {
@@ -318,7 +318,7 @@ export default function QuotationsPage() {
   });
 
   async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar esta cotización? Esta acción no se puede deshacer.")) return;
+    if (!confirm("¿Desactivar esta cotización? Pasará a un estado inactivo.")) return;
     deleteMutation.mutate(id);
   }
 

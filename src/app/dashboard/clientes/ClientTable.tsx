@@ -47,13 +47,13 @@ export default function ClientTable({ initialClients }: Props) {
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`¿Eliminar al cliente "${name}"? Esta acción no se puede deshacer.`)) return;
-    const { error } = await supabase.from("clients").delete().eq("id", id);
+    if (!confirm(`¿Desactivar al cliente "${name}"? El cliente pasará a un estado inactivo.`)) return;
+    const { error } = await supabase.from("clients").update({ deleted_at: new Date().toISOString() }).eq("id", id);
     if (error) {
-      showToast("Error al eliminar: " + error.message, "error");
+      showToast("Error al desactivar: " + error.message, "error");
     } else {
       setClients(prev => prev.filter(c => c.id !== id));
-      showToast("Cliente eliminado");
+      showToast("Cliente desactivado correctamente");
     }
   }
 

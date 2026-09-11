@@ -9,7 +9,7 @@ export default async function ClientsPage() {
   const supabase = createClient();
 
   const [clientsRes, quotationsRes] = await Promise.all([
-    supabase.from("clients").select("*").order("name", { ascending: true }),
+    supabase.from("clients").select("*").is("deleted_at", null).order("name", { ascending: true }),
     supabase.from("quotations").select("client_name, total, status, created_at").is("deleted_at", null),
   ]);
 

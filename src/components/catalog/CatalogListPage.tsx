@@ -152,7 +152,7 @@ export default function CatalogListPage({ type, queryKey, basePath, labels }: Ca
       queryClient.invalidateQueries({ queryKey: [queryKey] });
     },
     onSuccess: () => {
-      showToast(`${labels.singular.charAt(0).toUpperCase() + labels.singular.slice(1)} eliminado`);
+      showToast(`${labels.singular.charAt(0).toUpperCase() + labels.singular.slice(1)} desactivado correctamente`);
     }
   });
 
@@ -220,7 +220,7 @@ export default function CatalogListPage({ type, queryKey, basePath, labels }: Ca
   });
 
   async function handleDelete(id: string) {
-    if (!confirm(`¿Eliminar este ${labels.singular}?`)) return;
+    if (!confirm(`¿Desactivar este ${labels.singular}? Pasará a un estado inactivo.`)) return;
     deleteMutation.mutate(id);
   }
 
