@@ -49,3 +49,7 @@ export type ClientQuotationInput = z.infer<typeof clientQuotationSchema>;
 export const rucQuerySchema = z.object({
   ruc: z.string().regex(/^\d{11}$/, "El RUC debe tener 11 dígitos."),
 });
+
+export const dniQuerySchema = z.object({
+  dni: z.string().regex(/^\d{8}$/, "El DNI debe tener 8 dígitos."),
+});

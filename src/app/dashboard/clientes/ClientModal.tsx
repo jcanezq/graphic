@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
-import { X, Save } from "lucide-react";
+import { X, Save, Search, Loader2 } from "lucide-react";
 import type { Client } from "@/types";
 import { useRouter } from "next/navigation";
 
@@ -26,6 +26,7 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
+  const [searchingDoc, setSearchingDoc] = useState(false);
 
   useEffect(() => {
     if (client) {
@@ -44,6 +45,40 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
       setNotes("");
     }
   }, [client, isOpen]);
+
+  const handleSearchDocument = async () => {
+    const doc = ruc.trim();
+    if (doc.length !== 8 && doc.length !== 11) {
+      showToast("El documento debe tener 8 (DNI) o 11 (RUC) dígitos", "error");
+      return;
+    }
+
+    setSearchingDoc(true);
+    try {
+      const endpoint = doc.length === 8 ? `/api/dni?numero=${doc}` : `/api/ruc?numero=${doc}`;
+      const res = await fetch(endpoint);
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(data.error || "No se encontró información", "error");
+        return;
+      }
+
+      if (doc.length === 8) {
+        // Reniec response
+        setName(`${data.nombres} ${data.apellidoPaterno} ${data.apellidoMaterno}`.trim());
+      } else {
+        // Sunat response
+        setName(data.razonSocial || "");
+        if (data.direccion) setAddress(data.direccion);
+      }
+      showToast("Datos obtenidos correctamente");
+    } catch (err) {
+      showToast("Error al consultar el documento", "error");
+    } finally {
+      setSearchingDoc(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -110,35 +145,50 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
         </div>
         
         <form onSubmit={handleSave} className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <div>
-            <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.4rem" }}>
-              Nombre o Razón Social *
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: Juan Pérez"
-              className="form-input"
-              style={{ width: "100%" }}
-              required
-            />
-          </div>
-
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
             <div>
               <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.4rem" }}>
                 RUC / DNI
               </label>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <input
+                  type="text"
+                  value={ruc}
+                  onChange={(e) => setRuc(e.target.value)}
+                  placeholder="8 u 11 dígitos"
+                  className="form-input"
+                  style={{ width: "100%" }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleSearchDocument}
+                  disabled={searchingDoc || !ruc.trim()}
+                  style={{ padding: "0 0.75rem" }}
+                  title="Buscar en SUNAT/RENIEC"
+                >
+                  {searchingDoc ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
+                </button>
+              </div>
+            </div>
+            
+            <div>
+              <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.4rem" }}>
+                Nombre o Razón Social *
+              </label>
               <input
                 type="text"
-                value={ruc}
-                onChange={(e) => setRuc(e.target.value)}
-                placeholder="11 dígitos"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ej: Juan Pérez"
                 className="form-input"
                 style={{ width: "100%" }}
+                required
               />
             </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
             <div>
               <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.4rem" }}>
                 Teléfono
@@ -152,21 +202,21 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
                 style={{ width: "100%" }}
               />
             </div>
+            <div>
+              <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.4rem" }}>
+                Correo electrónico
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="ejemplo@correo.com"
+                className="form-input"
+                style={{ width: "100%" }}
+              />
+            </div>
           </div>
 
-          <div>
-            <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.4rem" }}>
-              Correo electrónico
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ejemplo@correo.com"
-              className="form-input"
-              style={{ width: "100%" }}
-            />
-          </div>
 
           <div>
             <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.4rem" }}>
