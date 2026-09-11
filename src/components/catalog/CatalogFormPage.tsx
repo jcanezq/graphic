@@ -59,7 +59,8 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
       image_url: null,
       materials: [],
       labor: [],
-      indirects: []
+      production_costs: [],
+      other_costs: []
     }
   });
 
@@ -108,7 +109,8 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
           unit: m.material_ref?.unit ?? m.unit
         })),
         labor: labRes.data || [],
-        indirects: indRes.data || []
+        production_costs: indRes.data?.filter((ic: any) => ic.kind === 'production') || [],
+        other_costs: indRes.data?.filter((ic: any) => !ic.kind || ic.kind === 'other') || []
       });
     }
     setLoading(false);
@@ -185,12 +187,19 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
         }))
       );
     }
-    if (values.indirects.length > 0) {
+    
+    const indirectsToInsert = [
+      ...values.production_costs.map(ic => ({ ...ic, kind: 'production' })),
+      ...values.other_costs.map(ic => ({ ...ic, kind: 'other' }))
+    ];
+    
+    if (indirectsToInsert.length > 0) {
       await supabase.from("product_indirect_costs").insert(
-        values.indirects.map((ic) => ({
+        indirectsToInsert.map((ic) => ({
           product_id: savedId,
           concept: ic.concept,
           cost: Number(ic.cost),
+          kind: ic.kind
         }))
       );
     }
@@ -239,7 +248,18 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
                 <>
                   <MaterialsSection control={form.control} masterMaterials={masterMaterials} />
                   <LaborSection control={form.control} />
-                  <IndirectCostsSection control={form.control} />
+                  <IndirectCostsSection 
+                    control={form.control} 
+                    name="production_costs" 
+                    title="🏭 Producción" 
+                    buttonText="Agregar costo de producción" 
+                  />
+                  <IndirectCostsSection 
+                    control={form.control} 
+                    name="other_costs" 
+                    title="📦 Otros" 
+                    buttonText="Agregar otro costo" 
+                  />
                 </>
               )}
             </div>

@@ -24,7 +24,11 @@ export const productSchema = z.object({
     hours: z.number().min(0),
     hourly_rate: z.number().min(0),
   })),
-  indirects: z.array(z.object({
+  production_costs: z.array(z.object({
+    concept: z.string(),
+    cost: z.number().min(0),
+  })),
+  other_costs: z.array(z.object({
     concept: z.string(),
     cost: z.number().min(0),
   }))

@@ -6,13 +6,16 @@ import { useState } from "react";
 
 interface Props {
   control: Control<ProductFormValues>;
+  name: "production_costs" | "other_costs";
+  title: string;
+  buttonText: string;
 }
 
-export function IndirectCostsSection({ control }: Props) {
+export function IndirectCostsSection({ control, name, title, buttonText }: Props) {
   const [isOpen, setIsOpen] = useState(true);
   const { fields, append, remove, update } = useFieldArray({
     control,
-    name: "indirects"
+    name
   });
 
   return (
@@ -21,7 +24,7 @@ export function IndirectCostsSection({ control }: Props) {
         className={`section-header ${isOpen ? "open" : ""}`}
         onClick={() => setIsOpen(!isOpen)}
       >
-        <h3>📦 Costos Indirectos ({fields.length})</h3>
+        <h3>{title} ({fields.length})</h3>
         <ChevronDown size={18} />
       </div>
       {isOpen && (
@@ -74,7 +77,7 @@ export function IndirectCostsSection({ control }: Props) {
             className="add-row-btn"
             onClick={() => append({ concept: "", cost: 0 })}
           >
-            <Plus size={14} /> Agregar costo indirecto
+            <Plus size={14} /> {buttonText}
           </button>
         </div>
       )}

@@ -13,7 +13,8 @@ interface Props {
 export function CostSummarySection({ watch, saving, isNew }: Props) {
   const materials = watch("materials") || [];
   const labor = watch("labor") || [];
-  const indirects = watch("indirects") || [];
+  const production_costs = watch("production_costs") || [];
+  const other_costs = watch("other_costs") || [];
   const defaultMargin = watch("default_margin") || 0;
   const useManualCost = watch("useManualCost");
   const manualCost = watch("manual_unit_cost");
@@ -21,7 +22,9 @@ export function CostSummarySection({ watch, saving, isNew }: Props) {
   // Cast arrays to match calculation types
   const materialTotal = calcMaterialCost(materials.map(m => ({ ...m, product_id: "", material_id: m.material_id || null })));
   const laborTotal = calcLaborCost(labor.map(l => ({ ...l, product_id: "", id: "" })));
-  const indirectTotal = calcIndirectCost(indirects.map(i => ({ ...i, product_id: "", id: "", kind: "other" as any })));
+  const productionTotal = calcIndirectCost(production_costs.map(i => ({ ...i, product_id: "", id: "", kind: "production" as any })));
+  const otherTotal = calcIndirectCost(other_costs.map(i => ({ ...i, product_id: "", id: "", kind: "other" as any })));
+  const indirectTotal = productionTotal + otherTotal;
   
   const unitCost = useManualCost && manualCost ? manualCost : materialTotal + laborTotal + indirectTotal;
   const salePrice = calcUnitPrice(unitCost, defaultMargin);
@@ -42,8 +45,12 @@ export function CostSummarySection({ watch, saving, isNew }: Props) {
             <span>{formatCurrency(laborTotal)}</span>
           </div>
           <div className="cost-breakdown-row">
-            <span>Costos indirectos</span>
-            <span>{formatCurrency(indirectTotal)}</span>
+            <span>Producción</span>
+            <span>{formatCurrency(productionTotal)}</span>
+          </div>
+          <div className="cost-breakdown-row">
+            <span>Otros</span>
+            <span>{formatCurrency(otherTotal)}</span>
           </div>
         </>
       )}
