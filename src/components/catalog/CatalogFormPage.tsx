@@ -64,8 +64,14 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
   });
 
   const fetchMasterMaterials = useCallback(async () => {
-    const { data } = await supabase.from("materials").select("*").order("name");
-    setMasterMaterials((data as Material[]) || []);
+    const { data } = await supabase.from("products").select("id, name, manual_unit_cost, unit").eq("type", "Material").eq("is_active", true).order("name");
+    const formatted = (data || []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      cost: p.manual_unit_cost || 0,
+      unit: p.unit || "unidad"
+    }));
+    setMasterMaterials(formatted as Material[]);
   }, [supabase]);
 
   const fetchCategories = useCallback(async () => {
@@ -76,7 +82,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
   const fetchProduct = useCallback(async () => {
     const [prodRes, matRes, labRes, indRes] = await Promise.all([
       supabase.from("products").select("*").eq("id", productId).single(),
-      supabase.from("product_materials").select("*, materials(id, cost, name, unit)").eq("product_id", productId),
+      supabase.from("product_materials").select("*, material_ref:products!product_materials_material_id_fkey(id, manual_unit_cost, name, unit)").eq("product_id", productId),
       supabase.from("product_labor").select("*").eq("product_id", productId),
       supabase.from("product_indirect_costs").select("*").eq("product_id", productId),
     ]);
@@ -97,9 +103,9 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
         is_active: p.is_active,
         materials: (matRes.data || []).map((m: any) => ({
           ...m,
-          unit_cost: m.materials?.cost ?? m.unit_cost,
-          name: m.materials?.name ?? m.name,
-          unit: m.materials?.unit ?? m.unit
+          unit_cost: m.material_ref?.manual_unit_cost ?? m.unit_cost,
+          name: m.material_ref?.name ?? m.name,
+          unit: m.material_ref?.unit ?? m.unit
         })),
         labor: labRes.data || [],
         indirects: indRes.data || []
