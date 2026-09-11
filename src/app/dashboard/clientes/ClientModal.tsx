@@ -27,6 +27,7 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [searchingDoc, setSearchingDoc] = useState(false);
+  const [rucError, setRucError] = useState("");
 
   useEffect(() => {
     if (client) {
@@ -43,8 +44,44 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
       setEmail("");
       setAddress("");
       setNotes("");
+      setRucError("");
     }
   }, [client, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const checkRuc = async () => {
+      const doc = ruc.trim();
+      if (!doc) {
+        setRucError("");
+        return;
+      }
+
+      const { data: existing, error: searchError } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("ruc", doc)
+        .is("deleted_at", null)
+        .limit(1);
+
+      if (!searchError && existing && existing.length > 0) {
+        if (!client || client.id !== existing[0].id) {
+          setRucError("Ya existe un cliente con este RUC / DNI");
+        } else {
+          setRucError("");
+        }
+      } else {
+        setRucError("");
+      }
+    };
+
+    const debounceTimer = setTimeout(() => {
+      checkRuc();
+    }, 400);
+
+    return () => clearTimeout(debounceTimer);
+  }, [ruc, client, isOpen, supabase]);
 
   const handleSearchDocument = async () => {
     const doc = ruc.trim();
@@ -193,6 +230,11 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
                   {searchingDoc ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
                 </button>
               </div>
+              {rucError && (
+                <span style={{ color: "var(--error)", fontSize: "0.8rem", marginTop: "0.2rem", display: "block" }}>
+                  {rucError}
+                </span>
+              )}
             </div>
             
             <div>
@@ -273,7 +315,7 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
             <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>
               Cancelar
             </button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
+            <button type="submit" className="btn btn-primary" disabled={saving || !!rucError}>
               {saving ? "Guardando..." : "Guardar Cliente"}
             </button>
           </div>
