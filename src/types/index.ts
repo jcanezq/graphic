@@ -9,7 +9,9 @@ type Tables<T extends keyof Database['public']['Tables']> = Database['public']['
 export type Category = Tables<'categories'>;
 export type Client = Tables<'clients'>;
 export type ProductUnit = 'm²' | 'unidad' | 'kit' | 'servicio' | 'ml' | 'metro' | 'hora-técnico / visita' | 'm² de vehículo' | 'm² instalado' | 'm² de mueble/tabique';
-export type Material = Tables<'materials'>;
+export type Material = Database['public']['Tables']['materials_deprecated']['Row'];
+export type MaterialInsert = Database['public']['Tables']['materials_deprecated']['Insert'];
+export type MaterialUpdate = Database['public']['Tables']['materials_deprecated']['Update'];
 
 export interface ProductMaterial extends Omit<Tables<'product_materials'>, 'id' | 'product_id'> {
   id?: string;
@@ -69,9 +71,11 @@ export interface QuotationItem extends Omit<Tables<'quotation_items'>, 'id' | 'q
 
 export type QuotationStatus = 'solicitada' | 'borrador' | 'enviada' | 'aceptada' | 'rechazada' | 'vencida' | 'pagado';
 
-export interface Quotation extends Omit<Tables<'quotations'>, 'status'> {
+export interface Quotation extends Omit<Tables<'quotations'>, 'status' | 'payment_method'> {
+  id: string;
+  quotation_number: string;
   status: QuotationStatus;
-  payment_method?: 'Yape' | 'Plin' | 'Efectivo' | 'Transferencia' | 'Tarjeta' | null;
+  payment_method?: 'Yape' | 'Plin' | 'Efectivo' | 'Transferencia' | 'Tarjeta' | string | null;
   items?: QuotationItem[];
 }
 

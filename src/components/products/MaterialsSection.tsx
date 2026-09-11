@@ -36,11 +36,12 @@ export function MaterialsSection({ control, register, watch, masterMaterials }: 
             <table className="cost-table">
               <thead>
                 <tr>
-                  <th>Material</th>
-                  <th style={{ width: 100 }}>Cantidad</th>
-                  <th style={{ width: 120 }}>Costo Unit. (S/)</th>
-                  <th style={{ width: 100 }}>Subtotal</th>
-                  <th className="row-actions" />
+                  <th style={{ width: "35%", textAlign: "left" }}>MATERIAL</th>
+                  <th style={{ width: "15%", textAlign: "left" }}>UNIDAD</th>
+                  <th style={{ width: "15%", textAlign: "left" }}>CANTIDAD</th>
+                  <th style={{ width: "15%", textAlign: "right" }}>COSTO UNIT. (S/)</th>
+                  <th style={{ width: "15%", textAlign: "right" }}>SUBTOTAL</th>
+                  <th style={{ width: "5%" }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -81,6 +82,15 @@ export function MaterialsSection({ control, register, watch, masterMaterials }: 
                           <option key={mat.id} value={mat.id}>{mat.name}</option>
                         ))}
                       </select>
+                    </td>
+                    <td>
+                      <input
+                        {...register(`materials.${i}.unit` as const)}
+                        defaultValue={field.unit || ""}
+                        readOnly
+                        style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-secondary)" }}
+                        placeholder="ej. m2"
+                      />
                     </td>
                     <td>
                       <input

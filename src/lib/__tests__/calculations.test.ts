@@ -35,8 +35,8 @@ describe('Calculations Library', () => {
 
     it('should calculate labor cost correctly', () => {
       const labor: ProductLabor[] = [
-        { work_type: 'Design', hours: 2, hourly_rate: 15 },
-        { work_type: 'Assembly', hours: 1, hourly_rate: 20 },
+        { work_type: 'Design', unit: 'hora', hours: 2, hourly_rate: 15 } as ProductLabor,
+        { work_type: 'Assembly', unit: 'hora', hours: 1, hourly_rate: 20 } as ProductLabor,
       ];
       // 2*15 + 1*20 = 30 + 20 = 50
       expect(calcLaborCost(labor)).toBe(50);
@@ -44,8 +44,8 @@ describe('Calculations Library', () => {
 
     it('should calculate indirect cost correctly', () => {
       const indirects: ProductIndirectCost[] = [
-        { concept: 'Energy', cost: 5, kind: 'other' },
-        { concept: 'Transport', cost: 15, kind: 'transport' },
+        { concept: 'Energy', cost: 5, unit: 'global', quantity: 1, unit_cost: 5, kind: 'other' } as ProductIndirectCost,
+        { concept: 'Transport', cost: 15, unit: 'global', quantity: 1, unit_cost: 15, kind: 'transport' } as ProductIndirectCost,
       ];
       expect(calcIndirectCost(indirects)).toBe(20);
     });
@@ -68,8 +68,8 @@ describe('Calculations Library', () => {
       const product = {
         manual_unit_cost: 0,
         materials: [{ name: 'M1', quantity: 1, unit_cost: 10, unit: 'un', material_id: null }] as any[],
-        labor: [{ work_type: 'L1', hours: 2, hourly_rate: 10 }], // 20
-        indirect_costs: [{ concept: 'I1', cost: 5, kind: 'other' as const }]
+        labor: [{ work_type: 'L1', unit: 'hora', hours: 2, hourly_rate: 10 }] as ProductLabor[],
+        indirect_costs: [{ concept: 'I1', cost: 5, unit: 'global', quantity: 1, unit_cost: 5, kind: 'other' as const }] as ProductIndirectCost[],
       };
       expect(calcUnitCost(product)).toBe(35); // 10 + 20 + 5
     });

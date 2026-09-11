@@ -34,11 +34,12 @@ export function LaborSection({ control, register, watch }: Props) {
             <table className="cost-table">
               <thead>
                 <tr>
-                  <th>Tipo de trabajo</th>
-                  <th style={{ width: 100 }}>Horas</th>
-                  <th style={{ width: 120 }}>S/ por hora</th>
-                  <th style={{ width: 100 }}>Subtotal</th>
-                  <th className="row-actions" />
+                  <th style={{ width: "35%", textAlign: "left" }}>TIPO DE TRABAJO</th>
+                  <th style={{ width: "15%", textAlign: "left" }}>UNIDAD</th>
+                  <th style={{ width: "15%", textAlign: "left" }}>CANTIDAD</th>
+                  <th style={{ width: "15%", textAlign: "right" }}>COSTO UNIT. (S/)</th>
+                  <th style={{ width: "15%", textAlign: "right" }}>SUBTOTAL</th>
+                  <th style={{ width: "5%" }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -53,6 +54,18 @@ export function LaborSection({ control, register, watch }: Props) {
                         defaultValue={field.work_type}
                         placeholder="Instalación"
                       />
+                    </td>
+                    <td>
+                      <select
+                        {...register(`labor.${i}.unit` as const)}
+                        defaultValue={field.unit || "hora"}
+                      >
+                        <option value="hora">hora</option>
+                        <option value="global">global</option>
+                        <option value="unidad">unidad</option>
+                        <option value="m2">m2</option>
+                        <option value="metro">metro</option>
+                      </select>
                     </td>
                     <td>
                       <input
@@ -93,7 +106,7 @@ export function LaborSection({ control, register, watch }: Props) {
           <button
             type="button"
             className="add-row-btn"
-            onClick={() => append({ work_type: "", hours: 1, hourly_rate: 0 })}
+            onClick={() => append({ work_type: "", unit: "hora", hours: 1, hourly_rate: 0 })}
           >
             <Plus size={14} /> Agregar mano de obra
           </button>

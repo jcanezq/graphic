@@ -44,7 +44,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
   const [masterMaterials, setMasterMaterials] = useState<Material[]>([]);
 
   const form = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
+    resolver: zodResolver(productSchema) as any,
     defaultValues: {
       code: "",
       name: "",
@@ -187,6 +187,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
         values.labor.map((l) => ({
           product_id: savedId,
           work_type: l.work_type,
+          unit: l.unit || 'hora',
           hours: Number(l.hours),
           hourly_rate: Number(l.hourly_rate),
         }))
@@ -208,7 +209,10 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
         indirectsToInsert.map((ic) => ({
           product_id: savedId,
           concept: ic.concept,
-          cost: Number(ic.cost),
+          unit: ic.unit || 'global',
+          quantity: Number(ic.quantity),
+          unit_cost: Number(ic.unit_cost),
+          cost: Number(ic.quantity) * Number(ic.unit_cost),
           kind: ic.kind
         }))
       );
@@ -247,7 +251,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
       </div>
 
       <div className="page-body">
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="catalog-form-grid">
           <div className="content-grid">
             {/* Left Column — Form */}
             <div>
@@ -261,11 +265,21 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
               />
               {form.watch("type") === "Servicio" && (
                 <>
-                  <MaterialsSection control={form.control} register={form.register} watch={form.watch} masterMaterials={masterMaterials} />
-                  <LaborSection control={form.control} register={form.register} watch={form.watch} />
+                  <MaterialsSection 
+                    control={form.control} 
+                    register={form.register} 
+                    watch={form.watch}
+                    masterMaterials={masterMaterials} 
+                  />
+                  <LaborSection 
+                    control={form.control} 
+                    register={form.register} 
+                    watch={form.watch}
+                  />
                   <IndirectCostsSection 
                     control={form.control} 
                     register={form.register}
+                    watch={form.watch}
                     name="production_costs" 
                     title="🏭 Producción" 
                     buttonText="Agregar costo de producción" 
@@ -273,6 +287,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
                   <IndirectCostsSection 
                     control={form.control} 
                     register={form.register}
+                    watch={form.watch}
                     name="other_costs" 
                     title="📦 Otros" 
                     buttonText="Agregar otro costo" 

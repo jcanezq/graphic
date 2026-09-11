@@ -131,7 +131,7 @@ export type Database = {
         }
         Relationships: []
       }
-      materials: {
+      materials_deprecated: {
         Row: {
           cost: number
           created_at: string
@@ -168,6 +168,9 @@ export type Database = {
           id: string
           kind: string
           product_id: string
+          quantity: number
+          unit: string
+          unit_cost: number
         }
         Insert: {
           concept: string
@@ -175,6 +178,9 @@ export type Database = {
           id?: string
           kind?: string
           product_id: string
+          quantity?: number
+          unit?: string
+          unit_cost?: number
         }
         Update: {
           concept?: string
@@ -182,6 +188,9 @@ export type Database = {
           id?: string
           kind?: string
           product_id?: string
+          quantity?: number
+          unit?: string
+          unit_cost?: number
         }
         Relationships: [
           {
@@ -199,6 +208,7 @@ export type Database = {
           hours: number
           id: string
           product_id: string
+          unit: string
           work_type: string
         }
         Insert: {
@@ -206,6 +216,7 @@ export type Database = {
           hours?: number
           id?: string
           product_id: string
+          unit?: string
           work_type: string
         }
         Update: {
@@ -213,6 +224,7 @@ export type Database = {
           hours?: number
           id?: string
           product_id?: string
+          unit?: string
           work_type?: string
         }
         Relationships: [
@@ -258,7 +270,7 @@ export type Database = {
             foreignKeyName: "product_materials_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
-            referencedRelation: "materials"
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
           {
@@ -474,6 +486,7 @@ export type Database = {
           notes: string | null
           number: string
           parent_id: string | null
+          payment_method: string | null
           revision: string | null
           status: string
           subtotal: number
@@ -497,6 +510,7 @@ export type Database = {
           notes?: string | null
           number: string
           parent_id?: string | null
+          payment_method?: string | null
           revision?: string | null
           status?: string
           subtotal?: number
@@ -520,6 +534,7 @@ export type Database = {
           notes?: string | null
           number?: string
           parent_id?: string | null
+          payment_method?: string | null
           revision?: string | null
           status?: string
           subtotal?: number
@@ -576,16 +591,14 @@ export type Database = {
         Row: {
           address: string | null
           created_at: string | null
-          deleted_at: string | null
           email: string | null
           id: string | null
           last_quotation_date: string | null
+          ltv: number | null
           name: string | null
           phone: string | null
+          quotation_count: number | null
           ruc: string | null
-          total_quotations: number | null
-          total_spent: number | null
-          updated_at: string | null
         }
         Relationships: []
       }
