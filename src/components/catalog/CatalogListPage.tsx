@@ -83,7 +83,7 @@ export default function CatalogListPage({ type, queryKey, basePath, labels }: Ca
 
       const productIds = prodRes.map((p: Product) => p.id);
       const [matRes, labRes, indRes] = await Promise.all([
-        supabase.from("product_materials").select("*, materials(id, cost, name, unit)").in("product_id", productIds),
+        supabase.from("product_materials").select("*, material_ref:products!product_materials_material_id_fkey(id, manual_unit_cost, name, unit)").in("product_id", productIds),
         supabase.from("product_labor").select("*").in("product_id", productIds),
         supabase.from("product_indirect_costs").select("*").in("product_id", productIds),
       ]);
@@ -93,9 +93,9 @@ export default function CatalogListPage({ type, queryKey, basePath, labels }: Ca
           .filter((m: any) => m.product_id === p.id)
           .map((m: any) => ({
              ...m,
-             unit_cost: m.materials?.cost ?? m.unit_cost,
-             name: m.materials?.name ?? m.name,
-             unit: m.materials?.unit ?? m.unit
+             unit_cost: m.material_ref?.manual_unit_cost ?? m.unit_cost,
+             name: m.material_ref?.name ?? m.name,
+             unit: m.material_ref?.unit ?? m.unit
           }));
         const labor = (labRes.data || []).filter((l: any) => l.product_id === p.id);
         const indirect_costs = (indRes.data || []).filter((ic: any) => ic.product_id === p.id);
