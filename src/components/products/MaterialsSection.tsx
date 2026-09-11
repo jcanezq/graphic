@@ -1,4 +1,4 @@
-import { useFieldArray, Control } from "react-hook-form";
+import { useFieldArray, Control, UseFormRegister, UseFormWatch } from "react-hook-form";
 import { Plus, Trash2, ChevronDown } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 import type { Material } from "@/types";
@@ -7,15 +7,19 @@ import { useState } from "react";
 
 interface Props {
   control: Control<ProductFormValues>;
+  register: UseFormRegister<ProductFormValues>;
+  watch: UseFormWatch<ProductFormValues>;
   masterMaterials: Material[];
 }
 
-export function MaterialsSection({ control, masterMaterials }: Props) {
+export function MaterialsSection({ control, register, watch, masterMaterials }: Props) {
   const [isOpen, setIsOpen] = useState(true);
   const { fields, append, remove, update } = useFieldArray({
     control,
     name: "materials"
   });
+  
+  const watchedMaterials = watch("materials") || [];
 
   return (
     <div className="section-collapsible">
@@ -40,26 +44,35 @@ export function MaterialsSection({ control, masterMaterials }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {fields.map((field, i) => (
+                {fields.map((field, i) => {
+                  const qty = watchedMaterials[i]?.quantity || 0;
+                  const cost = watchedMaterials[i]?.unit_cost || 0;
+                  return (
                   <tr key={field.id}>
                     <td>
                       <select
-                        value={field.material_id || ""}
-                        onChange={(e) => {
-                          const selectedId = e.target.value;
-                          const selectedMat = masterMaterials.find(x => x.id === selectedId);
-                          if (selectedMat) {
-                            update(i, { 
-                              ...field, 
-                              material_id: selectedMat.id, 
-                              name: selectedMat.name,
-                              unit: selectedMat.unit,
-                              unit_cost: selectedMat.cost 
-                            });
-                          } else {
-                            update(i, { ...field, material_id: null, name: "" });
-                          }
-                        }}
+                        {...(() => {
+                          const { onChange: rhfOnChange, ...rest } = register(`materials.${i}.material_id` as const);
+                          return {
+                            ...rest,
+                            onChange: (e: any) => {
+                              rhfOnChange(e);
+                              const selectedId = e.target.value;
+                              const selectedMat = masterMaterials.find(x => x.id === selectedId);
+                              if (selectedMat) {
+                                update(i, { 
+                                  ...field, 
+                                  material_id: selectedMat.id, 
+                                  name: selectedMat.name,
+                                  unit: selectedMat.unit,
+                                  unit_cost: selectedMat.cost 
+                                });
+                              } else {
+                                update(i, { ...field, material_id: null, name: "" });
+                              }
+                            }
+                          };
+                        })()}
                         style={{ width: "100%" }}
                       >
                         <option value="">Seleccionar material...</option>
@@ -73,17 +86,16 @@ export function MaterialsSection({ control, masterMaterials }: Props) {
                         type="number"
                         step="0.01"
                         min={0}
-                        value={field.quantity}
-                        onChange={(e) => update(i, { ...field, quantity: Number(e.target.value) })}
+                        {...register(`materials.${i}.quantity` as const, { valueAsNumber: true })}
                       />
                     </td>
                     <td>
                       <div style={{ padding: "0 8px", color: "var(--text-secondary)" }}>
-                        {formatCurrency(field.unit_cost)}
+                        {formatCurrency(cost)}
                       </div>
                     </td>
                     <td style={{ color: "var(--text-primary)", fontWeight: 500 }}>
-                      {formatCurrency(field.quantity * field.unit_cost)}
+                      {formatCurrency(qty * cost)}
                     </td>
                     <td className="row-actions">
                       <button
@@ -96,7 +108,7 @@ export function MaterialsSection({ control, masterMaterials }: Props) {
                       </button>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           )}

@@ -1,4 +1,4 @@
-import { useFieldArray, Control } from "react-hook-form";
+import { useFieldArray, Control, UseFormRegister, UseFormWatch } from "react-hook-form";
 import { Plus, Trash2, ChevronDown } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 import type { ProductFormValues } from "@/lib/validations/product";
@@ -6,14 +6,18 @@ import { useState } from "react";
 
 interface Props {
   control: Control<ProductFormValues>;
+  register: UseFormRegister<ProductFormValues>;
+  watch: UseFormWatch<ProductFormValues>;
 }
 
-export function LaborSection({ control }: Props) {
+export function LaborSection({ control, register, watch }: Props) {
   const [isOpen, setIsOpen] = useState(true);
-  const { fields, append, remove, update } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control,
     name: "labor"
   });
+  
+  const watchedLabor = watch("labor") || [];
 
   return (
     <div className="section-collapsible">
@@ -38,12 +42,14 @@ export function LaborSection({ control }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {fields.map((field, i) => (
+                {fields.map((field, i) => {
+                  const currentHours = watchedLabor[i]?.hours || 0;
+                  const currentRate = watchedLabor[i]?.hourly_rate || 0;
+                  return (
                   <tr key={field.id}>
                     <td>
                       <input
-                        value={field.work_type}
-                        onChange={(e) => update(i, { ...field, work_type: e.target.value })}
+                        {...register(`labor.${i}.work_type` as const)}
                         placeholder="Instalación"
                       />
                     </td>
@@ -52,8 +58,7 @@ export function LaborSection({ control }: Props) {
                         type="number"
                         step="0.5"
                         min={0}
-                        value={field.hours}
-                        onChange={(e) => update(i, { ...field, hours: Number(e.target.value) })}
+                        {...register(`labor.${i}.hours` as const, { valueAsNumber: true })}
                       />
                     </td>
                     <td>
@@ -61,12 +66,11 @@ export function LaborSection({ control }: Props) {
                         type="number"
                         step="0.01"
                         min={0}
-                        value={field.hourly_rate}
-                        onChange={(e) => update(i, { ...field, hourly_rate: Number(e.target.value) })}
+                        {...register(`labor.${i}.hourly_rate` as const, { valueAsNumber: true })}
                       />
                     </td>
                     <td style={{ color: "var(--text-primary)", fontWeight: 500 }}>
-                      {formatCurrency(field.hours * field.hourly_rate)}
+                      {formatCurrency(currentHours * currentRate)}
                     </td>
                     <td className="row-actions">
                       <button
@@ -79,7 +83,7 @@ export function LaborSection({ control }: Props) {
                       </button>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           )}

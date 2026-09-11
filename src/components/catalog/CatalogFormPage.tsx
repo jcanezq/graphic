@@ -246,16 +246,18 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
               />
               {form.watch("type") === "Servicio" && (
                 <>
-                  <MaterialsSection control={form.control} masterMaterials={masterMaterials} />
-                  <LaborSection control={form.control} />
+                  <MaterialsSection control={form.control} register={form.register} watch={form.watch} masterMaterials={masterMaterials} />
+                  <LaborSection control={form.control} register={form.register} watch={form.watch} />
                   <IndirectCostsSection 
                     control={form.control} 
+                    register={form.register}
                     name="production_costs" 
                     title="🏭 Producción" 
                     buttonText="Agregar costo de producción" 
                   />
                   <IndirectCostsSection 
                     control={form.control} 
+                    register={form.register}
                     name="other_costs" 
                     title="📦 Otros" 
                     buttonText="Agregar otro costo" 

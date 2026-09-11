@@ -1,4 +1,4 @@
-import { useFieldArray, Control } from "react-hook-form";
+import { useFieldArray, Control, UseFormRegister } from "react-hook-form";
 import { Plus, Trash2, ChevronDown } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 import type { ProductFormValues } from "@/lib/validations/product";
@@ -6,14 +6,15 @@ import { useState } from "react";
 
 interface Props {
   control: Control<ProductFormValues>;
+  register: UseFormRegister<ProductFormValues>;
   name: "production_costs" | "other_costs";
   title: string;
   buttonText: string;
 }
 
-export function IndirectCostsSection({ control, name, title, buttonText }: Props) {
+export function IndirectCostsSection({ control, register, name, title, buttonText }: Props) {
   const [isOpen, setIsOpen] = useState(true);
-  const { fields, append, remove, update } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control,
     name
   });
@@ -43,8 +44,7 @@ export function IndirectCostsSection({ control, name, title, buttonText }: Props
                   <tr key={field.id}>
                     <td>
                       <input
-                        value={field.concept}
-                        onChange={(e) => update(i, { ...field, concept: e.target.value })}
+                        {...register(`${name}.${i}.concept` as const)}
                         placeholder="Transporte"
                       />
                     </td>
@@ -53,8 +53,7 @@ export function IndirectCostsSection({ control, name, title, buttonText }: Props
                         type="number"
                         step="0.01"
                         min={0}
-                        value={field.cost}
-                        onChange={(e) => update(i, { ...field, cost: Number(e.target.value) })}
+                        {...register(`${name}.${i}.cost` as const, { valueAsNumber: true })}
                       />
                     </td>
                     <td className="row-actions">
