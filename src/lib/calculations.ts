@@ -264,7 +264,7 @@ export function findIndirectByKind(
     ? ['diseno', 'design']
     : ['transporte', 'movilidad', 'flete'];
   return list.find((ic) => {
-    if (ic.kind && ic.kind !== 'other') return false;
+    if (ic.kind && !['other', 'production'].includes(ic.kind)) return false;
     const n = normalizeText(ic.concept);
     return needles.some((x) => n.includes(x));
   });
