@@ -32,7 +32,14 @@ export function calcLaborCost(labor: ProductLabor[]): number {
  * Σ(indirect.cost)
  */
 export function calcIndirectCost(indirects: ProductIndirectCost[]): number {
-  return indirects.reduce((sum, ic) => sum + ic.cost, 0);
+  return indirects.reduce((sum, ic) => {
+    // Si la migración ya agregó quantity y unit_cost, usar su multiplicación. 
+    // De lo contrario usar cost (legacy)
+    const cost = (ic.quantity != null && ic.unit_cost != null) 
+      ? Number(ic.quantity) * Number(ic.unit_cost)
+      : Number(ic.cost || 0);
+    return sum + cost;
+  }, 0);
 }
 
 /**
