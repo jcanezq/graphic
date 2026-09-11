@@ -90,6 +90,29 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
     }
     
     setSaving(true);
+
+    if (ruc && ruc.trim()) {
+      const { data: existing, error: searchError } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("ruc", ruc.trim())
+        .is("deleted_at", null)
+        .limit(1);
+
+      if (searchError) {
+        showToast("Error al verificar RUC/DNI", "error");
+        setSaving(false);
+        return;
+      }
+
+      if (existing && existing.length > 0) {
+        if (!client || client.id !== existing[0].id) {
+          showToast("Ya existe un cliente con este RUC / DNI", "error");
+          setSaving(false);
+          return;
+        }
+      }
+    }
     
     const payload = {
       name: name.trim(),
