@@ -97,6 +97,8 @@ export default function CotizadorPage() {
   // Product selector dropdown
   const [productSearch, setProductSearch] = useState("");
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [productFilter, setProductFilter] = useState<"Todos" | "Producto" | "Servicio" | "Material">("Todos");
+  const [categoryFilter, setCategoryFilter] = useState("Todas");
 
   // Submission & Auth Modal state
   const [submitting, setSubmitting] = useState(false);
@@ -116,12 +118,14 @@ export default function CotizadorPage() {
       if (!res.ok) throw new Error("Error cargando productos");
       return res.json() as Promise<{
         products: PublicProduct[];
+        categories: Array<{ id: string; name: string; slug: string; color: string | null }>;
         settings: { company_name: string; phone: string; igv_rate: number };
       }>;
     },
   });
 
   const products = catalogData?.products || [];
+  const categories = catalogData?.categories || [];
   const igvRate = catalogData?.settings?.igv_rate ?? 0.18;
 
   // 1. Initialize user & restore items from localStorage
@@ -280,6 +284,10 @@ export default function CotizadorPage() {
   const searchTokens = normalizedProductSearch.split(/\s+/).filter(Boolean);
 
   const filteredProducts = products.filter((p) => {
+    const matchesFilter = productFilter === "Todos" || p.type === productFilter;
+    const matchesCategory = categoryFilter === "Todas" || p.category_id === categoryFilter;
+    if (!matchesFilter || !matchesCategory) return false;
+
     if (searchTokens.length === 0) return true;
     const targetText = normalizeText(`${p.name} ${p.code} ${p.description || ""} ${p.category_name || ""}`);
     return searchTokens.every((token) => targetText.includes(token));
@@ -558,6 +566,62 @@ export default function CotizadorPage() {
                   >
                     Agregar producto o servicio a tu cotización:
                   </label>
+
+                  <div style={{ display: "flex", gap: 8, marginBottom: "0.75rem", overflowX: "auto", paddingBottom: 4, alignItems: "center" }}>
+                    {(["Todos", "Producto", "Servicio", "Material"] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        style={{ 
+                          padding: "4px 12px", 
+                          fontSize: "0.8rem", 
+                          borderRadius: "16px", 
+                          whiteSpace: "nowrap",
+                          border: "none",
+                          cursor: "pointer",
+                          fontWeight: productFilter === type ? 600 : 500,
+                          background: productFilter === type ? "var(--accent)" : "var(--bg-primary)",
+                          color: productFilter === type ? "#fff" : "var(--text-secondary)",
+                          boxShadow: productFilter === type ? "0 2px 4px rgba(79, 70, 229, 0.2)" : "inset 0 0 0 1px var(--surface-border)"
+                        }}
+                        onClick={() => {
+                          setProductFilter(type);
+                          setShowProductDropdown(true);
+                          if (type === "Servicio" || type === "Material") {
+                            setCategoryFilter("Todas");
+                          }
+                        }}
+                      >
+                        {type === "Todos" ? "Todos" : type === "Material" ? "Materiales" : type + "s"}
+                      </button>
+                    ))}
+                    
+                    <div style={{ width: "1px", height: "24px", background: "var(--surface-divider)", margin: "0 4px" }} />
+                    
+                    <select
+                      style={{ 
+                        padding: "4px 12px", 
+                        fontSize: "0.8rem", 
+                        borderRadius: "16px", 
+                        border: "1px solid var(--surface-border)",
+                        background: "var(--bg-primary)",
+                        color: "var(--text-primary)",
+                        outline: "none",
+                        cursor: "pointer",
+                        minWidth: "150px" 
+                      }}
+                      value={categoryFilter}
+                      onChange={(e) => {
+                        setCategoryFilter(e.target.value);
+                        setShowProductDropdown(true);
+                      }}
+                    >
+                      <option value="Todas">Todas las Categorías</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
 
                   <div style={{ position: "relative" }}>
                     <div
