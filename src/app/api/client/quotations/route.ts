@@ -118,7 +118,7 @@ export async function POST(request: Request) {
 
       // Ya validado y acotado por clientQuotationItemSchema (1..MAX_QUANTITY_PER_ITEM).
       const qty = raw.quantity;
-      const margin = settings?.default_margin ?? prod.default_margin ?? 30;
+      const margin = prod.default_margin ?? settings?.default_margin ?? 30;
       let snapItem = createQuotationItemFromProduct(prod, qty, margin, i);
       
       snapItem = recalcQuotationItem(snapItem, {

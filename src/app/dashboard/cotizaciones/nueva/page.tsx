@@ -177,7 +177,7 @@ export default function NewQuotationPage() {
   }
 
   function addProduct(product: Product) {
-    const margin = settings?.default_margin ?? product.default_margin ?? 30;
+    const margin = product.default_margin ?? settings?.default_margin ?? 30;
     const newItem = createQuotationItemFromProduct(product, 1, margin, items.length);
     (newItem as any).row_key = `row-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     setItems([...items, newItem]);
