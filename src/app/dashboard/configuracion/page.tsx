@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
+import { useQueryClient } from "@tanstack/react-query";
 import { Save, Building2, Search, Upload, Image as ImageIcon, X } from "lucide-react";
 import type { CompanySettings } from "@/types";
 import { fetchRucData } from "@/lib/ruc";
@@ -11,6 +12,7 @@ import { fetchRucData } from "@/lib/ruc";
 export default function SettingsPage() {
   const [supabase] = useState(() => createClient());
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [searchingRuc, setSearchingRuc] = useState(false);
@@ -127,6 +129,7 @@ export default function SettingsPage() {
         showToast("Error: " + error.message, "error");
       } else {
         showToast("Configuración guardada");
+        queryClient.invalidateQueries({ queryKey: ['company_settings'] });
       }
     } else {
       const { error } = await supabase.from("company_settings").insert(updateData);
@@ -134,6 +137,7 @@ export default function SettingsPage() {
         showToast("Error: " + error.message, "error");
       } else {
         showToast("Configuración creada");
+        queryClient.invalidateQueries({ queryKey: ['company_settings'] });
         fetchSettings();
       }
     }

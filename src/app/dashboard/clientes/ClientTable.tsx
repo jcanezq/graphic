@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
 import { Search, Users, Eye, Trash2, Edit2 } from "lucide-react";
@@ -24,6 +24,11 @@ export default function ClientTable({ initialClients }: Props) {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [clients, setClients] = useState(initialClients);
+
+  // Sync state when initialClients changes (e.g. after router.refresh())
+  useEffect(() => {
+    setClients(initialClients);
+  }, [initialClients]);
   const supabase = createClient();
   const { showToast } = useToast();
   const router = useRouter();

@@ -8,6 +8,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
 import { productSchema, type ProductFormValues } from "@/lib/validations/product";
 import type { Category, Material } from "@/types";
 
@@ -34,6 +35,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
   const params = useParams();
   const [supabase] = useState(() => createClient());
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
 
   const isNew = params.id === "nuevo";
   const productId = isNew ? null : (params.id as string);
@@ -225,6 +227,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
 
     showToast(isNew ? labels.successNew : labels.successEdit);
     setSaving(false);
+    queryClient.invalidateQueries();
     router.push(basePath);
   };
 
