@@ -8,7 +8,8 @@ import {
   calcItemSubtotal,
   round2,
   calcQuotationTotals,
-  createQuotationItemFromProduct
+  createQuotationItemFromProduct,
+  buildCatalogPricing
 } from '@/lib/calculations';
 import type { ProductMaterial, ProductLabor, ProductIndirectCost, QuotationItem } from '@/types';
 
@@ -120,39 +121,46 @@ describe('Calculations Library', () => {
       const product = {
         id: 'SRV-2026-0508', code: 'SRV-2026-0508', name: 'Golden Product', type: 'Servicio', unit: 'm²', description: '',
         manual_unit_cost: null, default_margin: 35,
-        materials: [{ name: 'Mat', quantity: 1, unit_cost: 40, unit: 'un', material_id: null }],
+        materials: [
+          { name: 'Vinil laminado premium',            quantity: 1, unit_cost: 30, unit: 'm²', material_id: null },
+          { name: 'Laminado de protección de pintura', quantity: 1, unit_cost: 10, unit: 'm²', material_id: null },
+        ],
         labor: [{ work_type: 'Labor', hours: 1, hourly_rate: 60 }],
         indirect_costs: [
-          { concept: 'Producción', kind: 'production', quantity: 1, unit_cost: 40, cost: 40, unit: 'global' },
-          { concept: 'Otros', kind: 'other', quantity: 1, unit_cost: 20, cost: 20, unit: 'global' }
+          // «Grafico» SIN TILDE y kind 'production', tal cual está cargado en producción.
+          // Este es el caso que el clasificador tiene que reconocer: si vuelve a caer en el
+          // costo base, el desglose de abajo se rompe.
+          { concept: 'Diseño Grafico',    kind: 'production', unit: 'global', quantity: 1, unit_cost: 18, cost: 18 },
+          { concept: 'impresión digital', kind: 'production', unit: 'm2',     quantity: 1, unit_cost: 15, cost: 15 },
+          { concept: 'Plotter de corte',  kind: 'production', unit: 'm2',     quantity: 1, unit_cost: 7,  cost: 7  },
+          { concept: 'Transporte',        kind: 'other',      unit: 'global', quantity: 1, unit_cost: 20, cost: 20 },
         ],
       };
 
-      // 1. Catálogo público (simulate public/products/route.ts logic)
-      const margin = product.default_margin;
-      const materialCostRaw = product.materials.reduce((acc, m) => acc + (m.quantity * m.unit_cost), 0);
-      const laborCostRaw = product.labor.reduce((acc, l) => acc + (l.hours * l.hourly_rate), 0);
-      const designCostRaw = 0;
-      const transportCostRaw = 0;
-      const totalIndirectRaw = product.indirect_costs.reduce((acc, i) => acc + (i.quantity * i.unit_cost), 0);
-      const otherIndirectRaw = totalIndirectRaw - designCostRaw - transportCostRaw;
+      // 1. Catálogo público
+      const pricing = buildCatalogPricing(product, product.materials, product.labor, product.indirect_costs);
 
-      const baseCost = materialCostRaw + otherIndirectRaw;
-      const baseUnitPrice = round2(calcUnitPrice(baseCost, margin));
+      // El desglose, pieza por pieza
+      expect(pricing.materialCost).toBe(40);
+      expect(pricing.laborCost).toBe(60);
+      expect(pricing.designCost).toBe(18);
+      expect(pricing.transportCost).toBe(20);
+      expect(pricing.otherIndirectCost).toBe(22); // 60 - 18 - 20 = 22
+      expect(pricing.baseCost).toBe(62);
 
-      const catalogUnitPrice = round2(
-        baseUnitPrice
-        + round2(calcUnitPrice(laborCostRaw, margin))
-        + round2(calcUnitPrice(designCostRaw, margin))
-        + round2(calcUnitPrice(transportCostRaw, margin))
-      );
+      // Los precios de cada línea
+      expect(pricing.baseUnitPrice).toBe(83.70);
+      expect(pricing.laborPrice).toBe(81.00);
+      expect(pricing.designPrice).toBe(24.30);
+      expect(pricing.transportPrice).toBe(27.00);
 
-      expect(catalogUnitPrice).toBe(216.00);
+      // Y recién entonces el total
+      expect(pricing.unitPrice).toBe(216.00);
 
       // 2. Guardado del portal (createQuotationItemFromProduct)
-      const item = createQuotationItemFromProduct(product as any, 1, margin, 0);
+      const item = createQuotationItemFromProduct(product as any, 1, product.default_margin, 0);
       
-      expect(item.subtotal).toBe(216.00);
+      expect(item.subtotal).toBe(pricing.unitPrice);
 
       // 3. Totales
       const totals = calcQuotationTotals([item], 0.18);
