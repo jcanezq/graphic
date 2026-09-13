@@ -114,4 +114,51 @@ describe('Calculations Library', () => {
       expect(item.subtotal).toBe(121.50);    // 40.50 base + 81.00 labor (scope 'unit')
     });
   });
+
+  describe('MAT-T4: golden quotation matches across catalog and save paths', () => {
+    it('asserts the golden quotation matches across catalog and save paths', () => {
+      const product = {
+        id: 'SRV-2026-0508', code: 'SRV-2026-0508', name: 'Golden Product', type: 'Servicio', unit: 'm²', description: '',
+        manual_unit_cost: null, default_margin: 35,
+        materials: [{ name: 'Mat', quantity: 1, unit_cost: 40, unit: 'un', material_id: null }],
+        labor: [{ work_type: 'Labor', hours: 1, hourly_rate: 60 }],
+        indirect_costs: [
+          { concept: 'Producción', kind: 'production', quantity: 1, unit_cost: 40, cost: 40, unit: 'global' },
+          { concept: 'Otros', kind: 'other', quantity: 1, unit_cost: 20, cost: 20, unit: 'global' }
+        ],
+      };
+
+      // 1. Catálogo público (simulate public/products/route.ts logic)
+      const margin = product.default_margin;
+      const materialCostRaw = product.materials.reduce((acc, m) => acc + (m.quantity * m.unit_cost), 0);
+      const laborCostRaw = product.labor.reduce((acc, l) => acc + (l.hours * l.hourly_rate), 0);
+      const designCostRaw = 0;
+      const transportCostRaw = 0;
+      const totalIndirectRaw = product.indirect_costs.reduce((acc, i) => acc + (i.quantity * i.unit_cost), 0);
+      const otherIndirectRaw = totalIndirectRaw - designCostRaw - transportCostRaw;
+
+      const baseCost = materialCostRaw + otherIndirectRaw;
+      const baseUnitPrice = round2(calcUnitPrice(baseCost, margin));
+
+      const catalogUnitPrice = round2(
+        baseUnitPrice
+        + round2(calcUnitPrice(laborCostRaw, margin))
+        + round2(calcUnitPrice(designCostRaw, margin))
+        + round2(calcUnitPrice(transportCostRaw, margin))
+      );
+
+      expect(catalogUnitPrice).toBe(216.00);
+
+      // 2. Guardado del portal (createQuotationItemFromProduct)
+      const item = createQuotationItemFromProduct(product as any, 1, margin, 0);
+      
+      expect(item.subtotal).toBe(216.00);
+
+      // 3. Totales
+      const totals = calcQuotationTotals([item], 0.18);
+      expect(totals.subtotal).toBe(216.00);
+      expect(totals.igv).toBe(38.88);
+      expect(totals.total).toBe(254.88);
+    });
+  });
 });
