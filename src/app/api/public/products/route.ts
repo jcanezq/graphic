@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import { calcUnitPrice, round2, findIndirectByKind } from "@/lib/calculations";
+import { calcUnitPrice, round2, findIndirectByKind, indirectRowCost, calcIndirectCost } from "@/lib/calculations";
 import { COMPONENT_SCOPE_DEFAULTS } from "@/lib/pricing";
 import type { PublicProduct } from "@/types";
 
@@ -91,17 +91,12 @@ export async function GET() {
       const materialCostRaw = pMaterials.reduce((acc: number, m: any) => acc + (m.quantity * m.unit_cost), 0);
       const laborCostRaw = pLabor.reduce((acc: number, l: any) => acc + (l.hours * l.hourly_rate), 0);
       const designCostItem = findIndirectByKind(pIndirect as any, 'design');
-      const designCostRaw = designCostItem ? ((designCostItem as any).quantity != null && (designCostItem as any).unit_cost != null ? Number((designCostItem as any).quantity) * Number((designCostItem as any).unit_cost) : Number(designCostItem.cost || 0)) : 0;
+      const designCostRaw = designCostItem ? indirectRowCost(designCostItem as any) : 0;
       
       const transportCostItem = findIndirectByKind(pIndirect as any, 'transport');
-      const transportCostRaw = transportCostItem ? ((transportCostItem as any).quantity != null && (transportCostItem as any).unit_cost != null ? Number((transportCostItem as any).quantity) * Number((transportCostItem as any).unit_cost) : Number(transportCostItem.cost || 0)) : 0;
+      const transportCostRaw = transportCostItem ? indirectRowCost(transportCostItem as any) : 0;
       
-      const totalIndirectRaw = pIndirect.reduce((acc: number, i: any) => {
-        const cost = (i.quantity != null && i.unit_cost != null) 
-          ? Number(i.quantity) * Number(i.unit_cost) 
-          : Number(i.cost || 0);
-        return acc + cost;
-      }, 0);
+      const totalIndirectRaw = calcIndirectCost(pIndirect as any);
       const otherIndirectRaw = totalIndirectRaw - designCostRaw - transportCostRaw;
 
       const baseCost = (p.manual_unit_cost != null && p.manual_unit_cost > 0)

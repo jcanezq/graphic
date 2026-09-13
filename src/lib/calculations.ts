@@ -28,18 +28,26 @@ export function calcLaborCost(labor: ProductLabor[]): number {
 }
 
 /**
+ * Costo de UNA fila de indirecto. Única definición en todo el sistema.
+ * `quantity` y `unit_cost` son NOT NULL en la base (f5_standardize_columns), así que
+ * `cost` es una columna DERIVADA y no se lee para calcular. El fallback existe sólo
+ * para objetos que no vienen de la base: estado del formulario y fixtures.
+ */
+export function indirectRowCost(
+  ic: { quantity?: number | null; unit_cost?: number | null; cost?: number | null },
+): number {
+  if (ic.quantity != null && ic.unit_cost != null) {
+    return Number(ic.quantity) * Number(ic.unit_cost);
+  }
+  return Number(ic.cost || 0);
+}
+
+/**
  * Calculate total indirect costs for a product.
  * Σ(indirect.cost)
  */
 export function calcIndirectCost(indirects: ProductIndirectCost[]): number {
-  return indirects.reduce((sum, ic) => {
-    // Si la migración ya agregó quantity y unit_cost, usar su multiplicación. 
-    // De lo contrario usar cost (legacy)
-    const cost = (ic.quantity != null && ic.unit_cost != null) 
-      ? Number(ic.quantity) * Number(ic.unit_cost)
-      : Number(ic.cost || 0);
-    return sum + cost;
-  }, 0);
+  return indirects.reduce((sum, ic) => sum + indirectRowCost(ic), 0);
 }
 
 /**
@@ -168,10 +176,10 @@ export function createQuotationItemFromProduct(
   // Design / transport se identifican por `kind` (columna estable), no por texto.
   // Fallback por texto normalizado sólo para filas anteriores a la migración de `kind`.
   const designCostItem = findIndirectByKind(product.indirect_costs, 'design');
-  const designCost = designCostItem ? designCostItem.cost : 0;
+  const designCost = designCostItem ? indirectRowCost(designCostItem as any) : 0;
 
   const transportCostItem = findIndirectByKind(product.indirect_costs, 'transport');
-  const transportCost = transportCostItem ? transportCostItem.cost : 0;
+  const transportCost = transportCostItem ? indirectRowCost(transportCostItem as any) : 0;
   
   const indirectCost = calcIndirectCost(product.indirect_costs || []);
   const baseIndirectCost = indirectCost - designCost - transportCost;
