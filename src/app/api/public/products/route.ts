@@ -56,7 +56,7 @@ export async function GET() {
     const [matRes, labRes, indRes] = await Promise.all([
       supabase
         .from("product_materials")
-        .select("product_id, quantity, unit_cost, materials(cost)")
+        .select("product_id, quantity, unit_cost, material_ref:products!product_materials_material_id_fkey(manual_unit_cost)")
         .in("product_id", productIds),
       supabase
         .from("product_labor")
@@ -95,7 +95,7 @@ export async function GET() {
         .map((m: any) => ({
           name: "",
           quantity: m.quantity,
-          unit_cost: m.materials?.cost ?? m.unit_cost,
+          unit_cost: m.material_ref?.manual_unit_cost ?? m.unit_cost,
         }));
 
       const pLabor = laborData.filter((l: any) => l.product_id === p.id);
