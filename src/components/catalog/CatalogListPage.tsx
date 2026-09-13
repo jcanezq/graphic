@@ -206,7 +206,11 @@ export default function CatalogListPage({ type, queryKey, basePath, labels }: Ca
           product.indirect_costs.map((ic: any) => ({
             product_id: data.id,
             concept: ic.concept,
-            cost: ic.cost,
+            unit: ic.unit,
+            quantity: ic.quantity,
+            unit_cost: ic.unit_cost,
+            kind: ic.kind,
+            cost: Number(ic.quantity) * Number(ic.unit_cost),
           }))
         );
         if (indError) throw new Error("No se pudieron copiar los costos indirectos: " + indError.message);
