@@ -21,12 +21,10 @@ export async function GET() {
   try {
     const supabase = createAdminClient();
 
-    // 1. Fetch company settings and categories
-    const [settingsRes, categoriesRes, productsRes, materialsRes] = await Promise.all([
+    const [settingsRes, categoriesRes, productsRes] = await Promise.all([
       supabase.from("company_settings").select("company_name, phone, igv_rate, logo_url").limit(1).single(),
       supabase.from("categories").select("id, name, slug, color").order("sort_order"),
       supabase.from("products").select("*").eq("is_active", true).order("name"),
-      supabase.from("materials").select("*").is("deleted_at", null).order("name"),
     ]);
 
     const settings = settingsRes.data || {
@@ -40,9 +38,8 @@ export async function GET() {
     const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
 
     const products = productsRes.data || [];
-    const rawMaterials = materialsRes.data || [];
 
-    if (products.length === 0 && rawMaterials.length === 0) {
+    if (products.length === 0) {
       return NextResponse.json({
         products: [],
         categories,
@@ -72,21 +69,7 @@ export async function GET() {
     const laborData = labRes.data || [];
     const indirectData = indRes.data || [];
 
-    // Map raw materials as public products
-    const mappedMaterials = rawMaterials.map((m: any) => ({
-      id: m.id,
-      code: `MAT`,
-      name: m.name,
-      type: "Material",
-      unit: m.unit,
-      description: "",
-      image_url: null,
-      category_id: null,
-      manual_unit_cost: m.cost,
-      default_margin: 30, // Or settings default margin if available
-    }));
-
-    const allProducts = [...products, ...mappedMaterials];
+    const allProducts = products;
 
     // 3. Compute public product representations — strict omission of internal costs & margins
     const publicProducts: PublicProduct[] = allProducts.map((p) => {
