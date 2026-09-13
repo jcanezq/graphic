@@ -168,5 +168,53 @@ describe('Calculations Library', () => {
       expect(totals.igv).toBe(38.88);
       expect(totals.total).toBe(254.88);
     });
+
+    it('cantidad 3 — fija los escalados (unit vs order)', () => {
+      const product = {
+        id: 'SRV-2026-0508', code: 'SRV-2026-0508', name: 'Golden Product', type: 'Servicio', unit: 'm²', description: '',
+        manual_unit_cost: null, default_margin: 35,
+        materials: [
+          { name: 'Vinil laminado premium',            quantity: 1, unit_cost: 30, unit: 'm²', material_id: null },
+          { name: 'Laminado de protección de pintura', quantity: 1, unit_cost: 10, unit: 'm²', material_id: null },
+        ],
+        labor: [{ work_type: 'Labor', hours: 1, hourly_rate: 60 }],
+        indirect_costs: [
+          { concept: 'Diseño Grafico',    kind: 'production', unit: 'global', quantity: 1, unit_cost: 18, cost: 18 },
+          { concept: 'impresión digital', kind: 'production', unit: 'm2',     quantity: 1, unit_cost: 15, cost: 15 },
+          { concept: 'Plotter de corte',  kind: 'production', unit: 'm2',     quantity: 1, unit_cost: 7,  cost: 7  },
+          { concept: 'Transporte',        kind: 'other',      unit: 'global', quantity: 1, unit_cost: 20, cost: 20 },
+        ],
+      };
+
+      const item3 = createQuotationItemFromProduct(product as any, 3, product.default_margin, 0);
+      // base 83.70 × 3 = 251.10 · labor 81.00 × 3 = 243.00 · diseño 24.30 × 1 · transporte 27.00 × 1
+      expect(item3.subtotal).toBe(545.40);
+      
+      const totals3 = calcQuotationTotals([item3], 0.18);
+      expect(totals3.total).toBe(643.57);
+    });
+
+    it('una fila con unit_cost 0 y cost 18 no produce costo base negativo', () => {
+      const product = {
+        id: 'SRV-2026-0508', code: 'SRV-2026-0508', name: 'Golden Product', type: 'Servicio', unit: 'm²', description: '',
+        manual_unit_cost: null, default_margin: 35,
+        materials: [
+          { name: 'Vinil laminado premium',            quantity: 1, unit_cost: 30, unit: 'm²', material_id: null },
+          { name: 'Laminado de protección de pintura', quantity: 1, unit_cost: 10, unit: 'm²', material_id: null },
+        ],
+        labor: [{ work_type: 'Labor', hours: 1, hourly_rate: 60 }],
+        indirect_costs: [
+          { concept: 'Diseño Grafico',    kind: 'production', unit: 'global', quantity: 1, unit_cost: 18, cost: 18 },
+          { concept: 'impresión digital', kind: 'production', unit: 'm2',     quantity: 1, unit_cost: 15, cost: 15 },
+          { concept: 'Plotter de corte',  kind: 'production', unit: 'm2',     quantity: 1, unit_cost: 7,  cost: 7  },
+          { concept: 'Transporte',        kind: 'other',      unit: 'global', quantity: 1, unit_cost: 20, cost: 20 },
+        ],
+      };
+      
+      const roto = { ...product, indirect_costs: product.indirect_costs.map(
+        (ic: any) => ({ ...ic, unit_cost: 0 })) };
+      const item = createQuotationItemFromProduct(roto as any, 1, 35, 0);
+      expect(item.unit_cost).toBeGreaterThanOrEqual(0);
+    });
   });
 });
