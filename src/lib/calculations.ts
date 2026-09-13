@@ -95,6 +95,79 @@ export function calcItemSubtotal(quantity: number, unitPrice: number): number {
 /**
  * Recalculate a single quotation item from product data.
  */
+export type CatalogPricing = {
+  margin: number;
+  materialCost: number;
+  laborCost: number;
+  designCost: number;
+  transportCost: number;
+  otherIndirectCost: number;
+  baseCost: number;
+  baseUnitPrice: number;
+  laborPrice: number;
+  designPrice: number;
+  transportPrice: number;
+  materialPrice: number;
+  otherPrice: number;
+  /** Precio de UNA unidad con todos los componentes activos. */
+  unitPrice: number;
+};
+
+export function buildCatalogPricing(
+  product: { manual_unit_cost?: number | null; default_margin?: number | null },
+  materials: Array<{ quantity: number; unit_cost: number }>,
+  labor: Array<{ hours: number; hourly_rate: number }>,
+  indirects: Array<{ concept: string; kind?: string | null; quantity?: number | null; unit_cost?: number | null; cost?: number | null }>,
+): CatalogPricing {
+  const margin = product.default_margin ?? 30;
+  const materialCostRaw = materials.reduce((acc: number, m: any) => acc + (m.quantity * m.unit_cost), 0);
+  const laborCostRaw = labor.reduce((acc: number, l: any) => acc + (l.hours * l.hourly_rate), 0);
+  
+  const designCostItem = findIndirectByKind(indirects as any, 'design');
+  const designCostRaw = designCostItem ? indirectRowCost(designCostItem as any) : 0;
+  
+  const transportCostItem = findIndirectByKind(indirects as any, 'transport');
+  const transportCostRaw = transportCostItem ? indirectRowCost(transportCostItem as any) : 0;
+  
+  const totalIndirectRaw = calcIndirectCost(indirects as any);
+  const otherIndirectRaw = totalIndirectRaw - designCostRaw - transportCostRaw;
+
+  const baseCost = (product.manual_unit_cost != null && product.manual_unit_cost > 0)
+    ? product.manual_unit_cost
+    : (materialCostRaw + otherIndirectRaw);
+  const baseUnitPrice = round2(calcUnitPrice(baseCost, margin));
+
+  const unitPrice = round2(
+    baseUnitPrice
+    + round2(calcUnitPrice(laborCostRaw, margin))
+    + round2(calcUnitPrice(designCostRaw, margin))
+    + round2(calcUnitPrice(transportCostRaw, margin))
+  );
+  
+  const laborPrice = round2(calcUnitPrice(laborCostRaw, margin));
+  const designPrice = round2(calcUnitPrice(designCostRaw, margin));
+  const transportPrice = round2(calcUnitPrice(transportCostRaw, margin));
+  const materialPrice = round2(calcUnitPrice(materialCostRaw, margin));
+  const otherPrice = round2(calcUnitPrice(otherIndirectRaw, margin));
+
+  return {
+    margin,
+    materialCost: materialCostRaw,
+    laborCost: laborCostRaw,
+    designCost: designCostRaw,
+    transportCost: transportCostRaw,
+    otherIndirectCost: otherIndirectRaw,
+    baseCost,
+    baseUnitPrice,
+    laborPrice,
+    designPrice,
+    transportPrice,
+    materialPrice,
+    otherPrice,
+    unitPrice
+  };
+}
+
 export function recalcQuotationItem(
   item: QuotationItem,
   overrides?: { 

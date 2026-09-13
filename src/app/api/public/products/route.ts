@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import { calcUnitPrice, round2, findIndirectByKind, indirectRowCost, calcIndirectCost } from "@/lib/calculations";
+import { calcUnitPrice, round2, findIndirectByKind, indirectRowCost, calcIndirectCost, buildCatalogPricing } from "@/lib/calculations";
 import { COMPONENT_SCOPE_DEFAULTS } from "@/lib/pricing";
 import type { PublicProduct } from "@/types";
 
@@ -87,38 +87,12 @@ export async function GET() {
       // Precio BASE: material + indirectos que NO son diseño ni transporte.
       // La mano de obra, el diseño y el transporte se publican aparte, cada uno
       // con su scope, para que el carrito escale igual que el servidor (C-1).
-      const margin = p.default_margin ?? 30;
-      const materialCostRaw = pMaterials.reduce((acc: number, m: any) => acc + (m.quantity * m.unit_cost), 0);
-      const laborCostRaw = pLabor.reduce((acc: number, l: any) => acc + (l.hours * l.hourly_rate), 0);
-      const designCostItem = findIndirectByKind(pIndirect as any, 'design');
-      const designCostRaw = designCostItem ? indirectRowCost(designCostItem as any) : 0;
-      
-      const transportCostItem = findIndirectByKind(pIndirect as any, 'transport');
-      const transportCostRaw = transportCostItem ? indirectRowCost(transportCostItem as any) : 0;
-      
-      const totalIndirectRaw = calcIndirectCost(pIndirect as any);
-      const otherIndirectRaw = totalIndirectRaw - designCostRaw - transportCostRaw;
-
-      const baseCost = (p.manual_unit_cost != null && p.manual_unit_cost > 0)
-        ? p.manual_unit_cost
-        : (materialCostRaw + otherIndirectRaw);
-      const baseUnitPrice = round2(calcUnitPrice(baseCost, margin));
-
-      // `unit_price` se conserva por compatibilidad de la vista de catálogo:
-      // es el precio de UNA unidad con sus componentes, o sea el total de cantidad 1.
-      const unitPrice = round2(
-        baseUnitPrice
-        + round2(calcUnitPrice(laborCostRaw, margin))
-        + round2(calcUnitPrice(designCostRaw, margin))
-        + round2(calcUnitPrice(transportCostRaw, margin))
+      const pricing = buildCatalogPricing(
+        p as any,
+        pMaterials,
+        pLabor,
+        pIndirect
       );
-      
-      // Calculate components with margin for public display
-      const laborPrice = round2(calcUnitPrice(laborCostRaw, margin));
-      const designPrice = round2(calcUnitPrice(designCostRaw, margin));
-      const transportPrice = round2(calcUnitPrice(transportCostRaw, margin));
-      const materialPrice = round2(calcUnitPrice(materialCostRaw, margin));
-      const otherPrice = round2(calcUnitPrice(otherIndirectRaw, margin));
 
       return {
         id: p.id,
@@ -130,13 +104,13 @@ export async function GET() {
         image_url: p.image_url,
         category_id: p.category_id,
         category_name: p.category_id ? categoryMap.get(p.category_id) || null : null,
-        unit_price: unitPrice,
-        base_unit_price: baseUnitPrice,
-        labor_price: laborPrice,
-        design_price: designPrice,
-        transport_price: transportPrice,
-        material_price: materialPrice,
-        other_price: otherPrice,
+        unit_price: pricing.unitPrice,
+        base_unit_price: pricing.baseUnitPrice,
+        labor_price: pricing.laborPrice,
+        design_price: pricing.designPrice,
+        transport_price: pricing.transportPrice,
+        material_price: pricing.materialPrice,
+        other_price: pricing.otherPrice,
         labor_scope: COMPONENT_SCOPE_DEFAULTS.labor,
         design_scope: COMPONENT_SCOPE_DEFAULTS.design,
         transport_scope: COMPONENT_SCOPE_DEFAULTS.transport,
