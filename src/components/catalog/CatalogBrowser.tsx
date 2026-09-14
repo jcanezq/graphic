@@ -20,7 +20,14 @@ export function CatalogBrowser({ products, categories, onAdd, showCost }: Catalo
   const normalizedSearch = normalizeText(search);
   const searchTokens = normalizedSearch.split(/\s+/).filter(Boolean);
 
-  const filteredProducts = products.filter((p) => {
+  const validProducts = products.filter((p) => {
+    const cost = showCost ? (p as any).manual_unit_cost : (p.base_unit_price ?? p.unit_price);
+    return cost > 0;
+  });
+  
+  const hiddenCount = products.length - validProducts.length;
+
+  const filteredProducts = validProducts.filter((p) => {
     const matchCat = selectedCategory === "all" || p.category_id === selectedCategory;
     const matchType = typeFilter === "Todos" || p.type === typeFilter;
     if (!matchCat || !matchType) return false;
@@ -156,6 +163,12 @@ export function CatalogBrowser({ products, categories, onAdd, showCost }: Catalo
           );
         })}
       </div>
+
+      {showCost && hiddenCount > 0 && (
+        <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: "1rem", textAlign: "center" }}>
+          {hiddenCount} productos ocultos por no tener costo cargado
+        </div>
+      )}
 
       {/* Products Grid */}
       {filteredProducts.length === 0 ? (

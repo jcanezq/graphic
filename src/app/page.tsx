@@ -61,7 +61,7 @@ export default function HomePage() {
     },
   });
 
-  const products = (data?.products || []).filter((p) => (p.base_unit_price ?? p.unit_price) > 0);
+  const products = data?.products || [];
   const categories = data?.categories || [];
   const settings = data?.settings;
 
