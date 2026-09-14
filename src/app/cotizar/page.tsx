@@ -10,12 +10,11 @@ import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, normalizeText } from "@/lib/formatters";
 import { fetchRucData } from "@/lib/ruc";
 import type { PublicProduct } from "@/types";
+import { ProductThumbnail } from "@/components/public/ProductThumbnail";
 import { round2 } from "@/lib/pricing";
 import {
   Calculator,
-  Plus,
   Trash2,
-  Search,
   ArrowLeft,
   CheckCircle2,
   ShieldAlert,
@@ -95,11 +94,7 @@ export default function CotizadorPage() {
     checkRucInDB();
   }, [clientRuc, currentUser, supabase, showToast]);
 
-  // Product selector dropdown
-  const [productSearch, setProductSearch] = useState("");
-  const [showProductDropdown, setShowProductDropdown] = useState(false);
-  const [productFilter, setProductFilter] = useState<"Todos" | "Producto" | "Servicio" | "Material">("Todos");
-  const [categoryFilter, setCategoryFilter] = useState("Todas");
+  // Product selector dropdown (removed)
 
   // Submission & Auth Modal state
   const [submitting, setSubmitting] = useState(false);
@@ -111,8 +106,8 @@ export default function CotizadorPage() {
     whatsappUrl: string;
   } | null>(null);
 
-  // Load catalog
-  const { data: catalogData, isError: catalogError, refetch: refetchCatalog } = useQuery({
+  // Load catalog for settings
+  const { data: catalogData } = useQuery({
     queryKey: ["public_products"],
     queryFn: async () => {
       const res = await fetch("/api/public/products");
@@ -125,8 +120,6 @@ export default function CotizadorPage() {
     },
   });
 
-  const products = catalogData?.products || [];
-  const categories = catalogData?.categories || [];
   const igvRate = catalogData?.settings?.igv_rate ?? 0.18;
 
   // 1. Initialize user & restore items from localStorage
@@ -206,41 +199,7 @@ export default function CotizadorPage() {
     persistItems(updated);
   }
 
-  function handleAddItem(product: PublicProduct) {
-    const existingIndex = items.findIndex((it) => it.product_id === product.id);
-    if (existingIndex >= 0) {
-      const updated = [...items];
-      updated[existingIndex].quantity += 1;
-      persistItems(updated);
-    } else {
-      const newItem: DraftItem = {
-        product_id: product.id,
-        product_name: product.name,
-        product_code: product.code,
-        product_type: product.type,
-        unit: product.unit,
-        base_unit_price: product.base_unit_price ?? product.unit_price,
-        unit_price: product.unit_price,
-        quantity: 1,
-        has_labor: true,
-        has_design: true,
-        has_transport: true,
-        labor_price: product.labor_price,
-        design_price: product.design_price,
-        transport_price: product.transport_price,
-        labor_scope: product.labor_scope,
-        design_scope: product.design_scope,
-        transport_scope: product.transport_scope,
-        material_price: product.material_price,
-        other_price: product.other_price,
-        image_url: product.image_url ?? null,
-      };
-      persistItems([...items, newItem]);
-    }
-    setProductSearch("");
-    setShowProductDropdown(false);
-    showToast(`"${product.name}" añadido`);
-  }
+
 
   async function handleSearchRuc() {
     if (clientRuc.length !== 11) return;
@@ -280,20 +239,6 @@ export default function CotizadorPage() {
   const subtotal = round2(items.reduce((acc, it) => acc + lineTotal(it), 0));
   const igv = round2(subtotal * igvRate);
   const total = round2(subtotal + igv);
-
-  // Filter products for dropdown
-  const normalizedProductSearch = normalizeText(productSearch);
-  const searchTokens = normalizedProductSearch.split(/\s+/).filter(Boolean);
-
-  const filteredProducts = products.filter((p) => {
-    const matchesFilter = productFilter === "Todos" || p.type === productFilter;
-    const matchesCategory = categoryFilter === "Todas" || p.category_id === categoryFilter;
-    if (!matchesFilter || !matchesCategory) return false;
-
-    if (searchTokens.length === 0) return true;
-    const targetText = normalizeText(`${p.name} ${p.code} ${p.description || ""} ${p.category_name || ""}`);
-    return searchTokens.every((token) => targetText.includes(token));
-  });
 
   // Trigger Google Login
   async function handleGoogleLogin() {
@@ -542,7 +487,7 @@ export default function CotizadorPage() {
             </div>
 
             {/* Content Layout */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: "2rem", alignItems: "start" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: "2rem", alignItems: "start" }}>
               {/* Left Column: Items and Selection */}
               <div>
 
@@ -620,64 +565,74 @@ export default function CotizadorPage() {
                             padding: "1rem 1.25rem",
                             borderBottom: idx < items.length - 1 ? "1px solid var(--surface-divider)" : "none",
                             display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
+                            flexDirection: "column",
                             gap: "1rem",
-                            flexWrap: "wrap",
                           }}
                         >
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
-                            <div style={{ flex: 1, minWidth: "200px" }}>
-                              <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--text-primary)" }}>
-                                {item.product_name}
-                              </div>
-                              <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
-                                Cód: {item.product_code}
+                          <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", flexWrap: "wrap" }}>
+                            <div style={{ flexShrink: 0 }}>
+                              <style>{`
+                                .thumb-wrapper-${idx} { width: 56px; height: 56px; }
+                                @media (min-width: 700px) { .thumb-wrapper-${idx} { width: 80px; height: 80px; } }
+                              `}</style>
+                              <div className={`thumb-wrapper-${idx}`}>
+                                <ProductThumbnail imageUrl={item.image_url} productName={item.product_name} size="100%" />
                               </div>
                             </div>
                             
-                            {/* P.V. Unit */}
-                            <div style={{ width: "100px", textAlign: "right" }}>
-                              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", display: "block", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>P.V. Unit</span>
-                              <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--text-secondary)" }}>
-                                {formatCurrency(item.base_unit_price)}
-                              </span>
-                            </div>
-
-                            {/* Quantity control */}
-                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100px" }}>
-                              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", display: "block", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Cant.</span>
-                              <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={item.quantity}
-                                  onChange={(e) => handleQuantityChange(idx, Number(e.target.value))}
-                                  style={{
-                                    width: "60px", padding: "0.3rem", border: "1px solid var(--surface-border)",
-                                    borderRadius: "var(--radius-sm)", fontSize: "0.9rem", fontWeight: 600, textAlign: "center",
-                                  }}
-                                />
-                                <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{item.unit}</span>
+                            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", minWidth: "250px" }}>
+                              <div style={{ flex: 1, minWidth: "150px" }}>
+                                <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--text-primary)" }}>
+                                  {item.product_name}
+                                </div>
+                                <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
+                                  Cód: {item.product_code}
+                                </div>
                               </div>
-                            </div>
-
-                            {/* Subtotal */}
-                            <div style={{ textAlign: "right", minWidth: "90px" }}>
-                              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", display: "block", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Subtotal</span>
-                              <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.95rem", fontWeight: 700, color: "var(--primary-color)" }}>
-                                {formatCurrency(lineTotal(item))}
+                              
+                              {/* P.V. Unit */}
+                              <div style={{ width: "90px", textAlign: "right" }}>
+                                <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", display: "block", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>P.V. Unit</span>
+                                <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--text-secondary)" }}>
+                                  {formatCurrency(item.base_unit_price)}
+                                </span>
                               </div>
-                            </div>
 
-                            {/* Delete */}
-                            <button
-                              onClick={() => handleRemoveItem(idx)}
-                              style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "0.4rem", marginTop: 14 }}
-                              title="Eliminar ítem"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                              {/* Quantity control */}
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "90px" }}>
+                                <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", display: "block", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Cant.</span>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={item.quantity}
+                                    onChange={(e) => handleQuantityChange(idx, Number(e.target.value))}
+                                    style={{
+                                      width: "60px", padding: "0.3rem", border: "1px solid var(--surface-border)",
+                                      borderRadius: "var(--radius-sm)", fontSize: "0.9rem", fontWeight: 600, textAlign: "center",
+                                    }}
+                                  />
+                                  <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{item.unit}</span>
+                                </div>
+                              </div>
+
+                              {/* Subtotal */}
+                              <div style={{ textAlign: "right", minWidth: "90px" }}>
+                                <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", display: "block", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Subtotal</span>
+                                <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.95rem", fontWeight: 700, color: "var(--price)" }}>
+                                  {formatCurrency(lineTotal(item))}
+                                </div>
+                              </div>
+
+                              {/* Delete */}
+                              <button
+                                onClick={() => handleRemoveItem(idx)}
+                                style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "0.4rem", marginTop: 14 }}
+                                title="Eliminar ítem"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           </div>
 
                           {/* Components Rows */}
@@ -983,78 +938,7 @@ export default function CotizadorPage() {
                     </p>
                   )}
 
-                  {/* 3. Separator */}
-                  <hr style={{ border: "none", borderTop: "1px solid var(--surface-divider)", margin: "1.25rem 0" }} />
 
-                  {/* 4. Thumbnails Grid */}
-                  <h4 style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "1rem" }}>
-                    Ítems ({items.length})
-                  </h4>
-                  
-                  {items.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "1rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                      Tu cotización está vacía
-                    </div>
-                  ) : (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                      {items.map((it, idx) => (
-                        <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                          {/* Image 1:1 */}
-                          <div style={{ position: "relative", width: "100%", paddingBottom: "100%", borderRadius: "var(--radius-sm)", overflow: "hidden", background: "var(--bg-primary)" }}>
-                            {it.image_url ? (
-                              <img
-                                src={it.image_url}
-                                alt={it.product_name}
-                                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-                              />
-                            ) : (
-                              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "0.5rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.75rem", fontWeight: 500 }}>
-                                {it.product_name}
-                              </div>
-                            )}
-                          </div>
-                          {/* Description */}
-                          <div
-                            title={it.product_name}
-                            style={{
-                              fontSize: "12px",
-                              fontWeight: 400,
-                              color: "var(--text-primary)",
-                              display: "-webkit-box",
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: "vertical",
-                              overflow: "hidden",
-                              lineHeight: 1.3,
-                            }}
-                          >
-                            {it.product_name}
-                          </div>
-                          {/* Price */}
-                          <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--price)" }}>
-                            {formatCurrency(lineTotal(it))}
-                          </div>
-                          {/* Stepper */}
-                          <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--surface-border)", borderRadius: "var(--radius-sm)", overflow: "hidden", height: "28px" }}>
-                            <button
-                              onClick={() => { if (it.quantity > 1) handleQuantityChange(idx, it.quantity - 1); else handleRemoveItem(idx); }}
-                              style={{ flex: 1, height: "100%", background: "var(--bg-primary)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)" }}
-                            >
-                              -
-                            </button>
-                            <div style={{ flex: 1.2, textAlign: "center", fontSize: "0.85rem", fontWeight: 600, borderLeft: "1px solid var(--surface-border)", borderRight: "1px solid var(--surface-border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              {it.quantity}
-                            </div>
-                            <button
-                              onClick={() => handleQuantityChange(idx, it.quantity + 1)}
-                              style={{ flex: 1, height: "100%", background: "var(--bg-primary)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)" }}
-                            >
-                              +
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
