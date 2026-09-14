@@ -12,6 +12,7 @@ import {
   calcQuotationTotals,
   calcUnitPrice,
   calcItemSubtotal,
+  buildCatalogPricing,
 } from "@/lib/calculations";
 import { toQuotationItemRow } from "@/lib/quotation-item-row";
 import { Save, ArrowLeft, Plus, Trash2, Search, ShieldAlert } from "lucide-react";
@@ -75,11 +76,28 @@ export default function NewQuotationPage() {
                name: m.material_ref?.name ?? m.name,
                unit: m.material_ref?.unit ?? m.unit
             }));
+          const labor = (labRes.data || []).filter((l: any) => l.product_id === p.id);
+          const indirect_costs = (indRes.data || []).filter((ic: any) => ic.product_id === p.id);
+          
+          const pricing = buildCatalogPricing(
+            { ...p, default_margin: p.default_margin ?? stg?.default_margin ?? 30 },
+            materials,
+            labor,
+            indirect_costs
+          );
+
           return {
             ...p,
             materials,
-            labor: (labRes.data || []).filter((l: any) => l.product_id === p.id),
-            indirect_costs: (indRes.data || []).filter((ic: any) => ic.product_id === p.id),
+            labor,
+            indirect_costs,
+            base_unit_price: pricing.baseUnitPrice,
+            unit_price: pricing.unitPrice,
+            labor_price: pricing.laborPrice,
+            design_price: pricing.designPrice,
+            transport_price: pricing.transportPrice,
+            material_price: pricing.materialPrice,
+            other_price: pricing.otherPrice
           };
         });
       }
