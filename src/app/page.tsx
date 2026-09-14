@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { PublicNavbar } from "@/components/public/PublicNavbar";
 import { useToast } from "@/components/ToastProvider";
 import { ProductCard } from "@/components/public/ProductCard";
+import { QuoteItemThumb } from "@/components/public/QuoteItemThumb";
 import { formatCurrency, normalizeText } from "@/lib/formatters";
 import type { PublicProduct } from "@/types";
+import { round2 } from "@/lib/pricing";
 import {
   Calculator,
   Search,
@@ -30,6 +32,24 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<"Todos" | "Producto" | "Servicio" | "Material">("Todos");
 
+  const [quoteItems, setQuoteItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("cotigrafic_quote_items");
+      const parsed = stored ? JSON.parse(stored) : [];
+      if (Array.isArray(parsed)) setQuoteItems(parsed);
+    } catch { /* ignore */ }
+  }, []);
+
+  function persistQuote(next: any[]) {
+    setQuoteItems(next);
+    try {
+      localStorage.setItem("cotigrafic_quote_items", JSON.stringify(next));
+      window.dispatchEvent(new Event("cotigrafic_cart_updated"));
+    } catch {}
+  }
+
   const { data, isLoading, isError: catalogError, refetch: refetchCatalog } = useQuery({
     queryKey: ["public_products"],
     queryFn: async () => {
@@ -43,7 +63,7 @@ export default function HomePage() {
     },
   });
 
-  const products = data?.products || [];
+  const products = (data?.products || []).filter((p) => (p.base_unit_price ?? p.unit_price) > 0);
   const categories = data?.categories || [];
   const settings = data?.settings;
 
@@ -62,10 +82,7 @@ export default function HomePage() {
 
   function addToQuote(product: PublicProduct) {
     try {
-      const stored = localStorage.getItem("cotigrafic_quote_items");
-      let items: any[] = stored ? JSON.parse(stored) : [];
-      if (!Array.isArray(items)) items = [];
-
+      const items = [...quoteItems];
       const existingIndex = items.findIndex((it) => it.product_id === product.id);
       if (existingIndex >= 0) {
         items[existingIndex].quantity += 1;
@@ -90,17 +107,50 @@ export default function HomePage() {
           transport_scope: product.transport_scope,
           material_price: product.material_price,
           other_price: product.other_price,
+          image_url: product.image_url ?? null,
         });
       }
-
-      localStorage.setItem("cotigrafic_quote_items", JSON.stringify(items));
-      window.dispatchEvent(new Event("cotigrafic_cart_updated"));
+      persistQuote(items);
       showToast(`"${product.name}" añadido a tu cotizador`);
     } catch (e) {
       console.error(e);
       showToast("Error al agregar producto", "error");
     }
   }
+
+  function handleQuantityChange(index: number, val: number) {
+    const qty = Math.max(1, val);
+    const updated = [...quoteItems];
+    updated[index].quantity = qty;
+    persistQuote(updated);
+  }
+
+  function handleRemoveItem(index: number) {
+    const updated = quoteItems.filter((_, i) => i !== index);
+    persistQuote(updated);
+    showToast("Ítem eliminado");
+  }
+
+  function lineTotal(it: any): number {
+    const qty = Math.max(1, Number(it.quantity) || 1);
+    const base = round2(qty * (Number(it.base_unit_price) || 0));
+    const comp = (price: number | undefined, enabled: boolean | undefined, scope: string | undefined) => {
+      if (enabled === false) return 0;
+      const p = Number(price) || 0;
+      if (!(p > 0)) return 0;
+      return round2((scope === 'unit' ? qty : 1) * p);
+    };
+    return round2(
+      base
+      + comp(it.labor_price, it.has_labor, it.labor_scope)
+      + comp(it.design_price, it.has_design, it.design_scope)
+      + comp(it.transport_price, it.has_transport, it.transport_scope)
+    );
+  }
+
+  const subtotal = round2(quoteItems.reduce((acc, it) => acc + lineTotal(it), 0));
+  const igv = round2(subtotal * (settings?.igv_rate ?? 0.18));
+  const total = round2(subtotal + igv);
 
   function addAndGoToQuote(product: PublicProduct) {
     addToQuote(product);
@@ -304,7 +354,39 @@ export default function HomePage() {
 
       {/* Catalog Section */}
       <section id="catalogo" style={{ padding: "4rem 1.5rem", flex: 1 }}>
-        <div style={{ maxWidth: "1240px", margin: "0 auto" }}>
+        <style>{`
+          .catalog-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+            align-items: start;
+          }
+          /* Sin esto, la fila de chips (nowrap) estira la pista 1fr y empuja
+             el panel fuera de la pantalla. Es min-width:auto, el default de
+             los ítems de grid. Mismo arreglo que globals.css:679 y :705. */
+          .catalog-layout > * {
+            min-width: 0;
+          }
+          @media (min-width: 1000px) {
+            .catalog-layout.has-cart {
+              grid-template-columns: 1fr 320px;
+            }
+            .cart-bottom-bar {
+              display: none !important;
+            }
+          }
+          @media (max-width: 999px) {
+            .cart-panel {
+              display: none !important;
+            }
+            .cart-bottom-bar {
+              display: flex !important;
+            }
+          }
+        `}</style>
+        <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
+          <div className={`catalog-layout ${quoteItems.length > 0 ? "has-cart" : ""}`}>
+            <div>
           {/* Header & Search */}
           <div
             style={{
@@ -500,8 +582,125 @@ export default function HomePage() {
               ))}
             </div>
           )}
+          </div>
+
+          {/* Right Panel Cart */}
+            {quoteItems.length > 0 && (
+              <div
+                className="cart-panel"
+                style={{
+                  position: "sticky",
+                  top: "2rem",
+                  background: "var(--bg-secondary)",
+                  border: "1px solid var(--surface-border)",
+                  borderRadius: "var(--radius-lg)",
+                  padding: "1.25rem",
+                  boxShadow: "var(--shadow-md)",
+                }}
+              >
+                {/* 1. Total at the top */}
+                <div style={{ marginBottom: "1rem" }}>
+                  <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                    Total preliminar
+                  </div>
+                  <div style={{ fontSize: "24px", fontWeight: 800, color: "var(--price)" }}>
+                    {formatCurrency(total)}
+                  </div>
+                </div>
+                
+                {/* 2. Generation CTA */}
+                <button
+                  onClick={() => router.push("/cotizar")}
+                  style={{
+                    width: "100%",
+                    padding: "0.95rem",
+                    fontSize: "1rem",
+                    fontWeight: 700,
+                    borderRadius: "var(--radius-md)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.6rem",
+                    background: "#191919",
+                    color: "#ffffff",
+                    border: "none",
+                    cursor: "pointer",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  }}
+                >
+                  Ver mi cotización
+                </button>
+
+                {/* 3. Separator */}
+                <hr style={{ border: "none", borderTop: "1px solid var(--surface-divider)", margin: "1.25rem 0" }} />
+
+                {/* 4. Thumbnails Grid */}
+                <h4 style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "1rem" }}>
+                  Ítems ({quoteItems.length})
+                </h4>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                  {quoteItems.map((it, idx) => (
+                    <QuoteItemThumb
+                      key={idx}
+                      imageUrl={it.image_url}
+                      productName={it.product_name}
+                      lineTotal={lineTotal(it)}
+                      quantity={it.quantity}
+                      onIncrease={() => handleQuantityChange(idx, it.quantity + 1)}
+                      onDecrease={() => {
+                        if (it.quantity > 1) handleQuantityChange(idx, it.quantity - 1);
+                        else handleRemoveItem(idx);
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </section>
+
+      {/* Bottom Bar for Mobile */}
+      {quoteItems.length > 0 && (
+        <div
+          className="cart-bottom-bar"
+          style={{
+            display: "none", // Hidden by default, shown via media query
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            background: "var(--bg-secondary)",
+            borderTop: "1px solid var(--surface-border)",
+            padding: "1rem 1.5rem",
+            boxShadow: "0 -4px 12px rgba(0,0,0,0.1)",
+            zIndex: 50,
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "1rem",
+          }}
+        >
+          <div>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 600 }}>Total preliminar</div>
+            <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--price)" }}>{formatCurrency(total)}</div>
+          </div>
+          <button
+            onClick={() => router.push("/cotizar")}
+            style={{
+              padding: "0.75rem 1.25rem",
+              fontSize: "0.95rem",
+              fontWeight: 700,
+              borderRadius: "var(--radius-md)",
+              background: "#191919",
+              color: "#ffffff",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Ver cotización ({quoteItems.length})
+          </button>
+        </div>
+      )}
 
       {/* Footer */}
       <footer
