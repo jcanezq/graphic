@@ -68,14 +68,14 @@ export default function MisCotizacionesPage() {
         return {
           label: "Solicitada · Por Confirmar",
           bg: "rgba(245, 158, 11, 0.12)",
-          color: "#d97706",
+          color: "var(--warning)",
           border: "1px solid rgba(245, 158, 11, 0.3)",
         };
       case "borrador":
         return {
           label: "En Revisión Técnica",
           bg: "rgba(59, 130, 246, 0.1)",
-          color: "#2563eb",
+          color: "var(--info)",
           border: "1px solid rgba(59, 130, 246, 0.25)",
         };
       case "enviada":
@@ -89,14 +89,14 @@ export default function MisCotizacionesPage() {
         return {
           label: "Aprobada · En Producción",
           bg: "rgba(16, 185, 129, 0.12)",
-          color: "#059669",
+          color: "var(--success)",
           border: "1px solid rgba(16, 185, 129, 0.3)",
         };
       case "rechazada":
         return {
           label: "Rechazada",
           bg: "rgba(239, 68, 68, 0.1)",
-          color: "#dc2626",
+          color: "var(--error)",
           border: "1px solid rgba(239, 68, 68, 0.25)",
         };
       default:
@@ -361,7 +361,7 @@ export default function MisCotizacionesPage() {
                     }}
                   >
                     <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                      <ShieldAlert size={14} color="#d97706" />
+                      <ShieldAlert size={14} color="var(--warning)" />
                       <span>Precios preliminares sujetos a confirmación técnica.</span>
                     </div>
 

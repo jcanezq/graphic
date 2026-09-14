@@ -596,7 +596,7 @@ export default function QuotationsPage() {
                                 fontSize: "0.68rem",
                                 fontWeight: 700,
                                 background: "rgba(245, 158, 11, 0.15)",
-                                color: "#d97706",
+                                color: "var(--warning)",
                                 padding: "1px 5px",
                                 borderRadius: "var(--radius-sm)",
                                 display: "inline-flex",

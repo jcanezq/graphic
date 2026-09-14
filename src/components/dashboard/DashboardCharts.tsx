@@ -180,8 +180,8 @@ export default function DashboardCharts({ monthlyData, statusData, revenueData, 
             <AreaChart data={revenueData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
               <defs>
                 <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#059669" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#059669" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--success)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--success)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-divider)" vertical={false} />
@@ -206,7 +206,7 @@ export default function DashboardCharts({ monthlyData, statusData, revenueData, 
                 type="monotone" 
                 dataKey="amount" 
                 name="Monto"
-                stroke="#059669" 
+                stroke="var(--success)" 
                 strokeWidth={2.5}
                 fill="url(#revenueGradient)"
               />

@@ -219,7 +219,7 @@ export default function HomePage() {
               justifyContent: "center",
               gap: "0.75rem",
               fontSize: "0.86rem",
-              color: "#92400e",
+              color: "var(--warning)",
             }}
           >
             <ShieldAlert size={18} style={{ flexShrink: 0 }} />
