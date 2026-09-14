@@ -44,6 +44,10 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
         }}
       >
         {product.image_url ? (
+          /* eslint-disable-next-line @next/next/no-img-element --
+             Deliberado: la imagen se sirve directo de Supabase Storage y NO por /_next/image.
+             Motivo en 12-spec-DIS §DIS-T3 (costo del plan Pro, cláusula comercial de Vercel Hobby
+             y CVE del optimizador de Next 14). No cambiar a next/image sin revisar esa decisión. */
           <img
             src={product.image_url}
             alt={product.name}
