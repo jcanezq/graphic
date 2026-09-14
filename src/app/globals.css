@@ -127,8 +127,8 @@ img {
 /* ── Catalog Grid (DIS-T4) ──────────────────────────────────── */
 .catalog-grid {
   display: grid;
-  gap: 24px 16px; /* 16px horizontal, 24px vertical */
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 28px 20px;
 }
 
 /* ── Quote Summary (DIS-T6) ─────────────────────────────────── */
