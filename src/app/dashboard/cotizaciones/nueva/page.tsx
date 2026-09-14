@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
+import { QuoteItemThumb } from "@/components/public/QuoteItemThumb";
 import { formatCurrency } from "@/lib/formatters";
 import {
   createQuotationItemFromProduct,
@@ -717,13 +718,29 @@ export default function NewQuotationPage() {
           {/* Right Column — Totals */}
           <div>
             <div className="cost-breakdown" style={{ position: "sticky", top: 90 }}>
-              <h3 className="card-title" style={{ marginBottom: "var(--space-md)" }}>
-                Resumen
-              </h3>
-              <div className="cost-breakdown-row">
-                <span>Ítems</span>
-                <span>{items.length}</span>
+              <div style={{ textAlign: "center", marginBottom: "var(--space-md)" }}>
+                <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Total preliminar
+                </div>
+                <div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--price)", lineHeight: 1.2 }}>
+                  {formatCurrency(totals.total)}
+                </div>
               </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: "var(--space-lg)" }}>
+                <button
+                  className="btn-primary"
+                  disabled={saveMutation.isPending || isLoading}
+                  onClick={() => saveMutation.mutate(false)}
+                  style={{ width: "100%", background: "#191919" }}
+                >
+                  <Save size={16} />
+                  {saveMutation.isPending ? "Guardando..." : "Guardar Cotización"}
+                </button>
+              </div>
+
+              <hr style={{ border: "none", borderTop: "1px solid var(--surface-border)", margin: "var(--space-md) 0" }} />
+
               <div className="cost-breakdown-row total">
                 <span>Subtotal</span>
                 <span>{formatCurrency(totals.subtotal)}</span>
@@ -732,22 +749,31 @@ export default function NewQuotationPage() {
                 <span>IGV ({(igvRate * 100).toFixed(0)}%)</span>
                 <span>{formatCurrency(totals.igv)}</span>
               </div>
-              <div className="cost-breakdown-row grand-total">
-                <span>TOTAL</span>
-                <span>{formatCurrency(totals.total)}</span>
+
+              <hr style={{ border: "none", borderTop: "1px solid var(--surface-border)", margin: "var(--space-md) 0" }} />
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-md)" }}>
+                <span style={{ fontWeight: 600 }}>Ítems ({items.length})</span>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: "var(--space-lg)" }}>
-                <button
-                  className="btn-primary"
-                  disabled={saveMutation.isPending || isLoading}
-                  onClick={() => saveMutation.mutate(false)}
-                  style={{ width: "100%" }}
-                >
-                  <Save size={16} />
-                  {saveMutation.isPending ? "Guardando..." : "Guardar Cotización"}
-                </button>
-              </div>
+              {items.length > 0 && (
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "0.75rem",
+                  maxHeight: "360px",
+                  overflowY: "auto",
+                  paddingRight: "0.25rem"
+                }}>
+                  {items.map((item, idx) => (
+                    <QuoteItemThumb
+                      key={(item as any).row_key || idx}
+                      item={item as any}
+                      onUpdateQuantity={(newQ) => updateItem(idx, { quantity: newQ })}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
