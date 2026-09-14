@@ -8,31 +8,32 @@
 /* ── Tokens ─────────────────────────────────────────────────── */
 :root {
   /* Background — Clean whites & grays */
-  --bg-primary: #f8fafc;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f5f9;
+  --bg-primary: #f5f5f5;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #f5f5f5;
   --bg-elevated: #ffffff;
-  --bg-card: rgba(255, 255, 255, 0.9);
+  --bg-card: rgba(255, 255, 255, 1);
   --bg-card-hover: rgba(255, 255, 255, 1);
-  --bg-glass: rgba(241, 245, 249, 0.8);
+  --bg-glass: rgba(245, 245, 245, 0.9);
 
   /* Surface — Steel borders */
-  --surface-border: #e2e8f0;
-  --surface-border-hover: #cbd5e1;
-  --surface-divider: #e2e8f0;
+  --surface-border: #e8e8e8;
+  --surface-border-hover: #d9d9d9;
+  --surface-divider: #ebebeb;
 
   /* Text — Charcoal & slate */
-  --text-primary: #0F172A;
-  --text-secondary: #64748B;
-  --text-muted: #94A3B8;
-  --text-disabled: #cbd5e1;
+  --text-primary: #191919;
+  --text-secondary: #666666;
+  --text-muted: #767676;
+  --text-disabled: #999999;
 
-  /* Accent — Indigo Profesional */
-  --accent: #4F46E5;
-  --accent-hover: #4338CA;
-  --accent-light: rgba(79, 70, 229, 0.08);
-  --accent-gradient: linear-gradient(135deg, #4F46E5, #3730A3);
-  --accent-gradient-hover: linear-gradient(135deg, #4338CA, #312E81);
+  /* Accent — Negro */
+  --accent: #191919;
+  --accent-hover: #000000;
+  --accent-light: rgba(25, 25, 25, 0.06);
+  --accent-gradient: #191919;
+  --accent-gradient-hover: #191919;
+  --focus-ring: #005fcc;
 
   /* Semantic colors */
   --success: #10B981;
@@ -45,19 +46,19 @@
   --info-light: rgba(59, 130, 246, 0.08);
 
   /* Spacing */
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 32px;
-  --space-2xl: 48px;
-  --space-3xl: 64px;
+  --space-xs: 2px;
+  --space-sm: 4px;
+  --space-md: 8px;
+  --space-lg: 8px;
+  --space-xl: 16px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
 
   /* Radius */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 8px;
   --radius-full: 9999px;
 
   /* Shadows (muy intensas) */
@@ -79,6 +80,12 @@
   --sidebar-width: 260px;
   --sidebar-collapsed-width: 72px;
   --header-height: 64px;
+
+  /* New Tokens for AliExpress Redesign */
+  --price:        #ec0936;
+  --price-muted:  #606472;
+  --promo:        #D3031C;
+  --promo-bg:     #fff1f1;
 }
 
 /* ── Reset ──────────────────────────────────────────────────── */
@@ -115,6 +122,46 @@ a:hover {
 img {
   max-width: 100%;
   height: auto;
+}
+
+/* ── Catalog Grid (DIS-T4) ──────────────────────────────────── */
+.catalog-grid {
+  display: grid;
+  gap: 24px 16px; /* 16px horizontal, 24px vertical */
+}
+
+@media (min-width: 0px) {
+  .catalog-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 701px) {
+  .catalog-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 1101px) {
+  .catalog-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (min-width: 1501px) {
+  .catalog-grid { grid-template-columns: repeat(5, 1fr); }
+}
+
+/* ── Quote Summary (DIS-T6) ─────────────────────────────────── */
+.quote-summary {
+  position: sticky;
+  top: 5rem;
+}
+@media (max-width: 768px) {
+  .quote-summary {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    z-index: 100;
+    margin: 0;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+  }
 }
 
 /* ── Typography ─────────────────────────────────────────────── */
@@ -495,6 +542,7 @@ td.primary {
 .app-layout {
   display: flex;
   min-height: 100vh;
+  background: var(--bg-primary);
 }
 
 .sidebar {
@@ -524,23 +572,21 @@ td.primary {
 .sidebar-brand-icon {
   width: 36px;
   height: 36px;
-  background: var(--accent-gradient);
-  border-radius: var(--radius-md);
+  background: #191919;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.1rem;
   flex-shrink: 0;
+  color: #fff;
 }
 
 .sidebar-brand-name {
   font-size: 1.1rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  background: var(--accent-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #191919;
 }
 
 .sidebar-nav {
@@ -592,8 +638,8 @@ td.primary {
   top: 4px;
   bottom: 4px;
   width: 3px;
-  background: var(--accent-gradient);
-  border-radius: var(--radius-full);
+  background: #191919;
+  border-radius: var(--radius-sm);
 }
 
 .sidebar-link svg {

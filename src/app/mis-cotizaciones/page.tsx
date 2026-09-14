@@ -81,9 +81,9 @@ export default function MisCotizacionesPage() {
       case "enviada":
         return {
           label: "Cotización Confirmada",
-          bg: "rgba(79, 70, 229, 0.1)",
-          color: "#4f46e5",
-          border: "1px solid rgba(79, 70, 229, 0.25)",
+          bg: "rgba(0, 0, 0, 0.1)",
+          color: "var(--accent)",
+          border: "1px solid rgba(0, 0, 0, 0.25)",
         };
       case "aceptada":
         return {
@@ -159,7 +159,7 @@ export default function MisCotizacionesPage() {
                 width: 44,
                 height: 44,
                 margin: "0 auto 1rem auto",
-                border: "3px solid rgba(79, 70, 229, 0.2)",
+                border: "3px solid rgba(0, 0, 0, 0.2)",
                 borderTop: "3px solid var(--accent)",
                 borderRadius: "50%",
                 animation: "spin 0.8s linear infinite",

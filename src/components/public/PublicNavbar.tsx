@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Calculator, FileText, LayoutDashboard, LogIn, LogOut, User } from "lucide-react";
+import { Calculator, FileText, LayoutDashboard, LogIn, LogOut, User, Search } from "lucide-react";
 
 export function PublicNavbar() {
   const pathname = usePathname();
@@ -139,107 +139,51 @@ export function PublicNavbar() {
           </div>
         </Link>
 
-        {/* Navigation Links */}
-        <nav style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <Link
-            href="/"
-            prefetch={false}
+        {/* Search Bar (DIS-T5) */}
+        <form
+          action="/"
+          method="GET"
+          style={{
+            flex: 1,
+            display: "flex",
+            margin: "0 1.5rem",
+            maxWidth: "600px",
+          }}
+          className="navbar-search"
+        >
+          <input
+            type="text"
+            name="q"
+            placeholder="Buscar productos..."
             style={{
-              padding: "0.5rem 0.85rem",
-              borderRadius: "var(--radius-md)",
-              fontSize: "0.9rem",
-              fontWeight: pathname === "/" ? 600 : 500,
-              color: pathname === "/" ? "var(--accent)" : "var(--text-secondary)",
-              background: pathname === "/" ? "var(--accent-light)" : "transparent",
-              textDecoration: "none",
-              transition: "var(--transition-fast)",
+              flex: 1,
+              height: "40px",
+              borderRadius: "20px 0 0 20px",
+              border: "2px solid #191919",
+              borderRight: "none",
+              padding: "0 16px",
+              outline: "none",
+              fontSize: "14px",
             }}
-          >
-            Inicio
-          </Link>
-
-          <Link
-            href="/cotizar"
-            prefetch={false}
+          />
+          <button
+            type="submit"
             style={{
-              padding: "0.5rem 0.85rem",
-              borderRadius: "var(--radius-md)",
-              fontSize: "0.9rem",
-              fontWeight: pathname === "/cotizar" ? 600 : 500,
-              color: pathname === "/cotizar" ? "var(--accent)" : "var(--text-secondary)",
-              background: pathname === "/cotizar" ? "var(--accent-light)" : "transparent",
-              textDecoration: "none",
+              height: "40px",
+              padding: "0 24px",
+              borderRadius: "0 20px 20px 0",
+              background: "#191919",
+              color: "#ffffff",
+              border: "2px solid #191919",
+              cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              gap: "0.4rem",
-              transition: "var(--transition-fast)",
+              justifyContent: "center",
             }}
           >
-            <Calculator size={16} />
-            <span>Cotizador</span>
-            {cartCount > 0 && (
-              <span
-                style={{
-                  background: "var(--accent)",
-                  color: "#fff",
-                  fontSize: "0.72rem",
-                  fontWeight: 700,
-                  padding: "0.1rem 0.45rem",
-                  borderRadius: "var(--radius-full)",
-                }}
-              >
-                {cartCount}
-              </span>
-            )}
-          </Link>
-
-          {user && (
-            <Link
-              href="/mis-cotizaciones"
-              prefetch={false}
-              style={{
-                padding: "0.5rem 0.85rem",
-                borderRadius: "var(--radius-md)",
-                fontSize: "0.9rem",
-                fontWeight: pathname === "/mis-cotizaciones" ? 600 : 500,
-                color: pathname === "/mis-cotizaciones" ? "var(--accent)" : "var(--text-secondary)",
-                background: pathname === "/mis-cotizaciones" ? "var(--accent-light)" : "transparent",
-                textDecoration: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.4rem",
-                transition: "var(--transition-fast)",
-              }}
-            >
-              <FileText size={16} />
-              <span>Mis Cotizaciones</span>
-            </Link>
-          )}
-
-          {isAdmin && (
-            <Link
-              href="/dashboard"
-              prefetch={false}
-              style={{
-                padding: "0.5rem 0.85rem",
-                borderRadius: "var(--radius-md)",
-                fontSize: "0.9rem",
-                fontWeight: 600,
-                color: "var(--accent)",
-                border: "1px solid var(--accent)",
-                background: "var(--accent-light)",
-                textDecoration: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.4rem",
-                marginLeft: "0.5rem",
-              }}
-            >
-              <LayoutDashboard size={16} />
-              <span>Admin Panel</span>
-            </Link>
-          )}
-        </nav>
+            <Search size={18} />
+          </button>
+        </form>
 
         {/* User Actions */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -284,20 +228,21 @@ export function PublicNavbar() {
             </div>
           ) : (
             <Link
-              href="/login?redirect=/cotizar"
+              href="/login"
               prefetch={false}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: "0.4rem",
-                background: "var(--text-primary)",
+                background: "#191919",
                 color: "#fff",
                 padding: "0.45rem 0.95rem",
-                borderRadius: "var(--radius-md)",
+                borderRadius: "24px",
                 fontSize: "0.85rem",
-                fontWeight: 600,
+                fontWeight: 700,
                 textDecoration: "none",
                 transition: "var(--transition-fast)",
+                height: "40px",
               }}
             >
               <LogIn size={15} />

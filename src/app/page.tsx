@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { PublicNavbar } from "@/components/public/PublicNavbar";
 import { useToast } from "@/components/ToastProvider";
+import { ProductCard } from "@/components/public/ProductCard";
 import { formatCurrency, normalizeText } from "@/lib/formatters";
 import type { PublicProduct } from "@/types";
 import {
@@ -113,7 +114,7 @@ export default function HomePage() {
       {/* Hero Section */}
       <section
         style={{
-          background: "linear-gradient(180deg, rgba(79, 70, 229, 0.05) 0%, rgba(248, 250, 252, 1) 100%)",
+          background: "linear-gradient(180deg, rgba(0, 0, 0, 0.05) 0%, rgba(248, 250, 252, 1) 100%)",
           padding: "4rem 1.5rem 3rem 1.5rem",
           borderBottom: "1px solid var(--surface-border)",
         }}
@@ -283,7 +284,7 @@ export default function HomePage() {
                     right: "1.25rem",
                     fontSize: "1.75rem",
                     fontWeight: 800,
-                    color: "rgba(79, 70, 229, 0.12)",
+                    color: "rgba(0, 0, 0, 0.12)",
                   }}
                 >
                   {st.step}
@@ -456,7 +457,7 @@ export default function HomePage() {
                   width: 44,
                   height: 44,
                   margin: "0 auto 1rem auto",
-                  border: "3px solid rgba(79, 70, 229, 0.2)",
+                  border: "3px solid rgba(0, 0, 0, 0.2)",
                   borderTop: "3px solid var(--accent)",
                   borderRadius: "50%",
                   animation: "spin 0.8s linear infinite",
@@ -493,152 +494,9 @@ export default function HomePage() {
               </p>
             </div>
           ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))",
-                gap: "1.5rem",
-              }}
-            >
+            <div className="catalog-grid">
               {filteredProducts.map((p) => (
-                <div
-                  key={p.id}
-                  style={{
-                    background: "var(--bg-secondary)",
-                    border: "1px solid var(--surface-border)",
-                    borderRadius: "var(--radius-lg)",
-                    padding: "1.5rem",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    boxShadow: "var(--shadow-sm)",
-                    transition: "transform 0.2s ease, box-shadow 0.2s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = "translateY(-3px)";
-                    e.currentTarget.style.boxShadow = "var(--shadow-md)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow = "var(--shadow-sm)";
-                  }}
-                >
-                  <div>
-                    {/* Tags */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                      <span
-                        style={{
-                          fontSize: "0.72rem",
-                          fontWeight: 700,
-                          padding: "0.15rem 0.55rem",
-                          borderRadius: "var(--radius-full)",
-                          background: p.type === "Servicio" ? "rgba(59, 130, 246, 0.1)" : "rgba(16, 185, 129, 0.1)",
-                          color: p.type === "Servicio" ? "#2563eb" : "#059669",
-                        }}
-                      >
-                        {p.type}
-                      </span>
-                      {p.category_name && (
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 500 }}>
-                          {p.category_name}
-                        </span>
-                      )}
-                    </div>
-
-                    <h3
-                      style={{
-                        fontSize: "1.15rem",
-                        fontWeight: 700,
-                        color: "var(--text-primary)",
-                        lineHeight: 1.3,
-                        marginBottom: "0.4rem",
-                      }}
-                    >
-                      {p.name}
-                    </h3>
-
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.75rem" }}>
-                      Cód: {p.code}
-                    </div>
-
-                    {p.description && (
-                      <p
-                        style={{
-                          fontSize: "0.85rem",
-                          color: "var(--text-secondary)",
-                          lineHeight: 1.5,
-                          marginBottom: "1.25rem",
-                          display: "-webkit-box",
-                          WebkitLineClamp: 3,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {p.description}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Price & Action */}
-                  <div
-                    style={{
-                      borderTop: "1px solid var(--surface-divider)",
-                      paddingTop: "1rem",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0.85rem",
-                    }}
-                  >
-                    <div>
-                      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>
-                        Precio estimado por {p.unit}:
-                      </span>
-                      <span
-                        style={{
-                          fontSize: "1.35rem",
-                          fontWeight: 800,
-                          color: "var(--text-primary)",
-                          letterSpacing: "-0.02em",
-                        }}
-                      >
-                        {formatCurrency(p.unit_price)}
-                      </span>
-                    </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                      <button
-                        onClick={() => addToQuote(p)}
-                        className="btn btn-secondary"
-                        style={{
-                          fontSize: "0.82rem",
-                          padding: "0.55rem 0.5rem",
-                          borderRadius: "var(--radius-md)",
-                          fontWeight: 600,
-                        }}
-                      >
-                        + Añadir
-                      </button>
-
-                      <button
-                        onClick={() => addAndGoToQuote(p)}
-                        className="btn btn-primary"
-                        style={{
-                          fontSize: "0.82rem",
-                          padding: "0.55rem 0.5rem",
-                          borderRadius: "var(--radius-md)",
-                          fontWeight: 600,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "0.3rem",
-                        }}
-                      >
-                        <span>Cotizar</span>
-                        <ChevronRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <ProductCard key={p.id} product={p} onAdd={addToQuote} />
               ))}
             </div>
           )}

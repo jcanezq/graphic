@@ -582,7 +582,7 @@ export default function CotizadorPage() {
                           fontWeight: productFilter === type ? 600 : 500,
                           background: productFilter === type ? "var(--accent)" : "var(--bg-primary)",
                           color: productFilter === type ? "#fff" : "var(--text-secondary)",
-                          boxShadow: productFilter === type ? "0 2px 4px rgba(79, 70, 229, 0.2)" : "inset 0 0 0 1px var(--surface-border)"
+                          boxShadow: productFilter === type ? "0 2px 4px rgba(0, 0, 0, 0.2)" : "inset 0 0 0 1px var(--surface-border)"
                         }}
                         onClick={() => {
                           setProductFilter(type);
@@ -1081,7 +1081,7 @@ export default function CotizadorPage() {
               </div>
 
               {/* Right Column: Totals & Generation CTA */}
-              <div style={{ position: "sticky", top: "5rem" }}>
+              <div className="quote-summary">
                 <div
                   style={{
                     background: "var(--bg-secondary)",
@@ -1116,7 +1116,7 @@ export default function CotizadorPage() {
                       }}
                     >
                       <span style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)" }}>Total preliminar:</span>
-                      <span style={{ fontSize: "1.65rem", fontWeight: 800, color: "var(--accent)" }}>
+                      <span style={{ fontSize: "20px", fontWeight: 700, color: "var(--price)" }}>
                         {formatCurrency(total)}
                       </span>
                     </div>
@@ -1148,7 +1148,6 @@ export default function CotizadorPage() {
                   <button
                     onClick={handleGenerateQuote}
                     disabled={submitting || items.length === 0}
-                    className="btn btn-primary"
                     style={{
                       width: "100%",
                       padding: "0.95rem",
@@ -1159,7 +1158,12 @@ export default function CotizadorPage() {
                       alignItems: "center",
                       justifyContent: "center",
                       gap: "0.6rem",
-                      boxShadow: "var(--shadow-md)",
+                      background: "#191919",
+                      color: "#ffffff",
+                      border: "none",
+                      cursor: submitting || items.length === 0 ? "not-allowed" : "pointer",
+                      opacity: submitting || items.length === 0 ? 0.6 : 1,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
                     }}
                   >
                     {submitting ? (

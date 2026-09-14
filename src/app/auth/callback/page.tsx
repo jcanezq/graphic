@@ -107,7 +107,7 @@ export default function AuthCallback() {
         style={{
           width: 52,
           height: 52,
-          border: "4px solid rgba(79, 70, 229, 0.2)",
+          border: "4px solid rgba(0, 0, 0, 0.2)",
           borderTop: "4px solid var(--accent)",
           borderRadius: "50%",
           animation: "spin 0.8s linear infinite",
