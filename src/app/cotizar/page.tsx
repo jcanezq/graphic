@@ -48,6 +48,7 @@ interface DraftItem {
   labor_scope?: string;
   design_scope?: string;
   transport_scope?: string;
+  image_url?: string | null;
 }
 
 export default function CotizadorPage() {
@@ -232,6 +233,7 @@ export default function CotizadorPage() {
         transport_scope: product.transport_scope,
         material_price: product.material_price,
         other_price: product.other_price,
+        image_url: product.image_url ?? null,
       };
       persistItems([...items, newItem]);
     }
@@ -543,187 +545,7 @@ export default function CotizadorPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: "2rem", alignItems: "start" }}>
               {/* Left Column: Items and Selection */}
               <div>
-                {/* Product Search & Add Bar */}
-                <div
-                  style={{
-                    background: "var(--bg-secondary)",
-                    border: "1px solid var(--surface-border)",
-                    borderRadius: "var(--radius-lg)",
-                    padding: "1.25rem",
-                    marginBottom: "1.5rem",
-                    boxShadow: "var(--shadow-sm)",
-                    position: "relative",
-                  }}
-                >
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "0.85rem",
-                      fontWeight: 600,
-                      color: "var(--text-secondary)",
-                      marginBottom: "0.5rem",
-                    }}
-                  >
-                    Agregar producto o servicio a tu cotización:
-                  </label>
 
-                  <div style={{ display: "flex", gap: 8, marginBottom: "0.75rem", overflowX: "auto", paddingBottom: 4, alignItems: "center" }}>
-                    {(["Todos", "Producto", "Servicio", "Material"] as const).map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        style={{ 
-                          padding: "4px 12px", 
-                          fontSize: "0.8rem", 
-                          borderRadius: "16px", 
-                          whiteSpace: "nowrap",
-                          border: "none",
-                          cursor: "pointer",
-                          fontWeight: productFilter === type ? 600 : 500,
-                          background: productFilter === type ? "var(--accent)" : "var(--bg-primary)",
-                          color: productFilter === type ? "#fff" : "var(--text-secondary)",
-                          boxShadow: productFilter === type ? "0 2px 4px rgba(0, 0, 0, 0.2)" : "inset 0 0 0 1px var(--surface-border)"
-                        }}
-                        onClick={() => {
-                          setProductFilter(type);
-                          setShowProductDropdown(true);
-                          if (type === "Servicio" || type === "Material") {
-                            setCategoryFilter("Todas");
-                          }
-                        }}
-                      >
-                        {type === "Todos" ? "Todos" : type === "Material" ? "Materiales" : type + "s"}
-                      </button>
-                    ))}
-                    
-                    <div style={{ width: "1px", height: "24px", background: "var(--surface-divider)", margin: "0 4px" }} />
-                    
-                    <select
-                      style={{ 
-                        padding: "4px 12px", 
-                        fontSize: "0.8rem", 
-                        borderRadius: "16px", 
-                        border: "1px solid var(--surface-border)",
-                        background: "var(--bg-primary)",
-                        color: "var(--text-primary)",
-                        outline: "none",
-                        cursor: "pointer",
-                        minWidth: "150px" 
-                      }}
-                      value={categoryFilter}
-                      onChange={(e) => {
-                        setCategoryFilter(e.target.value);
-                        setShowProductDropdown(true);
-                      }}
-                    >
-                      <option value="Todas">Todas las Categorías</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div style={{ position: "relative" }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.65rem",
-                        border: "1px solid var(--surface-border)",
-                        borderRadius: "var(--radius-md)",
-                        padding: "0.65rem 1rem",
-                        background: "var(--bg-primary)",
-                      }}
-                    >
-                      <Search size={18} color="var(--text-muted)" />
-                      <input
-                        type="text"
-                        value={productSearch}
-                        onChange={(e) => {
-                          setProductSearch(e.target.value);
-                          setShowProductDropdown(true);
-                        }}
-                        onFocus={() => setShowProductDropdown(true)}
-                        placeholder="Escribe el nombre o código del producto..."
-                        style={{
-                          border: "none",
-                          outline: "none",
-                          background: "transparent",
-                          fontSize: "0.95rem",
-                          width: "100%",
-                          color: "var(--text-primary)",
-                        }}
-                      />
-                    </div>
-
-                    {/* Autocomplete Dropdown */}
-                    {showProductDropdown && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "100%",
-                          left: 0,
-                          right: 0,
-                          marginTop: "0.35rem",
-                          background: "var(--bg-secondary)",
-                          border: "1px solid var(--surface-border)",
-                          borderRadius: "var(--radius-md)",
-                          boxShadow: "var(--shadow-lg)",
-                          maxHeight: "260px",
-                          overflowY: "auto",
-                          zIndex: 40,
-                        }}
-                      >
-                        {catalogError ? (
-                          <div className="card" style={{ padding: "1.5rem", textAlign: "center" }}>
-                            <ShieldAlert size={28} style={{ color: "var(--danger)", marginBottom: 8 }} />
-                            <h3>No pudimos cargar el catálogo</h3>
-                            <p className="subtitle" style={{ marginBottom: 12 }}>
-                              Puede ser una falla momentánea de conexión.
-                            </p>
-                            <button className="btn btn-secondary" onClick={() => refetchCatalog()}>
-                              Reintentar
-                            </button>
-                          </div>
-                        ) : filteredProducts.length === 0 ? (
-                          <div style={{ padding: "0.85rem 1rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                            No se encontraron coincidencias
-                          </div>
-                        ) : (
-                          filteredProducts.map((p) => (
-                            <div
-                              key={p.id}
-                              onClick={() => handleAddItem(p)}
-                              style={{
-                                padding: "0.75rem 1rem",
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                cursor: "pointer",
-                                borderBottom: "1px solid var(--surface-divider)",
-                                transition: "background 0.15s ease",
-                              }}
-                              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-tertiary)")}
-                              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                            >
-                              <div>
-                                <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text-primary)" }}>
-                                  {p.name}
-                                </div>
-                                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                                  {p.type} · Cód: {p.code} · Por {p.unit}
-                                </div>
-                              </div>
-                              <div style={{ fontWeight: 700, color: "var(--accent)", fontSize: "0.95rem" }}>
-                                {formatCurrency(p.unit_price)}
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
 
                 {/* Items Table / Cards */}
                 <div
@@ -1087,52 +909,31 @@ export default function CotizadorPage() {
                     background: "var(--bg-secondary)",
                     border: "1px solid var(--surface-border)",
                     borderRadius: "var(--radius-lg)",
-                    padding: "1.75rem",
+                    padding: "1.25rem",
                     boxShadow: "var(--shadow-md)",
                   }}
                 >
-                  <h3 style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--text-primary)", marginBottom: "1.25rem" }}>
-                    Resumen Estimado
-                  </h3>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem", marginBottom: "1.25rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", color: "var(--text-secondary)" }}>
-                      <span>Subtotal estimado:</span>
-                      <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{formatCurrency(subtotal)}</span>
+                  {/* 1. Total at the top */}
+                  <div style={{ marginBottom: "1rem" }}>
+                    <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                      Total preliminar
                     </div>
-
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", color: "var(--text-secondary)" }}>
-                      <span>I.G.V. (18%):</span>
-                      <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{formatCurrency(igv)}</span>
-                    </div>
-
-                    <div
-                      style={{
-                        borderTop: "1px solid var(--surface-divider)",
-                        paddingTop: "0.85rem",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "baseline",
-                      }}
-                    >
-                      <span style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)" }}>Total preliminar:</span>
-                      <span style={{ fontSize: "20px", fontWeight: 700, color: "var(--price)" }}>
-                        {formatCurrency(total)}
-                      </span>
+                    <div style={{ fontSize: "24px", fontWeight: 800, color: "var(--price)" }}>
+                      {formatCurrency(total)}
                     </div>
                   </div>
 
                   {/* Clarification Alert */}
                   <div
                     style={{
-                      background: "rgba(245, 158, 11, 0.08)",
-                      border: "1px solid rgba(245, 158, 11, 0.3)",
+                      background: "var(--warning-light, rgba(245, 158, 11, 0.08))",
+                      border: "1px solid var(--warning, rgba(245, 158, 11, 0.3))",
                       borderRadius: "var(--radius-md)",
                       padding: "0.75rem",
                       fontSize: "0.8rem",
-                      color: "#92400e",
+                      color: "var(--warning, var(--warning))",
                       lineHeight: 1.4,
-                      marginBottom: "1.5rem",
+                      marginBottom: "1rem",
                       display: "flex",
                       gap: "0.5rem",
                     }}
@@ -1144,7 +945,7 @@ export default function CotizadorPage() {
                     </span>
                   </div>
 
-                  {/* Submission CTA */}
+                  {/* 2. Generation CTA */}
                   <button
                     onClick={handleGenerateQuote}
                     disabled={submitting || items.length === 0}
@@ -1167,7 +968,7 @@ export default function CotizadorPage() {
                     }}
                   >
                     {submitting ? (
-                      <span>Generando cotización...</span>
+                      <span>Generando...</span>
                     ) : (
                       <>
                         <Send size={18} />
@@ -1178,8 +979,81 @@ export default function CotizadorPage() {
 
                   {!currentUser && (
                     <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", textAlign: "center", marginTop: "0.75rem" }}>
-                      Se solicitará iniciar sesión con Google para registrar formalmente tu solicitud.
+                      Se solicitará iniciar sesión con Google.
                     </p>
+                  )}
+
+                  {/* 3. Separator */}
+                  <hr style={{ border: "none", borderTop: "1px solid var(--surface-divider)", margin: "1.25rem 0" }} />
+
+                  {/* 4. Thumbnails Grid */}
+                  <h4 style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "1rem" }}>
+                    Ítems ({items.length})
+                  </h4>
+                  
+                  {items.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "1rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
+                      Tu cotización está vacía
+                    </div>
+                  ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                      {items.map((it, idx) => (
+                        <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                          {/* Image 1:1 */}
+                          <div style={{ position: "relative", width: "100%", paddingBottom: "100%", borderRadius: "var(--radius-sm)", overflow: "hidden", background: "var(--bg-primary)" }}>
+                            {it.image_url ? (
+                              <img
+                                src={it.image_url}
+                                alt={it.product_name}
+                                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                              />
+                            ) : (
+                              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "0.5rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.75rem", fontWeight: 500 }}>
+                                {it.product_name}
+                              </div>
+                            )}
+                          </div>
+                          {/* Description */}
+                          <div
+                            title={it.product_name}
+                            style={{
+                              fontSize: "12px",
+                              fontWeight: 400,
+                              color: "var(--text-primary)",
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            {it.product_name}
+                          </div>
+                          {/* Price */}
+                          <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--price)" }}>
+                            {formatCurrency(lineTotal(it))}
+                          </div>
+                          {/* Stepper */}
+                          <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--surface-border)", borderRadius: "var(--radius-sm)", overflow: "hidden", height: "28px" }}>
+                            <button
+                              onClick={() => { if (it.quantity > 1) handleQuantityChange(idx, it.quantity - 1); else handleRemoveItem(idx); }}
+                              style={{ flex: 1, height: "100%", background: "var(--bg-primary)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)" }}
+                            >
+                              -
+                            </button>
+                            <div style={{ flex: 1.2, textAlign: "center", fontSize: "0.85rem", fontWeight: 600, borderLeft: "1px solid var(--surface-border)", borderRight: "1px solid var(--surface-border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              {it.quantity}
+                            </div>
+                            <button
+                              onClick={() => handleQuantityChange(idx, it.quantity + 1)}
+                              style={{ flex: 1, height: "100%", background: "var(--bg-primary)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)" }}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
@@ -1251,7 +1125,7 @@ export default function CotizadorPage() {
                 border: "1px solid var(--surface-border)",
                 borderRadius: "var(--radius-md)",
                 background: "#ffffff",
-                color: "#1e293b",
+                color: "var(--text-primary)",
                 fontSize: "0.95rem",
                 fontWeight: 600,
                 cursor: "pointer",
