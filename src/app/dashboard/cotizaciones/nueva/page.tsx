@@ -16,6 +16,7 @@ import {
 import { toQuotationItemRow } from "@/lib/quotation-item-row";
 import { Save, ArrowLeft, Plus, Trash2, Search, ShieldAlert } from "lucide-react";
 import Link from "next/link";
+import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
 
 import { fetchRucData } from "@/lib/ruc";
 import type { Product, QuotationItem, CompanySettings } from "@/types";
@@ -38,11 +39,7 @@ export default function NewQuotationPage() {
   // Items
   const [items, setItems] = useState<QuotationItem[]>([]);
 
-  // Product search
-  const [productSearch, setProductSearch] = useState("");
-  const [showProductDropdown, setShowProductDropdown] = useState(false);
-  const [productFilter, setProductFilter] = useState<"Todos" | "Producto" | "Servicio" | "Material">("Todos");
-  const [categoryFilter, setCategoryFilter] = useState("Todas");
+
 
   // Client autocomplete
   const [showClientDropdown, setShowClientDropdown] = useState(false);
@@ -51,12 +48,11 @@ export default function NewQuotationPage() {
   const { data: initialData, isLoading, isError: catalogError, refetch: refetchCatalog } = useQuery({
     queryKey: ['quotation_form_data'],
     queryFn: async () => {
-      const [settingsRes, productsRes, clientsRes, categoriesRes, materialsRes] = await Promise.all([
+      const [settingsRes, productsRes, clientsRes, categoriesRes] = await Promise.all([
         supabase.from("company_settings").select("*").limit(1).single(),
         supabase.from("products").select("*").eq("is_active", true).order("name"),
         supabase.from("clients").select("*").order("name"),
         supabase.from("categories").select("*").is("deleted_at", null).order("name"),
-        supabase.from("materials").select("*").is("deleted_at", null).order("name"),
       ]);
 
       const stg = settingsRes.data as CompanySettings;
@@ -88,28 +84,7 @@ export default function NewQuotationPage() {
         });
       }
 
-      if (materialsRes.data && materialsRes.data.length > 0) {
-        const matsAsProducts: Product[] = materialsRes.data.map((m: any) => ({
-          id: m.id,
-          code: `MAT`,
-          name: m.name,
-          type: 'Material',
-          unit: m.unit,
-          description: '',
-          image_url: null,
-          category_id: null,
-          manual_unit_cost: m.cost,
-          default_margin: stg?.default_margin ?? 30,
-          is_active: true,
-          created_at: m.created_at || new Date().toISOString(),
-          updated_at: m.updated_at || new Date().toISOString(),
-          deleted_at: null,
-          materials: [],
-          labor: [],
-          indirect_costs: []
-        }));
-        prods = [...prods, ...matsAsProducts];
-      }
+
 
       return {
         settings: stg,
@@ -181,8 +156,6 @@ export default function NewQuotationPage() {
     const newItem = createQuotationItemFromProduct(product, 1, margin, items.length);
     (newItem as any).row_key = `row-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     setItems([...items, newItem]);
-    setProductSearch("");
-    setShowProductDropdown(false);
   }
 
   function updateItem(index: number, changes: Partial<QuotationItem>) {
@@ -201,14 +174,7 @@ export default function NewQuotationPage() {
   const igvRate = settings?.igv_rate ?? 0.18;
   const totals = calcQuotationTotals(items, igvRate);
 
-  const filteredProducts = products.filter(
-    (p) => {
-      const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.code.toLowerCase().includes(productSearch.toLowerCase());
-      const matchesFilter = productFilter === "Todos" || p.type === productFilter;
-      const matchesCategory = categoryFilter === "Todas" || p.category_id === categoryFilter;
-      return matchesSearch && matchesFilter && matchesCategory;
-    }
-  );
+
 
   const saveMutation = useMutation({
     mutationFn: async (exportPdf: boolean) => {
@@ -468,123 +434,16 @@ export default function NewQuotationPage() {
             </div>
 
             {/* Product Search */}
-            <div className="card" style={{ marginBottom: "var(--space-lg)" }}>
+            <div className="card" style={{ marginBottom: "var(--space-lg)", padding: "1.5rem" }}>
               <h3 className="card-title" style={{ marginBottom: "var(--space-md)" }}>
                 📦 Agregar Productos
               </h3>
-              <div style={{ display: "flex", gap: 8, marginBottom: "var(--space-sm)", overflowX: "auto", paddingBottom: 4, alignItems: "center" }}>
-                {(["Todos", "Producto", "Servicio", "Material"] as const).map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    className={`btn ${productFilter === type ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ padding: "4px 12px", fontSize: "0.8rem", borderRadius: "16px", whiteSpace: "nowrap" }}
-                    onClick={() => {
-                      setProductFilter(type);
-                      setShowProductDropdown(true);
-                      if (type === "Servicio" || type === "Material") {
-                        setCategoryFilter("Todas");
-                      }
-                    }}
-                  >
-                    {type === "Todos" ? "Todos" : type === "Material" ? "Materiales" : type + "s"}
-                  </button>
-                ))}
-                
-                <div style={{ width: "1px", height: "24px", background: "var(--surface-divider)", margin: "0 4px" }} />
-                
-                <select
-                  className="input"
-                  style={{ padding: "4px 12px", fontSize: "0.8rem", borderRadius: "16px", height: "auto", minWidth: "150px" }}
-                  value={categoryFilter}
-                  onChange={(e) => {
-                    setCategoryFilter(e.target.value);
-                    setShowProductDropdown(true);
-                  }}
-                >
-                  <option value="Todas">Todas las Categorías</option>
-                  {categories.map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ position: "relative" }}>
-                <div className="search-bar" style={{ maxWidth: "100%" }}>
-                  <Search size={18} />
-                  <input
-                    type="text"
-                    placeholder="Buscar producto por nombre o código..."
-                    value={productSearch}
-                    onChange={(e) => {
-                      setProductSearch(e.target.value);
-                      setShowProductDropdown(true);
-                    }}
-                    onFocus={() => setShowProductDropdown(true)}
-                  />
-                </div>
-                {showProductDropdown && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "100%",
-                      left: 0,
-                      right: 0,
-                      maxHeight: 240,
-                      overflowY: "auto",
-                      background: "var(--bg-elevated)",
-                      border: "1px solid var(--surface-border)",
-                      borderRadius: "var(--radius-md)",
-                      marginTop: 4,
-                      zIndex: 50,
-                      boxShadow: "var(--shadow-lg)",
-                    }}
-                  >
-                    {catalogError ? (
-                      <div style={{ padding: 16, textAlign: "center" }}>
-                        <ShieldAlert size={28} style={{ color: "var(--danger)", marginBottom: 8 }} />
-                        <h4 style={{ margin: "0 0 8px 0", fontSize: "0.95rem" }}>Error al cargar catálogo</h4>
-                        <button className="btn btn-secondary" onClick={() => refetchCatalog()}>
-                          Reintentar
-                        </button>
-                      </div>
-                    ) : filteredProducts.length === 0 ? (
-                      <div style={{ padding: 16, color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                        No se encontraron productos
-                      </div>
-                    ) : (
-                      filteredProducts.slice(0, 10).map((p) => (
-                        <div
-                          key={p.id}
-                          onClick={() => addProduct(p)}
-                          style={{
-                            padding: "10px 16px",
-                            cursor: "pointer",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            borderBottom: "1px solid var(--surface-divider)",
-                            transition: "background 0.15s",
-                          }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.background = "var(--bg-glass)")
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.background = "transparent")
-                          }
-                        >
-                          <div>
-                            <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>{p.name}</div>
-                            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                              {p.code} · {p.unit}
-                            </div>
-                          </div>
-                          <Plus size={16} style={{ color: "var(--accent)" }} />
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
+              <CatalogBrowser 
+                products={products as any} 
+                categories={categories} 
+                onAdd={addProduct as any} 
+                showCost={true} 
+              />
             </div>
 
             {/* Items Table */}

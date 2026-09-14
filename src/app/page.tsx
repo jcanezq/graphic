@@ -8,6 +8,7 @@ import { PublicNavbar } from "@/components/public/PublicNavbar";
 import { useToast } from "@/components/ToastProvider";
 import { ProductCard } from "@/components/public/ProductCard";
 import { QuoteItemThumb } from "@/components/public/QuoteItemThumb";
+import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
 import { formatCurrency, normalizeText } from "@/lib/formatters";
 import type { PublicProduct } from "@/types";
 import { round2 } from "@/lib/pricing";
@@ -28,10 +29,7 @@ import {
 export default function HomePage() {
   const router = useRouter();
   const { showToast } = useToast();
-  const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<"Todos" | "Producto" | "Servicio" | "Material">("Todos");
-
+  
   const [quoteItems, setQuoteItems] = useState<any[]>([]);
 
   useEffect(() => {
@@ -66,19 +64,6 @@ export default function HomePage() {
   const products = (data?.products || []).filter((p) => (p.base_unit_price ?? p.unit_price) > 0);
   const categories = data?.categories || [];
   const settings = data?.settings;
-
-  const normalizedSearch = normalizeText(search);
-  const searchTokens = normalizedSearch.split(/\s+/).filter(Boolean);
-
-  const filteredProducts = products.filter((p) => {
-    const matchCat = selectedCategory === "all" || p.category_id === selectedCategory;
-    const matchType = typeFilter === "Todos" || p.type === typeFilter;
-    if (!matchCat || !matchType) return false;
-    if (searchTokens.length === 0) return true;
-
-    const targetText = normalizeText(`${p.name} ${p.code} ${p.description || ""} ${p.category_name || ""}`);
-    return searchTokens.every((token) => targetText.includes(token));
-  });
 
   function addToQuote(product: PublicProduct) {
     try {
@@ -286,132 +271,8 @@ export default function HomePage() {
                 </span>
               </div>
             </div>
-
-            {/* Search Input */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                background: "var(--bg-secondary)",
-                border: "1px solid var(--surface-border)",
-                borderRadius: "var(--radius-md)",
-                padding: "0.55rem 1rem",
-                width: "100%",
-                maxWidth: "340px",
-                boxShadow: "var(--shadow-sm)",
-              }}
-            >
-              <Search size={17} color="var(--text-muted)" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por nombre, código..."
-                style={{
-                  border: "none",
-                  outline: "none",
-                  background: "transparent",
-                  fontSize: "0.9rem",
-                  width: "100%",
-                  color: "var(--text-primary)",
-                }}
-              />
-            </div>
           </div>
-
-          {/* Type Filter Pills */}
-          <div
-            style={{
-              display: "flex",
-              gap: "0.5rem",
-              overflowX: "auto",
-              paddingBottom: "0.5rem",
-              marginBottom: "1rem",
-            }}
-          >
-            {(["Todos", "Producto", "Servicio", "Material"] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => {
-                  setTypeFilter(type);
-                  if (type === "Servicio" || type === "Material") {
-                    setSelectedCategory("all");
-                  }
-                }}
-                style={{
-                  padding: "0.45rem 1rem",
-                  borderRadius: "var(--radius-full)",
-                  fontSize: "0.85rem",
-                  fontWeight: typeFilter === type ? 600 : 500,
-                  border: typeFilter === type ? "1px solid var(--accent)" : "1px solid var(--surface-border)",
-                  background: typeFilter === type ? "var(--accent)" : "var(--bg-secondary)",
-                  color: typeFilter === type ? "#fff" : "var(--text-secondary)",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  transition: "var(--transition-fast)",
-                }}
-              >
-                {type === "Todos" ? "Todos los Tipos" : type === "Material" ? "Materiales" : type + "s"}
-              </button>
-            ))}
-          </div>
-
-          {/* Category Filter Pills */}
-          <div
-            style={{
-              display: "flex",
-              gap: "0.5rem",
-              overflowX: "auto",
-              paddingBottom: "1rem",
-              marginBottom: "1.5rem",
-            }}
-          >
-            <button
-              onClick={() => setSelectedCategory("all")}
-              style={{
-                padding: "0.45rem 1rem",
-                borderRadius: "var(--radius-full)",
-                fontSize: "0.85rem",
-                fontWeight: selectedCategory === "all" ? 600 : 500,
-                border: selectedCategory === "all" ? "1px solid var(--accent)" : "1px solid var(--surface-border)",
-                background: selectedCategory === "all" ? "var(--accent)" : "var(--bg-secondary)",
-                color: selectedCategory === "all" ? "#fff" : "var(--text-secondary)",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                transition: "var(--transition-fast)",
-              }}
-            >
-              Todos los productos ({products.length})
-            </button>
-
-            {categories.map((cat) => {
-              const count = products.filter((p) => p.category_id === cat.id).length;
-              const isSelected = selectedCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  style={{
-                    padding: "0.45rem 1rem",
-                    borderRadius: "var(--radius-full)",
-                    fontSize: "0.85rem",
-                    fontWeight: isSelected ? 600 : 500,
-                    border: isSelected ? "1px solid var(--accent)" : "1px solid var(--surface-border)",
-                    background: isSelected ? "var(--accent)" : "var(--bg-secondary)",
-                    color: isSelected ? "#fff" : "var(--text-secondary)",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                    transition: "var(--transition-fast)",
-                  }}
-                >
-                  {cat.name} ({count})
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Products Grid */}
+          
           {isLoading ? (
             <div style={{ textAlign: "center", padding: "4rem 0" }}>
               <div
@@ -438,29 +299,8 @@ export default function HomePage() {
                 Reintentar
               </button>
             </div>
-          ) : filteredProducts.length === 0 ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "3.5rem 1.5rem",
-                background: "var(--bg-secondary)",
-                borderRadius: "var(--radius-lg)",
-                border: "1px dashed var(--surface-border)",
-              }}
-            >
-              <p style={{ fontSize: "1.1rem", fontWeight: 600, color: "var(--text-secondary)" }}>
-                No se encontraron productos disponibles
-              </p>
-              <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "0.3rem" }}>
-                Prueba con otro término de búsqueda o categoría
-              </p>
-            </div>
           ) : (
-            <div className="catalog-grid">
-              {filteredProducts.map((p) => (
-                <ProductCard key={p.id} product={p} onAdd={addToQuote} />
-              ))}
-            </div>
+            <CatalogBrowser products={products} categories={categories} onAdd={addToQuote} />
           )}
           </div>
 

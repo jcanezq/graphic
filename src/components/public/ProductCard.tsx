@@ -6,9 +6,10 @@ import { Plus } from "lucide-react";
 interface ProductCardProps {
   product: PublicProduct;
   onAdd: (product: PublicProduct) => void;
+  showCost?: boolean;
 }
 
-export function ProductCard({ product, onAdd }: ProductCardProps) {
+export function ProductCard({ product, onAdd, showCost }: ProductCardProps) {
   return (
     <div
       style={{
@@ -133,6 +134,11 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
           >
             {formatCurrency(product.unit_price)}
           </span>
+          {showCost && (product as any).manual_unit_cost !== undefined && (
+            <span style={{ fontSize: "12px", color: "var(--text-muted)", marginLeft: "4px" }}>
+              C: {formatCurrency((product as any).manual_unit_cost)}
+            </span>
+          )}
         </div>
 
         <h3

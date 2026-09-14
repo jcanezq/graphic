@@ -30,6 +30,27 @@ Se reestructuró la experiencia del usuario para enfocarse en la conversión, mi
 
 ---
 
+## 🛠 Unificación del Catálogo (Admin y Cliente)
+*(Implementado el 14 de Septiembre de 2026)*
+
+Se unificó la interfaz de selección de productos para que la experiencia de los administradores sea idéntica a la de los clientes, sin comprometer la seguridad de los datos.
+
+> [!TIP]
+> **Componente Reutilizable (`CatalogBrowser`)**
+> - Se extrajo toda la lógica de filtrado (búsqueda de texto, chips de tipo de producto y chips de categorías) y la grilla de productos desde la pantalla principal hacia un componente compartido `CatalogBrowser`.
+> - La barra de búsqueda ahora vive dentro del componente, manteniendo un estado interno limpio y acoplado visualmente.
+
+> [!IMPORTANT]
+> **Privilegios de Administrador Intactos**
+> - El administrador **conserva su consulta privilegiada** (Server Component / Supabase directo) que incluye costos y márgenes (datos ocultos en el API público).
+> - Se habilitó la prop `showCost` para que los administradores vean el costo unitario de los productos directamente en las tarjetas del catálogo.
+
+> [!NOTE]
+> **Limpieza y Optimización de Datos**
+> - Se eliminó el bloque duplicado que cargaba `materials` por separado en la vista administrativa. Tras la migración de unificación, los materiales ya vienen en la tabla `products`, por lo que se purgó la lógica antigua que los insertaba dos veces en la grilla.
+
+---
+
 ## 👥 Módulo de Clientes (Mini-CRM)
 *(Implementación previa)*
 
