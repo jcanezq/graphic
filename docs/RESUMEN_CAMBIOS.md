@@ -72,6 +72,23 @@ Se resolvieron errores de visualización y precios en el panel de administrador 
 
 ---
 
+## 🖼 Panel Interactivo con Miniaturas en Administrador (ADM3)
+*(Implementado el 14 de Septiembre de 2026)*
+
+Se trasladó la rica experiencia de las miniaturas visuales al panel lateral de creación de cotizaciones.
+
+> [!TIP]
+> **Consistencia Visual con el Cliente**
+> - El resumen de costos del administrador fue rediseñado, ubicando el monto Total destacado arriba y habilitando el botón de Guardar como principal CTA (Call-to-Action).
+> - Se reutilizó `QuoteItemThumb` para mostrar los productos seleccionados en una cuadrícula ilustrada.
+
+> [!IMPORTANT]
+> **Mantenimiento Seguro de Integridad (Error 42703 prevenido)**
+> - Las fotos viajan al frontend (estado temporal) pero se omiten con precisión láser al interactuar con el backend, evitando estallar el motor de base de datos con columnas ajenas a la tabla transaccional.
+> - La sincronización numérica está resguardada: los incrementos/decrementos hechos desde las nuevas miniaturas reescriben los componentes y márgenes técnicos con el mismo flujo sagrado que utiliza la tabla administrativa de precios.
+
+---
+
 ## 👥 Módulo de Clientes (Mini-CRM)
 *(Implementación previa)*
 
