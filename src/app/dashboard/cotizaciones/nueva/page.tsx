@@ -768,8 +768,12 @@ export default function NewQuotationPage() {
                   {items.map((item, idx) => (
                     <QuoteItemThumb
                       key={(item as any).row_key || idx}
-                      item={item as any}
-                      onUpdateQuantity={(newQ) => updateItem(idx, { quantity: newQ })}
+                      imageUrl={(item as any).image_url}
+                      productName={item.product_name}
+                      lineTotal={item.subtotal}
+                      quantity={item.quantity}
+                      onIncrease={() => updateItem(idx, { quantity: item.quantity + 1 })}
+                      onDecrease={() => updateItem(idx, { quantity: Math.max(1, item.quantity - 1) })}
                     />
                   ))}
                 </div>
