@@ -51,6 +51,27 @@ Se unificó la interfaz de selección de productos para que la experiencia de lo
 
 ---
 
+## ⚙️ Refinamiento del Administrador y Catálogo (ADM2)
+*(Implementado el 14 de Septiembre de 2026)*
+
+Se resolvieron errores de visualización y precios en el panel de administrador para asegurar consistencia y usabilidad con el nuevo componente de catálogo unificado.
+
+> [!TIP]
+> **Precios Reales en el Administrador**
+> - Se implementó `buildCatalogPricing` para que el catálogo interno del admin refleje el precio de venta final exacto en base a los costos y márgenes de los productos, en lugar de mostrar `S/ 0.00`.
+
+> [!IMPORTANT]
+> **Ocultamiento de Productos sin Costo**
+> - Ahora los productos cuyo costo unitario (`manual_unit_cost`) sea 0 o nulo se ocultan del catálogo en todas las pantallas (tanto para el cliente como para el admin).
+> - Se integró una alerta exclusiva para el administrador que contabiliza de forma transparente cuántos productos se están ocultando por falta de costo.
+
+> [!NOTE]
+> **Mejoras Visuales de Grilla**
+> - Se solucionó un defecto en CSS Grid que empujaba el carrito fuera de la pantalla en dispositivos pequeños (se configuró `min-width: 0` y apilamiento bajo 1000px).
+> - Se incrementó el espaciado y el tamaño de las tarjetas a un `minmax(200px, 1fr)` en el grid, favoreciendo su legibilidad a zoom 100%.
+
+---
+
 ## 👥 Módulo de Clientes (Mini-CRM)
 *(Implementación previa)*
 
