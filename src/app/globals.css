@@ -1329,6 +1329,12 @@ td.primary {
   gap: var(--space-xl);
   align-items: start;
 }
+/* Sin esto, cualquier fila con nowrap (los chips de categoría) estira la pista
+   1fr y empuja el panel fuera de la pantalla. Es min-width:auto, el default de
+   los ítems de grid. Mismo arreglo que en la pantalla principal. */
+.content-grid > * {
+  min-width: 0;
+}
 
 /* ── Product Image ──────────────────────────────────────────── */
 .product-image-container {
@@ -1385,7 +1391,7 @@ td.primary {
 }
 
 /* ── Responsive ─────────────────────────────────────────────── */
-@media (max-width: 1024px) {
+@media (max-width: 1000px) {
   .content-grid {
     grid-template-columns: 1fr;
   }
