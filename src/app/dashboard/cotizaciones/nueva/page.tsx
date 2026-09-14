@@ -171,9 +171,12 @@ export default function NewQuotationPage() {
 
   function addProduct(product: Product) {
     const margin = product.default_margin ?? settings?.default_margin ?? 30;
-    const newItem = createQuotationItemFromProduct(product, 1, margin, items.length);
+    const newItem = {
+      ...createQuotationItemFromProduct(product, 1, margin, items.length),
+      image_url: product.image_url ?? null,
+    };
     (newItem as any).row_key = `row-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    setItems([...items, newItem]);
+    setItems([...items, newItem as QuotationItem]);
   }
 
   function updateItem(index: number, changes: Partial<QuotationItem>) {
