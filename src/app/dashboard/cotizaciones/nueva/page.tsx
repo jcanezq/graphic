@@ -20,7 +20,7 @@ import { Save, ArrowLeft, Plus, Trash2, Search, ShieldAlert } from "lucide-react
 import Link from "next/link";
 import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
 
-import { fetchRucData } from "@/lib/ruc";
+import { fetchDocumentData } from "@/lib/ruc";
 import type { Product, QuotationItem, CompanySettings } from "@/types";
 
 export default function NewQuotationPage() {
@@ -137,7 +137,8 @@ export default function NewQuotationPage() {
   }, [clientRuc, supabase, showToast]);
 
   async function handleRucSearch() {
-    if (clientRuc.length !== 11) return;
+    const doc = clientRuc.replace(/\D/g, "");
+    if (doc.length !== 8 && doc.length !== 11) return;
     try {
       setSearchingRuc(true);
 
@@ -145,7 +146,7 @@ export default function NewQuotationPage() {
       const { data: existingClient } = await supabase
         .from("clients")
         .select("*")
-        .eq("ruc", clientRuc)
+        .eq("ruc", doc)
         .limit(1)
         .maybeSingle();
 
@@ -159,10 +160,12 @@ export default function NewQuotationPage() {
       }
 
       // If not, fetch from external API
-      const data = await fetchRucData(clientRuc);
-      setClientName(data.razonSocial);
-      setClientAddress(data.direccion);
-      showToast("Datos de Sunat obtenidos");
+      const data = await fetchDocumentData(doc);
+      setClientName(data.nombre);
+      if (data.direccion) {
+        setClientAddress(data.direccion);
+      }
+      showToast(data.tipo === 'DNI' ? "Datos de Reniec obtenidos" : "Datos de Sunat obtenidos");
     } catch (err: any) {
       showToast(err.message, "error");
     } finally {
@@ -203,7 +206,12 @@ export default function NewQuotationPage() {
       const errors: string[] = [];
 
       if (!clientName.trim()) errors.push("Nombre del cliente es obligatorio");
-      if (clientRuc && !/^\d{11}$/.test(clientRuc.replace(/\s/g, ""))) errors.push("RUC debe tener exactamente 11 dígitos");
+      if (clientRuc) {
+        const doc = clientRuc.replace(/\D/g, "");
+        if (doc.length !== 8 && doc.length !== 11) {
+          errors.push("El documento debe tener 8 dígitos (DNI) u 11 (RUC)");
+        }
+      }
       if (clientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) errors.push("Email no tiene formato válido");
       if (items.length === 0) errors.push("Agrega al menos un producto");
 
@@ -339,7 +347,7 @@ export default function NewQuotationPage() {
               </h3>
               <div className="form-row">
                 <div className="form-group">
-                  <label>RUC</label>
+                  <label>RUC / DNI</label>
                   <div style={{ display: "flex", gap: "8px" }}>
                     <input
                       value={clientRuc}
@@ -352,7 +360,7 @@ export default function NewQuotationPage() {
                       type="button" 
                       className="btn btn-secondary" 
                       onClick={handleRucSearch}
-                      disabled={searchingRuc || clientRuc.length !== 11}
+                      disabled={searchingRuc || (clientRuc.length !== 8 && clientRuc.length !== 11)}
                     >
                       {searchingRuc ? "..." : <Search size={18} />}
                     </button>
