@@ -1,8 +1,6 @@
 import React from "react";
 import type { PublicProduct } from "@/types";
 import { formatCurrency } from "@/lib/formatters";
-import { Plus } from "lucide-react";
-
 interface ProductCardProps {
   product: PublicProduct;
   onAdd: (product: PublicProduct) => void;
@@ -118,7 +116,18 @@ export function ProductCard({ product, onAdd, showCost }: ProductCardProps) {
             e.currentTarget.style.color = "var(--text-primary)";
           }}
         >
-          <Plus size={44} strokeWidth={2} />
+          <svg
+            width={44}
+            height={44}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.2}
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <path d="M12 2v20M2 12h20" />
+          </svg>
         </button>
       </div>
 
