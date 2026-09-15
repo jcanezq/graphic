@@ -6,6 +6,7 @@ import { useToast } from "@/components/ToastProvider";
 import { X, Save, Search, Loader2 } from "lucide-react";
 import type { Client } from "@/types";
 import { useRouter } from "next/navigation";
+import { fetchDocumentData } from "@/lib/ruc";
 
 interface Props {
   isOpen: boolean;
@@ -92,26 +93,12 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
 
     setSearchingDoc(true);
     try {
-      const endpoint = doc.length === 8 ? `/api/dni?numero=${doc}` : `/api/ruc?numero=${doc}`;
-      const res = await fetch(endpoint);
-      const data = await res.json();
-
-      if (!res.ok) {
-        showToast(data.error || "No se encontró información", "error");
-        return;
-      }
-
-      if (doc.length === 8) {
-        // Reniec response
-        setName(`${data.nombres} ${data.apellidoPaterno} ${data.apellidoMaterno}`.trim());
-      } else {
-        // Sunat response
-        setName(data.razonSocial || "");
-        if (data.direccion) setAddress(data.direccion);
-      }
+      const data = await fetchDocumentData(doc);
+      setName(data.nombre);
+      if (data.direccion) setAddress(data.direccion);
       showToast("Datos obtenidos correctamente");
-    } catch (err) {
-      showToast("Error al consultar el documento", "error");
+    } catch (err: any) {
+      showToast(err.message || "Error al consultar el documento", "error");
     } finally {
       setSearchingDoc(false);
     }

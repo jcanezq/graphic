@@ -7,7 +7,7 @@ import { useToast } from "@/components/ToastProvider";
 import { useQueryClient } from "@tanstack/react-query";
 import { Save, Building2, Search, Upload, Image as ImageIcon, X } from "lucide-react";
 import type { CompanySettings } from "@/types";
-import { fetchRucData } from "@/lib/ruc";
+import { fetchDocumentData } from "@/lib/ruc";
 
 export default function SettingsPage() {
   const [supabase] = useState(() => createClient());
@@ -57,9 +57,9 @@ export default function SettingsPage() {
     if (ruc.length !== 11) return;
     try {
       setSearchingRuc(true);
-      const data = await fetchRucData(ruc);
-      setCompanyName(data.razonSocial);
-      setAddress(data.direccion);
+      const data = await fetchDocumentData(ruc);
+      setCompanyName(data.nombre);
+      if (data.direccion) setAddress(data.direccion);
       showToast("Datos de Sunat obtenidos");
     } catch (err: any) {
       showToast(err.message, "error");

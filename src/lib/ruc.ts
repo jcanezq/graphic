@@ -1,10 +1,3 @@
-export interface RucData {
-  razonSocial: string;
-  estado: string;
-  condicion: string;
-  direccion: string;
-}
-
 export type TipoDocumento = 'DNI' | 'RUC';
 
 export interface DatosDocumento {
@@ -23,26 +16,21 @@ export async function fetchDocumentData(doc: string): Promise<DatosDocumento> {
   }
 
   const esDni = limpio.length === 8;
-  // NOTE: according to the spec, we use `/api/ruc?numero=${limpio}` although originally it was `?ruc=`. 
-  // Wait, let's keep it as `?ruc=` for `/api/ruc` to match original if `/api/ruc?numero=` is wrong, but the spec says:
-  // `/api/ruc?numero=${limpio}`. Wait, original is `/api/ruc?ruc=${cleanRuc}`. I will use `numero` for dni and `ruc` for ruc as a safe bet, or exactly what the spec said:
-  // const res = await fetch(esDni ? `/api/dni?numero=${limpio}` : `/api/ruc?numero=${limpio}`);
   const res = await fetch(esDni ? `/api/dni?numero=${limpio}` : `/api/ruc?ruc=${limpio}`);
 
   if (res.status === 401) {
-    // El autocompletado por RUC exige sesión. El formulario sigue siendo usable a mano.
     throw new Error(
-      "Inicia sesión para autocompletar con el RUC. También puedes escribir la razón social y la dirección a mano."
+      "Inicia sesión para autocompletar con el RUC o DNI. También puedes escribir los datos a mano."
     );
   }
 
   if (res.status === 429) {
-    throw new Error("Demasiadas consultas de RUC. Espera un momento e intenta de nuevo.");
+    throw new Error("Demasiadas consultas de RUC o DNI. Espera un momento e intenta de nuevo.");
   }
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.error || "Error al consultar el RUC");
+    throw new Error(errorData?.error || "Error al consultar el documento");
   }
 
   const data = await res.json();
@@ -57,31 +45,4 @@ export async function fetchDocumentData(doc: string): Promise<DatosDocumento> {
         nombre: data.razonSocial ?? '',
         direccion: data.direccion || undefined,
       };
-}
-
-export async function fetchRucData(ruc: string): Promise<RucData> {
-  const cleanRuc = ruc.replace(/\D/g, "");
-  if (cleanRuc.length !== 11) {
-    throw new Error("El RUC debe tener 11 dígitos");
-  }
-
-  const res = await fetch(`/api/ruc?ruc=${cleanRuc}`);
-  
-  if (res.status === 401) {
-    // El autocompletado por RUC exige sesión. El formulario sigue siendo usable a mano.
-    throw new Error(
-      "Inicia sesión para autocompletar con el RUC. También puedes escribir la razón social y la dirección a mano."
-    );
-  }
-
-  if (res.status === 429) {
-    throw new Error("Demasiadas consultas de RUC. Espera un momento e intenta de nuevo.");
-  }
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.error || "Error al consultar el RUC");
-  }
-
-  return await res.json();
 }

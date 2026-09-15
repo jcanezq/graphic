@@ -17,7 +17,7 @@ import { toQuotationItemRow } from "@/lib/quotation-item-row";
 import { ArrowLeft, Save, FileDown, Trash2, Search, MessageCircle, GitBranch, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
-import { fetchRucData } from "@/lib/ruc";
+import { fetchDocumentData } from "@/lib/ruc";
 import type { Quotation, QuotationItem, QuotationStatus, CompanySettings } from "@/types";
 
 const STATUSES: { value: QuotationStatus; label: string }[] = [
@@ -109,7 +109,8 @@ export default function QuotationDetailPage() {
   const revisions = initialData?.revisions || [];
 
   async function handleRucSearch() {
-    if (clientRuc.length !== 11) return;
+    const doc = clientRuc.replace(/\D/g, "");
+    if (doc.length !== 8 && doc.length !== 11) return;
     try {
       setSearchingRuc(true);
 
@@ -117,7 +118,7 @@ export default function QuotationDetailPage() {
       const { data: existingClient } = await supabase
         .from("clients")
         .select("*")
-        .eq("ruc", clientRuc)
+        .eq("ruc", doc)
         .limit(1)
         .maybeSingle();
 
@@ -131,10 +132,12 @@ export default function QuotationDetailPage() {
       }
 
       // If not, fetch from external API
-      const data = await fetchRucData(clientRuc);
-      setClientName(data.razonSocial);
-      setClientAddress(data.direccion);
-      showToast("Datos de Sunat obtenidos");
+      const data = await fetchDocumentData(doc);
+      setClientName(data.nombre);
+      if (data.direccion) {
+        setClientAddress(data.direccion);
+      }
+      showToast(data.tipo === 'DNI' ? "Datos de Reniec obtenidos" : "Datos de Sunat obtenidos");
     } catch (err: any) {
       showToast(err.message, "error");
     } finally {
@@ -386,20 +389,20 @@ export default function QuotationDetailPage() {
               </h3>
               <div className="form-row">
                 <div className="form-group">
-                  <label>RUC</label>
+                  <label>RUC / DNI</label>
                   <div style={{ display: "flex", gap: "8px" }}>
                     <input 
                       value={clientRuc} 
                       onChange={(e) => setClientRuc(e.target.value.replace(/\D/g, "").slice(0, 11))} 
                       maxLength={11} 
-                      placeholder="20123456789" 
+                      placeholder="20123456789 o DNI" 
                       style={{ flex: 1 }}
                     />
                     <button 
                       type="button" 
                       className="btn btn-secondary" 
                       onClick={handleRucSearch}
-                      disabled={searchingRuc || clientRuc.length !== 11}
+                      disabled={searchingRuc || (clientRuc.length !== 8 && clientRuc.length !== 11)}
                     >
                       {searchingRuc ? "..." : <Search size={18} />}
                     </button>
