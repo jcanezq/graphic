@@ -36,7 +36,15 @@ export default function HomePage() {
     try {
       const stored = localStorage.getItem("cotigrafic_quote_items");
       const parsed = stored ? JSON.parse(stored) : [];
-      if (Array.isArray(parsed)) setQuoteItems(parsed);
+      if (Array.isArray(parsed)) {
+        // Los borradores guardados antes de esta versión no traen row_key.
+        setQuoteItems(
+          parsed.map((it: any, i: number) => ({
+            ...it,
+            row_key: it.row_key ?? `legacy-${i}-${Math.random().toString(36).slice(2, 9)}`,
+          }))
+        );
+      }
     } catch { /* ignore */ }
   }, []);
 
@@ -68,33 +76,33 @@ export default function HomePage() {
   function addToQuote(product: PublicProduct) {
     try {
       const items = [...quoteItems];
-      const existingIndex = items.findIndex((it) => it.product_id === product.id);
-      if (existingIndex >= 0) {
-        items[existingIndex].quantity += 1;
-      } else {
-        items.push({
-          product_id: product.id,
-          product_name: product.name,
-          product_code: product.code,
-          product_type: product.type,
-          unit: product.unit,
-          base_unit_price: product.base_unit_price ?? product.unit_price,
-          unit_price: product.unit_price,
-          quantity: 1,
-          has_labor: true,
-          has_design: true,
-          has_transport: true,
-          labor_price: product.labor_price,
-          design_price: product.design_price,
-          transport_price: product.transport_price,
-          labor_scope: product.labor_scope,
-          design_scope: product.design_scope,
-          transport_scope: product.transport_scope,
-          material_price: product.material_price,
-          other_price: product.other_price,
-          image_url: product.image_url ?? null,
-        });
-      }
+      // Cada selección agrega una LÍNEA NUEVA, aunque el producto ya esté en la
+      // lista. Dos unidades del mismo artículo pueden diferir en color o acabado,
+      // y esa diferencia se escribe en la observación de cada línea (24-spec-OBS).
+      // El administrador ya se comporta así (nueva/page.tsx:176).
+      items.push({
+        row_key: `row-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        product_id: product.id,
+        product_name: product.name,
+        product_code: product.code,
+        product_type: product.type,
+        unit: product.unit,
+        base_unit_price: product.base_unit_price ?? product.unit_price,
+        unit_price: product.unit_price,
+        quantity: 1,
+        has_labor: true,
+        has_design: true,
+        has_transport: true,
+        labor_price: product.labor_price,
+        design_price: product.design_price,
+        transport_price: product.transport_price,
+        labor_scope: product.labor_scope,
+        design_scope: product.design_scope,
+        transport_scope: product.transport_scope,
+        material_price: product.material_price,
+        other_price: product.other_price,
+        image_url: product.image_url ?? null,
+      });
       persistQuote(items);
       showToast(`"${product.name}" añadido a tu cotizador`);
     } catch (e) {
@@ -361,7 +369,7 @@ export default function HomePage() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                   {quoteItems.map((it, idx) => (
                     <QuoteItemThumb
-                      key={idx}
+                      key={it.row_key ?? `idx-${idx}`}
                       imageUrl={it.image_url}
                       productName={it.product_name}
                       lineTotal={lineTotal(it)}

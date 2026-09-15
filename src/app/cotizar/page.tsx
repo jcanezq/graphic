@@ -28,6 +28,9 @@ import {
 } from "lucide-react";
 
 interface DraftItem {
+  /** Identidad de ESTA línea, no del producto. Dos líneas pueden compartir
+   *  product_id y diferenciarse sólo en su observación. */
+  row_key?: string;
   product_id: string;
   product_name: string;
   product_code: string;
@@ -139,7 +142,8 @@ export default function CotizadorPage() {
         if (savedDraft) {
           const parsed = JSON.parse(savedDraft);
           if (Array.isArray(parsed)) {
-            const migrated = parsed.map(item => ({
+            const migrated = parsed.map((item: any, i: number) => ({
+              row_key: item.row_key ?? `legacy-${i}-${Math.random().toString(36).slice(2, 9)}`,
               ...item,
               base_unit_price: item.base_unit_price ?? item.unit_price ?? 0,
               product_type: item.product_type || (item.product_code?.startsWith('SRV') ? 'Servicio' : 'Producto')
@@ -571,7 +575,7 @@ export default function CotizadorPage() {
                     <div>
                       {items.map((item, idx) => (
                         <div
-                          key={item.product_id + idx}
+                          key={item.row_key ?? `${item.product_id}-${idx}`}
                           style={{
                             padding: "1rem 1.25rem",
                             borderBottom: idx < items.length - 1 ? "1px solid var(--surface-divider)" : "none",
