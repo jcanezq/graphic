@@ -118,7 +118,7 @@ export function ProductCard({ product, onAdd, showCost }: ProductCardProps) {
             e.currentTarget.style.color = "var(--text-primary)";
           }}
         >
-          <Plus size={24} />
+          <Plus size={30} strokeWidth={2.5} />
         </button>
       </div>
 
