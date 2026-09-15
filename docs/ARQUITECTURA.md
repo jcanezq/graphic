@@ -116,3 +116,15 @@ El archivo `middleware.ts` intercepta todas las peticiones a `/dashboard/*` veri
 
 ### Diseño Visual (Design System)
 El sistema utiliza una arquitectura CSS basada en variables (tokens) en `globals.css` (Paleta Indigo Profesional). No se utiliza Tailwind CSS (por decisión del cliente), sino CSS modular/clásico para mantener control total sobre la estética corporativa y las animaciones (micro-interacciones, sombras y glassmorphism).
+
+### Catálogo Unificado (`CatalogBrowser`)
+Para garantizar la máxima consistencia visual, tanto el catálogo público (Landing Page) como la selección de productos del Administrador (Nueva Cotización) comparten un único componente raíz: `CatalogBrowser`.
+**Restricción de Seguridad:** Aunque el componente visual está unificado, **la capa de datos está estrictamente separada**. El API público `/api/public/products` omite intencionalmente los costos y márgenes para evitar fugas de datos comerciales, mientras que el administrador inyecta su consulta privilegiada desde Supabase Server Components, permitiéndole ver los costos unitarios (`showCost`) en tiempo real.
+
+### Componentización de Miniaturas e Ítems
+Siguiendo la regla de oro de **"Una sola fuente de verdad visual"**:
+1. `ProductThumbnail`: Encapsula el renderizado de la imagen del producto, garantizando que el fallback (cuando no hay imagen) o el etiquetado sea el mismo en toda la app.
+2. `QuoteItemThumb`: Componente interactivo (con selector numérico `+`/`-`) que gobierna cómo se ven los ítems añadidos al carrito. Se reutiliza tanto en la barra flotante del cliente como en el panel lateral resumen del administrador. Al no manejar estado propio, los eventos de cambio disparan las funciones del padre (`updateItem`), forzando una re-cuantificación atómica del subtotal general.
+
+### Precios en el Administrador y Filtro por Costo Cero
+Todos los cálculos de precios unitarios orientados al catálogo (antes de convertirse en una cotización transaccional) pasan obligatoriamente por la función compartida `buildCatalogPricing`. Esto erradicó la duplicación matemática y aseguró que el administrador deje de ver productos en "S/ 0.00" por falta de estimación en tiempo real. Adicionalmente, el sistema **oculta automáticamente de todos los catálogos** aquellos productos cuyo `manual_unit_cost` sea cero o nulo, reportándolos silenciosamente en el panel de control del administrador como incompletos.
