@@ -48,6 +48,8 @@ interface DraftItem {
   design_scope?: string;
   transport_scope?: string;
   image_url?: string | null;
+  /** Observación libre de esta línea, escrita por el cliente. */
+  notes?: string | null;
 }
 
 export default function CotizadorPage() {
@@ -169,6 +171,12 @@ export default function CotizadorPage() {
     setItems(newItems);
     localStorage.setItem("cotigrafic_quote_items", JSON.stringify(newItems));
     window.dispatchEvent(new Event("cotigrafic_cart_updated"));
+  }
+
+  function handleNotesChange(index: number, val: string) {
+    const updated = [...items];
+    updated[index] = { ...updated[index], notes: val };
+    persistItems(updated);
   }
 
   function handleQuantityChange(index: number, val: number) {
@@ -636,6 +644,26 @@ export default function CotizadorPage() {
                                 <Trash2 size={16} />
                               </button>
                             </div>
+                          </div>
+
+                          {/* Observación de la línea */}
+                          <div style={{ padding: "0 1.25rem 0.75rem", marginLeft: "1rem" }}>
+                            <textarea
+                              value={item.notes ?? ""}
+                              onChange={(e) => handleNotesChange(idx, e.target.value)}
+                              placeholder="Observaciones de este ítem (opcional)"
+                              rows={2}
+                              style={{
+                                width: "100%",
+                                fontSize: "0.8rem",
+                                padding: "0.5rem 0.65rem",
+                                border: "1px solid var(--surface-border)",
+                                borderRadius: "var(--radius-sm)",
+                                background: "var(--bg-primary)",
+                                color: "var(--text-primary)",
+                                resize: "vertical",
+                              }}
+                            />
                           </div>
 
                           {/* Components Rows */}
