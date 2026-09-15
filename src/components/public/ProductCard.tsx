@@ -94,9 +94,9 @@ export function ProductCard({ product, onAdd, showCost }: ProductCardProps) {
             position: "absolute",
             bottom: "12px",
             right: "12px",
-            width: "48px",
-            height: "48px",
-            borderRadius: "24px",
+            width: "64px",
+            height: "64px",
+            borderRadius: "32px",
             background: "var(--bg-secondary)",
             color: "var(--text-primary)",
             border: "1px solid var(--surface-border)",
@@ -117,8 +117,8 @@ export function ProductCard({ product, onAdd, showCost }: ProductCardProps) {
           }}
         >
           <svg
-            width={44}
-            height={44}
+            width={60}
+            height={60}
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
