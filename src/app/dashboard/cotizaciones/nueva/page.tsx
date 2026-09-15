@@ -485,8 +485,8 @@ export default function NewQuotationPage() {
               />
             </div>
 
-            {/* Items Table */}
-            <div className="card">
+            {/* Items Table — destino del botón «Ver cotización» del panel */}
+            <div className="card" id="detalle-cotizacion">
               <h3 className="card-title" style={{ marginBottom: "var(--space-md)" }}>
                 📋 Ítems de la Cotización ({items.length})
               </h3>
@@ -743,6 +743,17 @@ export default function NewQuotationPage() {
                 />
               </div>
             </div>
+
+            {/* Confirmación, al final del detalle — equivalente al cierre de /cotizar */}
+            <button
+              className="btn-primary"
+              disabled={saveMutation.isPending || isLoading}
+              onClick={() => saveMutation.mutate(false)}
+              style={{ width: "100%", marginTop: "var(--space-lg)", background: "#191919" }}
+            >
+              <Save size={16} />
+              {saveMutation.isPending ? "Guardando..." : "Guardar Cotización"}
+            </button>
           </div>
 
           {/* Right Column — Totals */}
@@ -759,13 +770,29 @@ export default function NewQuotationPage() {
 
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: "var(--space-lg)" }}>
                 <button
-                  className="btn-primary"
-                  disabled={saveMutation.isPending || isLoading}
-                  onClick={() => saveMutation.mutate(false)}
-                  style={{ width: "100%", background: "#191919" }}
+                  onClick={() =>
+                    document
+                      .getElementById("detalle-cotizacion")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "0.95rem",
+                    fontSize: "1rem",
+                    fontWeight: 700,
+                    borderRadius: "var(--radius-md)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.6rem",
+                    background: "#191919",
+                    color: "#ffffff",
+                    border: "none",
+                    cursor: "pointer",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  }}
                 >
-                  <Save size={16} />
-                  {saveMutation.isPending ? "Guardando..." : "Guardar Cotización"}
+                  Ver cotización ({items.length})
                 </button>
               </div>
 
