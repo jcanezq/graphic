@@ -20,10 +20,21 @@ export function CatalogBrowser({ products, categories, onAdd, showCost }: Catalo
   const normalizedSearch = normalizeText(search);
   const searchTokens = normalizedSearch.split(/\s+/).filter(Boolean);
 
-  const validProducts = products.filter((p) => {
-    const cost = showCost ? (p as any).manual_unit_cost : (p.base_unit_price ?? p.unit_price);
-    return cost > 0;
-  });
+  // Un único criterio para las dos pantallas y los tres tipos: se oculta lo que no
+  // se puede vender, y eso es `unit_price = 0`.
+  //
+  // NO uses `manual_unit_cost`: es la columna del costo cargado a mano, que sólo
+  // tienen los materiales; en un Producto o un Servicio es NULL porque su costo se
+  // calcula.
+  //
+  // NO uses `base_unit_price`: vale 0 para un servicio cuyo costo es todo mano de
+  // obra, porque baseCost sólo suma materiales e indirectos (calculations.ts) y la
+  // mano de obra se agrega recién en unitPrice.
+  //
+  // `unit_price` es el total —base + mano de obra + diseño + transporte— y con la
+  // fórmula de este proyecto (precio = costo × (1 + margen/100)) sólo vale 0 cuando
+  // el costo vale 0. Es exactamente «no tiene costo cargado».
+  const validProducts = products.filter((p) => (p.unit_price ?? 0) > 0);
   
   const hiddenCount = products.length - validProducts.length;
 
