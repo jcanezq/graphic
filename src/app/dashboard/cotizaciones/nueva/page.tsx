@@ -192,6 +192,15 @@ export default function NewQuotationPage() {
     setItems(updated);
   }
 
+  // La observación NO pasa por recalcQuotationItem: su lista de overrides es cerrada
+  // y descartaría el campo en silencio. Tampoco lo necesita — una nota no altera
+  // ningún precio.
+  function updateItemNotes(index: number, notes: string) {
+    const updated = [...items];
+    updated[index] = { ...updated[index], notes };
+    setItems(updated);
+  }
+
   function removeItem(index: number) {
     setItems(items.filter((_, i) => i !== index));
   }
@@ -690,6 +699,19 @@ export default function NewQuotationPage() {
                               <td></td>
                             </tr>
                           )}
+                          {/* Observación de la línea */}
+                          <tr>
+                            <td />
+                            <td colSpan={8} style={{ paddingTop: 0, paddingBottom: "0.75rem" }}>
+                              <textarea
+                                value={item.notes ?? ""}
+                                onChange={(e) => updateItemNotes(i, e.target.value)}
+                                placeholder="Observaciones de este ítem (opcional)"
+                                rows={2}
+                                style={{ width: "100%", fontSize: "0.78rem", resize: "vertical" }}
+                              />
+                            </td>
+                          </tr>
                         </React.Fragment>
                       ))}
                     </tbody>
