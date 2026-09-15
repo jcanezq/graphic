@@ -8,7 +8,7 @@ import { PublicNavbar } from "@/components/public/PublicNavbar";
 import { useToast } from "@/components/ToastProvider";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, normalizeText } from "@/lib/formatters";
-import { fetchRucData } from "@/lib/ruc";
+import { fetchDocumentData } from "@/lib/ruc";
 import type { PublicProduct } from "@/types";
 import { ProductThumbnail } from "@/components/public/ProductThumbnail";
 import { round2 } from "@/lib/pricing";
@@ -75,7 +75,7 @@ export default function CotizadorPage() {
   // Auto-fill RUC from DB if available
   useEffect(() => {
     async function checkRucInDB() {
-      if (clientRuc.length === 11 && currentUser) {
+      if ((clientRuc.length === 8 || clientRuc.length === 11) && currentUser) {
         const { data } = await supabase.from('clients').select('*').eq('ruc', clientRuc).limit(1).maybeSingle();
         if (data) {
           setIsRegisteredClient(true);
@@ -201,14 +201,17 @@ export default function CotizadorPage() {
 
 
 
-  async function handleSearchRuc() {
-    if (clientRuc.length !== 11) return;
+  async function handleSearchDocumento() {
+    const doc = clientRuc.replace(/\D/g, "");
+    if (doc.length !== 8 && doc.length !== 11) return;
     try {
       setSearchingRuc(true);
-      const data = await fetchRucData(clientRuc);
-      setClientName(data.razonSocial);
-      setClientAddress(data.direccion);
-      showToast("Datos de RUC obtenidos");
+      const data = await fetchDocumentData(doc);
+      setClientName(data.nombre);
+      if (data.direccion) {
+        setClientAddress(data.direccion);
+      }
+      showToast(data.tipo === 'DNI' ? "Datos de Reniec obtenidos" : "Datos de Sunat obtenidos");
     } catch (err: any) {
       showToast(err.message, "error");
     } finally {
@@ -777,18 +780,18 @@ export default function CotizadorPage() {
                           type="text"
                           value={clientRuc}
                           onChange={(e) => setClientRuc(e.target.value)}
-                          placeholder="11 dígitos (RUC)"
+                          placeholder="8 dígitos (DNI) u 11 (RUC)"
                           className="form-input"
                           style={{ width: "100%", padding: "0.55rem 0.8rem" }}
                         />
-                        {clientRuc.length === 11 && !isRegisteredClient && (
+                        {(clientRuc.length === 8 || clientRuc.length === 11) && !isRegisteredClient && (
                           <button
                             type="button"
-                            onClick={handleSearchRuc}
+                            onClick={handleSearchDocumento}
                             disabled={searchingRuc}
                             className="btn btn-secondary"
                             style={{ padding: "0.45rem 0.75rem", fontSize: "0.75rem", whiteSpace: "nowrap" }}
-                            title="Consultar RUC en SUNAT"
+                            title="Consultar en SUNAT o RENIEC"
                           >
                             {searchingRuc ? "..." : "Consultar SUNAT"}
                           </button>
