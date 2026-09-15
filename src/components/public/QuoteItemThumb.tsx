@@ -36,6 +36,10 @@ export function QuoteItemThumb({
           WebkitBoxOrient: "vertical",
           overflow: "hidden",
           lineHeight: 1.3,
+          // Reserva las dos líneas SIEMPRE: 1.3 × 2 = 2.6em. Sin esto, un nombre de
+          // una línea acorta la tarjeta y su precio y su selector no coinciden con
+          // los de la tarjeta de al lado.
+          minHeight: "2.6em",
         }}
       >
         {productName}
