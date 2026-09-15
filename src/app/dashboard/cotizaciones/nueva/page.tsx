@@ -765,14 +765,7 @@ export default function NewQuotationPage() {
               </div>
 
               {items.length > 0 && (
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "0.75rem",
-                  maxHeight: "360px",
-                  overflowY: "auto",
-                  paddingRight: "0.25rem"
-                }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                   {items.map((item, idx) => (
                     <QuoteItemThumb
                       key={(item as any).row_key || idx}
