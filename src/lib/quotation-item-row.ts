@@ -21,6 +21,7 @@ export function toQuotationItemRow(item: QuotationItem, sortOrder: number, quota
     product_description: item.product_description || null,
     unit: item.unit,
     client_design_url: item.client_design_url || null,
+    notes: item.notes || null,
 
     // Costos heredados: se siguen guardando como dato de costeo.
     // PROHIBIDO usarlos para calcular precios (ver src/lib/pricing.ts).

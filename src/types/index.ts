@@ -53,6 +53,9 @@ export interface QuotationItem extends Omit<Tables<'quotation_items'>, 'id' | 'q
   transport_cost?: number | null;
   client_design_url?: string | null;
   client_design_file?: File | null;
+
+  /** Observación libre de esta línea. La escriben el cliente y el administrador. */
+  notes?: string | null;
   
   // Independent component fields
   labor_quantity?: number | null;
