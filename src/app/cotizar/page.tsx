@@ -53,6 +53,8 @@ interface DraftItem {
   image_url?: string | null;
   /** Observación libre de esta línea, escrita por el cliente. */
   notes?: string | null;
+  /** Ruta del arte en el bucket privado `client-art`. NO es una URL. */
+  client_design_url?: string | null;
 }
 
 export default function CotizadorPage() {
@@ -175,6 +177,37 @@ export default function CotizadorPage() {
     setItems(newItems);
     localStorage.setItem("cotigrafic_quote_items", JSON.stringify(newItems));
     window.dispatchEvent(new Event("cotigrafic_cart_updated"));
+  }
+
+  const [subiendoArte, setSubiendoArte] = useState<number | null>(null);
+
+  async function handleArtUpload(index: number, file: File) {
+    // La sesión no es opcional: las políticas de 'client-art' exigen que la
+    // carpeta sea el uid de quien sube. Sin sesión, Storage responde 403.
+    if (!currentUser) {
+      setShowGoogleModal(true);
+      return;
+    }
+    setSubiendoArte(index);
+    try {
+      const ext = file.name.split(".").pop();
+      const nombre = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+      // El primer segmento DEBE ser el uid: lo exige la política del bucket
+      // y lo vuelve a comprobar el servidor al guardar.
+      const ruta = `${currentUser.id}/${nombre}`;
+
+      const { error } = await supabase.storage.from("client-art").upload(ruta, file);
+      if (error) throw error;
+
+      const updated = [...items];
+      updated[index] = { ...updated[index], client_design_url: ruta };
+      persistItems(updated);
+      showToast("Arte adjuntado");
+    } catch (err: any) {
+      showToast(err?.message || "No se pudo subir el archivo", "error");
+    } finally {
+      setSubiendoArte(null);
+    }
   }
 
   function handleNotesChange(index: number, val: string) {
@@ -344,6 +377,7 @@ export default function CotizadorPage() {
             has_labor: it.has_labor ?? true,
             has_design: it.has_design ?? true,
             has_transport: it.has_transport ?? true,
+            client_design_url: it.client_design_url ?? null,
           })),
         }),
       });
@@ -801,9 +835,45 @@ export default function CotizadorPage() {
 
                               {item.has_design === false && (
                                 <div style={{ marginTop: 4, padding: 8, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--surface-divider)' }}>
-                                  <span style={{ fontSize: '0.75rem', display: 'block', fontWeight: 500, color: 'var(--text-secondary)' }}>
-                                    * Importante: Como desmarcaste Diseño Gráfico, deberás enviar tu archivo final por WhatsApp.
+                                  <span style={{ fontSize: '0.75rem', display: 'block', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                                    Como desmarcaste Diseño Gráfico, adjuntá acá tu archivo final.
                                   </span>
+
+                                  {!currentUser ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowGoogleModal(true)}
+                                      style={{ fontSize: '0.75rem', color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}
+                                    >
+                                      Inicia sesión para adjuntar tu arte
+                                    </button>
+                                  ) : item.client_design_url ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.75rem' }}>
+                                      <span style={{ color: 'var(--success)' }}>✓ Archivo adjuntado</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...items];
+                                          updated[idx] = { ...updated[idx], client_design_url: null };
+                                          persistItems(updated);
+                                        }}
+                                        style={{ fontSize: '0.75rem', color: 'var(--error)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                                      >
+                                        Quitar
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <input
+                                      type="file"
+                                      accept="image/jpeg,image/png,image/tiff,application/pdf"
+                                      disabled={subiendoArte === idx}
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) handleArtUpload(idx, f);
+                                      }}
+                                      style={{ fontSize: '0.72rem', width: '100%' }}
+                                    />
+                                  )}
                                 </div>
                               )}
                             </div>
