@@ -174,6 +174,13 @@ export default function QuotationDetailPage() {
     }
   }
 
+  // La observación NO pasa por recalcQuotationItem: su lista de overrides es
+  // cerrada y descartaría el campo en silencio. Tampoco lo necesita — una nota
+  // no altera ningún precio.
+  function updateItemNotes(index: number, notes: string) {
+    setItems((prev) => prev.map((it, k) => k === index ? { ...it, notes } : it));
+  }
+
   function updateItem(index: number, changes: Partial<QuotationItem>) {
     const updated = [...items];
     // Reenviar `changes` COMPLETO. recalcQuotationItem resuelve cada campo con
@@ -692,6 +699,19 @@ export default function QuotationDetailPage() {
                               </td>
                             </tr>
                           )}
+                          {/* Observación de la línea */}
+                          <tr>
+                            <td />
+                            <td colSpan={8} style={{ paddingTop: 0, paddingBottom: "0.75rem" }}>
+                              <textarea
+                                value={item.notes ?? ""}
+                                onChange={(e) => updateItemNotes(i, e.target.value)}
+                                placeholder="Observaciones de este ítem (opcional)"
+                                rows={2}
+                                style={{ width: "100%", fontSize: "0.78rem", resize: "vertical" }}
+                              />
+                            </td>
+                          </tr>
                         </React.Fragment>
                       ))}
                     </tbody>
