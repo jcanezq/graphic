@@ -127,9 +127,11 @@ describe('Calculations Library', () => {
         ],
         labor: [{ work_type: 'Labor', hours: 1, hourly_rate: 60 }],
         indirect_costs: [
-          // «Grafico» SIN TILDE y kind 'production', tal cual está cargado en producción.
-          // Este es el caso que el clasificador tiene que reconocer: si vuelve a caer en el
-          // costo base, el desglose de abajo se rompe.
+          // Fila de Producción MARCADA como componente de diseño (kind: 'design').
+          // Lo que prueba el caso: que su costo NO cae en el costo base y sí va al
+          // componente. El «Grafico» sin tilde es deliberado —así está cargado en
+          // producción— pero ya no influye en nada: la clasificación por texto se
+          // retiró el 2026-09-16 y el kind es explícito.
           { concept: 'Diseño Grafico',    kind: 'design', unit: 'global', quantity: 1, unit_cost: 18, cost: 18 },
           { concept: 'impresión digital', kind: 'production', unit: 'm2',     quantity: 1, unit_cost: 15, cost: 15 },
           { concept: 'Plotter de corte',  kind: 'production', unit: 'm2',     quantity: 1, unit_cost: 7,  cost: 7  },
