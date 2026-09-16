@@ -283,6 +283,16 @@ export default function CotizadorPage() {
       return;
     }
 
+    // La sesión se pide ANTES que los datos del formulario. Si no, quien no inició
+    // sesión recibe «ingresa tu nombre» —un pedido de campo— cuando lo que de verdad
+    // le falta es registrarse, y el modal que se lo explicaría queda detrás de dos
+    // campos que todavía no llenó. Además, el nombre que escribiera se descarta al
+    // volver del ingreso: gana el de la cuenta de Google (ver :158 y :136).
+    if (!currentUser) {
+      setShowGoogleModal(true);
+      return;
+    }
+
     if (!clientName.trim()) {
       showToast("Por favor ingresa tu nombre o razón social", "error");
       return;
@@ -290,12 +300,6 @@ export default function CotizadorPage() {
 
     if (!clientPhone.trim()) {
       showToast("Por favor ingresa tu número de WhatsApp para confirmación", "error");
-      return;
-    }
-
-    // If user is not authenticated, request Google login modal
-    if (!currentUser) {
-      setShowGoogleModal(true);
       return;
     }
 
