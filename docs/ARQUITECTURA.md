@@ -1,6 +1,6 @@
 # Arquitectura del Sistema CotiGrafix
 
-> **Actualizado: 2026-09-15**, verificado contra el código en `e7f7b1a`. Cada afirmación de este
+> **Actualizado: 2026-09-15**, verificado contra el código en `b1fda93`. Cada afirmación de este
 > documento se comprobó ejecutando o leyendo el archivo que se cita. **Si algo acá no coincide con
 > el código, el código manda y este documento está vencido: corregilo.**
 
@@ -174,18 +174,49 @@ precioUnitario = precioBase
 > catálogo —tenía su propia aritmética—. Desde el 2026-09-15 ese panel llama a
 > `buildCatalogPricing`, así que las dos cifras coinciden siempre.
 
-### 4.3 De dónde salen el diseño y el transporte — no es obvio
+### 4.3 Las cuatro categorías, y dónde viven el diseño y el transporte
 
-**No existe una sección «Diseño» ni una «Transporte» en el formulario.** Hay dos secciones de
-indirectos: **🏭 Producción** (`kind: 'production'`) y **📦 Otros** (`kind: 'other'`).
+Un producto o un servicio se compone de **cuatro categorías**, ni una más. Es el modelo del
+negocio, declarado por el dueño el 2026-09-15:
 
-El motor los reconoce **por el nombre del concepto**, en `findIndirectByKind`
-(`calculations.ts:337`): primero busca un `kind` exacto y, si no lo hay, busca en el texto
-`diseno`/`design` para el diseño y `transporte`/`movilidad`/`flete` para el transporte, **sin
-tildes y sin distinguir mayúsculas**.
+| Categoría | Tabla | Componente opcional que contiene |
+|---|---|---|
+| **Mano de Obra** | `product_labor` | toda la categoría es opcional |
+| **Materiales/Insumos** | `product_materials` | ninguno |
+| **🏭 Producción** | `product_indirect_costs` | **Diseño** |
+| **📦 Otros** | `product_indirect_costs` | **Transporte** |
 
-**Consecuencia operativa:** para darle diseño o transporte a un artículo se le agrega un costo
-indirecto cuyo concepto contenga esa palabra. No hay nada más que configurar.
+**El diseño y el transporte NO son categorías: son ítems dentro de Producción y de Otros.**
+«Diseño gráfico (prorrateado)» es un costo de producción; «Transporte y logística» es uno de otros.
+
+La columna `kind` de `product_indirect_costs` se lee como una **jerarquía**, no como cuatro
+valores sueltos:
+
+```
+🏭 Producción  →  kind = 'production'   fila normal
+              →  kind = 'design'       fila MARCADA como componente opcional
+
+📦 Otros      →  kind = 'other'        fila normal
+              →  kind = 'transport'    fila MARCADA como componente opcional
+```
+
+En el formulario eso es **una casilla por fila** dentro de esas dos secciones, no una sección
+aparte. Marcarla es lo que permite al cliente quitar ese costo de su cotización.
+
+> ### ⚠ Lo que NO hay que reintroducir
+>
+> Hasta el 2026-09-16 el motor caía a **emparejar por el texto del concepto** cuando no encontraba
+> un `kind`: buscaba `diseno`/`design` y `transporte`/`movilidad`/`flete`, sin tildes. **Eso se
+> retiró**, y no debe volver. Tenía tres defectos de fondo:
+>
+> - una regla que decide **dinero** quedaba escrita en texto libre: renombrar un concepto cambiaba
+>   un precio, en silencio;
+> - era `includes()`, así que «Transporte de personal» —un gasto general— se convertía en una
+>   línea que el cliente podía **apagar**;
+> - tomaba **la primera** coincidencia, y el orden de las filas no estaba definido.
+>
+> Hoy la clasificación es explícita y **`sumIndirectByKind` suma TODAS las filas de un tipo**: si un
+> artículo tiene «Diseño gráfico» y «Diseño personalizado», los dos son diseño.
 
 ### 4.4 Alcance de los componentes
 
@@ -385,13 +416,31 @@ un DNI, RENIEC devolvía el nombre, y el guardado lo rechazaba al final.
 **Cuando cambies una regla así, el `grep` no va sobre el nombre del campo: va sobre la regla
 misma** (`\d{11}`, en aquel caso). Y revisará tres capas: navegador, servidor y base.
 
+### 7.11 Un formulario que borra y reinserta debe reinsertar TODO lo que cargó
+
+`CatalogFormPage` guarda los costos de un artículo así: **borra todas** sus filas y **reinserta**
+las que tiene en memoria. Es un patrón legítimo, pero tiene una condición que no está escrita en
+ninguna parte del código: **todo lo que se borra tiene que haberse cargado antes.**
+
+Se rompió exactamente ahí. El filtro de carga repartía las filas en dos cajones —`'production'` y
+`'other'`— y una fila con `kind = 'design'` **no caía en ninguno**: no llegaba al formulario, y el
+guardado la borraba de la base. **No se degradaba: desaparecía**, con su costo, y el componente
+dejaba de existir en las cotizaciones futuras de ese artículo. Sin ningún error.
+
+**La regla:** cuando un formulario use borrar-y-reinsertar, la suma de sus cajones de carga tiene
+que cubrir **todos** los valores posibles de la columna que los discrimina. Si mañana se agrega un
+`kind` nuevo, hay que agregarlo al filtro **en el mismo commit**.
+
+**El control barato:** después de guardar, contar las filas. Si salieron menos de las que entraron
+y nadie borró nada a mano, el filtro de carga tiene un agujero.
+
 ---
 
 ## 8. Estado y pendientes conocidos
 
 | Asunto | Estado |
 |---|---|
-| Migraciones | 35 aplicadas (incluye el parche a `clients_with_stats`) |
+| Migraciones | **37 aplicadas**; la fuga de `clients_with_stats` cerrada y verificada |
 | Integración continua | `ci.yml` verde con los cuatro pasos (typecheck, lint, test, build) |
 | Protección de rama `main` | **desactivada** — el CI avisa pero no bloquea |
 | `db-types.yml` | nunca se ejecutó; le falta el secreto `SUPABASE_ACCESS_TOKEN` |
@@ -408,7 +457,9 @@ misma** (`\d{11}`, en aquel caso). Y revisará tres capas: navegador, servidor y
 | **Productos y servicios comparten componentes; los materiales no** | §3.2 |
 | Markup en vez de margen sobre precio | §4.1 |
 | **El costo manual sustituye la receta, no los servicios asociados** | §4.2 |
-| **Diseño y transporte se reconocen por el nombre del concepto** | §4.3 |
+| **Cuatro categorías de costo; diseño y transporte son ítems marcados, no categorías** | §4.3 |
+| **La clasificación es explícita: el emparejamiento por texto se retiró** | §4.3 |
+| **Borrar-y-reinsertar exige que los cajones de carga cubran todo** | §7.11 |
 | **La sesión se pide antes que los datos del formulario** | §5.1 |
 | **El documento se verifica solo, y falla callado** | §5.1 |
 | Catálogo compartido con bandera `showCost` | §7.1 |
