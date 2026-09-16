@@ -34,7 +34,7 @@ export function CostSummarySection({ watch, saving, isNew }: Props) {
       <h3 className="card-title" style={{ marginBottom: "var(--space-md)" }}>
         Resumen de Costos
       </h3>
-      {watch("type") === "Servicio" && (
+      {watch("type") !== "Material" && (
         <>
           <div className="cost-breakdown-row">
             <span>Materiales</span>
