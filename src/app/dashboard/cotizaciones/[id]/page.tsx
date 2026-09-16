@@ -476,7 +476,7 @@ export default function QuotationDetailPage() {
                                     Diseño adjunto por cliente
                                   </span>
                                   {item.client_design_url ? (
-                                    <a href={item.client_design_url} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: 'var(--accent)' }}>Ver archivo</a>
+                                    <a href={`/api/art?path=${encodeURIComponent(item.client_design_url)}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: 'var(--accent)' }}>Ver archivo</a>
                                   ) : (
                                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Ninguno</span>
                                   )}
