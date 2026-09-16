@@ -1,6 +1,6 @@
 # Arquitectura del Sistema CotiGrafix
 
-> **Actualizado: 2026-09-15**, verificado contra el código en `b1fda93`. Cada afirmación de este
+> **Actualizado: 2026-09-15**, verificado contra el código en `e952209`. Cada afirmación de este
 > documento se comprobó ejecutando o leyendo el archivo que se cita. **Si algo acá no coincide con
 > el código, el código manda y este documento está vencido: corregilo.**
 
@@ -108,7 +108,11 @@ Catálogos normalizados; cotizaciones como **instantánea** (*snapshot*).
 
 5. **`quotations`** — cabecera: cliente, estado (Kanban), validez, notas, subtotal, IGV y total.
 
-6. **`quotation_items`** — **instantánea** de cada línea. Copia nombre, costos y precios del
+6. **`quotation_items`** — **instantánea** de cada línea. **`client_design_url` ya no guarda una
+   URL: guarda la RUTA del arte dentro del bucket privado `client-art`** (`<uid>/<archivo>`). El
+   nombre miente por historia, igual que `clients.ruc`; se documenta y no se renombra, porque la
+   columna viaja por el mapper único y por el RPC. Los valores que empiezan con `http` son
+   heredados y **ya no resuelven**. Ver §6.4. Copia nombre, costos y precios del
    momento de cotizar, para que un cambio posterior en el catálogo no altere una cotización
    histórica. Incluye las nueve columnas de componentes (mano de obra, diseño y transporte, cada
    uno con cantidad, costo, margen y alcance) y, desde el 2026-09-15, **`notes`**: la observación
@@ -319,6 +323,47 @@ autenticado.
 
 ---
 
+### 6.4 El almacenamiento: qué es público y qué no
+
+Cuatro buckets, con límites puestos **por configuración** — que es la única capa que el navegador
+no puede eludir, porque el cliente habla directo con la API de Storage:
+
+| Bucket | Público | Tope | Qué guarda |
+|---|---|---|---|
+| `product-images` | **sí** | 10 MB | las fotos del catálogo. Escritura sólo de administrador |
+| `company-assets` | **sí** | 5 MB | el logo de la empresa |
+| **`client-art`** | **NO** | 50 MB | **el arte que suben los clientes** |
+| `client-designs` | **cerrado** | — | bucket heredado. Se cerró el 2026-09-16 |
+
+**El arte del cliente nunca se sirve directo.** Va por `GET /api/art?path=…`, que comprueba la
+sesión, comprueba la propiedad y devuelve un `302` a una **URL firmada de cinco minutos**.
+
+La propiedad **vive en la ruta**: el primer segmento es el `uid` de quien subió, y las políticas de
+`client-art` lo exigen comparando `(storage.foldername(name))[1] = auth.uid()::text`. Por eso la
+ruta se arma siempre como `<uid>/<archivo>` — **cambiarle la forma hace que la subida falle con
+403**, no con un error claro.
+
+> **El 404 de `/api/art` es deliberado y es el mismo para «no existe» y «no es tuyo».** Un 403
+> confirmaría que el archivo existe. Mismo criterio que `/api/pdf/[id]`.
+
+#### Por qué se cerró `client-designs`
+
+Sus cuatro políticas **no miraban de quién era el archivo**:
+
+```sql
+FOR SELECT TO public         -- lo leía cualquiera, sin cuenta
+FOR INSERT TO authenticated  -- escribía cualquier usuario registrado
+FOR DELETE TO authenticated  -- BORRABA el archivo de otro cliente
+FOR UPDATE TO authenticated  -- lo SOBRESCRIBÍA
+```
+
+No era sólo lectura pública: cualquier cliente con cuenta podía destruir el arte de otro. Se cerró
+con `20260916140000`, y la comprobación no es el código de estado sino **el cuerpo de la
+respuesta**: `client-designs` devuelve `NoSuchBucket` y `product-images` devuelve `NoSuchKey`. Los
+dos dan HTTP 400; sólo el cuerpo los distingue.
+
+---
+
 ## 7. Reglas que no se rompen
 
 Cada una nació de un defecto real. Romperlas vuelve a traerlo.
@@ -367,10 +412,21 @@ una no arrastre la observación de otra. Lo mismo vale para `image_url` en el í
 administrador: **si el mapper de persistencia pasara a copiar el ítem con *spread*, estos campos
 harían fallar el guardado con `42703`**.
 
-### 7.5 Las imágenes no pasan por el optimizador de Next
-`ProductThumbnail` usa `<img>` y no `next/image`, deliberadamente: las imágenes se sirven directo
-de Supabase Storage. La razón (costo del plan y una vulnerabilidad del optimizador de Next 14)
-está escrita en el propio componente. **No lo cambies sin revisar esa decisión.**
+### 7.5 NINGUNA imagen pasa por el optimizador de Next
+Se sirven todas directo de Supabase Storage, con `<img>`, nunca con `next/image`. La razón está
+escrita en `ProductThumbnail.tsx`: el costo del plan Pro de Vercel, la cláusula comercial del plan
+Hobby y una vulnerabilidad del optimizador de Next 14.
+
+**La regla estuvo aplicada a medias durante semanas** —las pantallas públicas la respetaban y tres
+del administrador no— y eso consumía cuota y mantenía abierta la superficie del CVE sin que nadie
+lo viera. Se cerró el 2026-09-16.
+
+**El control no es el `grep`, es la pestaña Red del navegador:** ninguna petición debe ir a
+`/_next/image`. Todas deben venir de `…supabase.co/storage/…`.
+
+> Al traducir un `<Image>` a `<img>`: `fill` no existe —se reemplaza por `position:absolute;
+> inset:0; width:100%; height:100%` con el contenedor en `position:relative`— y `sizes` se elimina.
+> `alt` se conserva siempre.
 
 ### 7.6 El `+` del botón de agregar está dibujado a mano
 El ícono `Plus` de `lucide-react` dibuja su cruz de 5 a 19 dentro de un `viewBox` de 24: **sólo
@@ -440,7 +496,7 @@ y nadie borró nada a mano, el filtro de carga tiene un agujero.
 
 | Asunto | Estado |
 |---|---|
-| Migraciones | **37 aplicadas**; la fuga de `clients_with_stats` cerrada y verificada |
+| Migraciones | **39 aplicadas**; la fuga de `clients_with_stats` cerrada y el arte del cliente en privado |
 | Integración continua | `ci.yml` verde con los cuatro pasos (typecheck, lint, test, build) |
 | Protección de rama `main` | **desactivada** — el CI avisa pero no bloquea |
 | `db-types.yml` | nunca se ejecutó; le falta el secreto `SUPABASE_ACCESS_TOKEN` |
@@ -465,7 +521,10 @@ y nadie borró nada a mano, el filtro de carga tiene un agujero.
 | Catálogo compartido con bandera `showCost` | §7.1 |
 | Un mapper único de persistencia | §7.2 |
 | Líneas repetidas en vez de sumar cantidad | §7.4 |
-| `<img>` en vez de `next/image` | §7.5 |
+| `<img>` en vez de `next/image`, **en todo el proyecto** | §7.5 |
+| **El arte del cliente es privado y se entrega firmado** | §6.4 |
+| **La propiedad del archivo vive en la ruta, no en una columna** | §6.4 |
+| **`client_design_url` guarda una ruta, no una URL** | §3 · §6.4 |
 | **CSS en la hoja de estilos, nunca como texto en el JSX** | §7.9 |
 | CSS con tokens en vez de Tailwind | §1 |
 
