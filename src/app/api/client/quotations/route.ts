@@ -120,13 +120,24 @@ export async function POST(request: Request) {
       const qty = raw.quantity;
       const margin = prod.default_margin ?? settings?.default_margin ?? 30;
       let snapItem = createQuotationItemFromProduct(prod, qty, margin, i);
-      
+
       snapItem = recalcQuotationItem(snapItem, {
         has_labor: raw.has_labor ?? true,
         has_design: raw.has_design ?? true,
         has_transport: raw.has_transport ?? true,
       });
-      
+
+      // El arte se asigna DESPUÉS del recálculo, nunca por sus overrides: esa
+      // lista es cerrada y descarta en silencio lo que no conoce.
+      //
+      // Y sólo se acepta si la carpeta es la del que está guardando. Sin esto,
+      // alguien podría adjuntar a SU cotización la ruta del archivo de otro:
+      // no podría leerlo —/api/art compara con la sesión— pero el administrador
+      // sí, y lo abriría creyendo que es el arte de ese pedido.
+      const rutaArte = raw.client_design_url ?? null;
+      snapItem.client_design_url =
+        rutaArte && rutaArte.split("/")[0] === auth.user.id ? rutaArte : null;
+
       quotationItems.push(snapItem);
     }
 

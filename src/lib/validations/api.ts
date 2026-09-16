@@ -19,6 +19,20 @@ export const clientQuotationItemSchema = z.object({
   has_labor: z.boolean().default(true),
   has_design: z.boolean().default(true),
   has_transport: z.boolean().default(true),
+  /** Ruta del arte dentro del bucket privado `client-art`: `<uid>/<archivo>`.
+   *  NO es una URL. El servidor comprueba además que el <uid> sea el de la
+   *  sesión — ver route.ts. La forma se acota acá para que no entre una URL
+   *  pública heredada ni una ruta con `..`. */
+  client_design_url: z
+    .string()
+    .trim()
+    .max(400)
+    .regex(
+      /^[0-9a-fA-F-]{36}\/[A-Za-z0-9._-]+$/,
+      "La ruta del arte no tiene la forma esperada.",
+    )
+    .optional()
+    .nullable(),
 });
 
 export const clientQuotationSchema = z.object({
