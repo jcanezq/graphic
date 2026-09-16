@@ -1,6 +1,6 @@
 # Arquitectura del Sistema CotiGrafix
 
-> **Actualizado: 2026-09-15**, verificado contra el código en `e952209`. Cada afirmación de este
+> **Actualizado: 2026-09-15**, verificado contra el código en `006a4db`. Cada afirmación de este
 > documento se comprobó ejecutando o leyendo el archivo que se cita. **Si algo acá no coincide con
 > el código, el código manda y este documento está vencido: corregilo.**
 
@@ -259,7 +259,10 @@ componentes.
 5. **El documento se verifica solo.** En cuanto el RUC o el DNI queda completo (8 u 11 dígitos),
    se consulta una única vez por número, con 600 ms de espera. Si falla, **calla**: el usuario no
    pidió nada y puede escribir el nombre a mano. El botón «Consultar» sí reporta el error.
-6. Se guarda por `POST /api/client/quotations`.
+6. **Si desmarca el diseño, adjunta su arte ahí mismo** — sólo con sesión iniciada, porque las
+   políticas del bucket exigen que la carpeta sea su `uid`. El archivo va directo a `client-art`
+   desde el navegador y en el borrador queda **la ruta**, no una URL.
+7. Se guarda por `POST /api/client/quotations`.
 
 ### 5.2 Administrador
 
@@ -490,6 +493,33 @@ que cubrir **todos** los valores posibles de la columna que los discrimina. Si m
 **El control barato:** después de guardar, contar las filas. Si salieron menos de las que entraron
 y nadie borró nada a mano, el filtro de carga tiene un agujero.
 
+### 7.12 El servidor reconstruye los ítems del cliente: lo que no se asigna, se pierde
+
+`POST /api/client/quotations` **no confía en el cuerpo de la petición**. De cada línea toma
+únicamente la **cantidad** y los **tres interruptores** de componentes, y vuelve a construir el
+ítem desde el catálogo con `createQuotationItemFromProduct` (`route.ts:113-131`). Por eso el
+cliente no puede falsear un precio.
+
+**La consecuencia, que hay que tener presente al agregar cualquier campo:** todo lo que venga del
+cliente y deba persistir hay que **asignarlo explícitamente después** de esa reconstrucción. Pasó
+con la ruta del arte; volverá a pasar con lo próximo.
+
+Y hay dos maneras de equivocarse, las dos silenciosas:
+
+1. **Pasarlo por `recalcQuotationItem`.** Su lista de `overrides` es cerrada y la llamada usa
+   `as any`: un campo que no esté en la lista **se descarta sin que el compilador diga nada**.
+   Ver §4.5.
+2. **Aceptarlo sin comprobar de quién es.** El arte se guarda como `<uid>/<archivo>`, y el servidor
+   **verifica que ese `uid` sea el de la sesión** antes de aceptarlo
+   (`route.ts:137-139`). Sin esa línea, alguien podría adjuntar a su propia cotización la ruta del
+   archivo de otro: no podría leerlo —`/api/art` compara con la sesión— pero **el administrador
+   sí**, y lo abriría creyendo que es el arte de ese pedido.
+
+> **Ante una ruta ajena o vencida se descarta en silencio y la cotización se guarda igual.** Es
+> deliberado y es comercial: una ruta ajena es un intento, una ruta vieja de una pestaña abierta
+> hace rato es un accidente, y en los dos casos guardar el pedido sin el arte es mejor que perder
+> la venta.
+
 ---
 
 ## 8. Estado y pendientes conocidos
@@ -497,6 +527,7 @@ y nadie borró nada a mano, el filtro de carga tiene un agujero.
 | Asunto | Estado |
 |---|---|
 | Migraciones | **39 aplicadas**; la fuga de `clients_with_stats` cerrada y el arte del cliente en privado |
+| Imágenes | plan completo: buckets cerrados, cero optimizador, arte privado con entrega firmada |
 | Integración continua | `ci.yml` verde con los cuatro pasos (typecheck, lint, test, build) |
 | Protección de rama `main` | **desactivada** — el CI avisa pero no bloquea |
 | `db-types.yml` | nunca se ejecutó; le falta el secreto `SUPABASE_ACCESS_TOKEN` |
@@ -525,6 +556,9 @@ y nadie borró nada a mano, el filtro de carga tiene un agujero.
 | **El arte del cliente es privado y se entrega firmado** | §6.4 |
 | **La propiedad del archivo vive en la ruta, no en una columna** | §6.4 |
 | **`client_design_url` guarda una ruta, no una URL** | §3 · §6.4 |
+| **El cliente adjunta su arte, sólo con sesión** | §5.1 |
+| **Lo que el cliente manda se asigna DESPUÉS de reconstruir el ítem** | §7.12 |
+| Sin galería, sin requisitos de arte, sin validación por contenido | decisión del dueño, 2026-09-16 |
 | **CSS en la hoja de estilos, nunca como texto en el JSX** | §7.9 |
 | CSS con tokens en vez de Tailwind | §1 |
 
