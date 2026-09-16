@@ -32,7 +32,10 @@ export const clientQuotationSchema = z.object({
   client_ruc: z
     .string()
     .trim()
-    .regex(/^\d{11}$/, "El RUC debe tener 11 dígitos.")
+    // RUC (11) o DNI (8). La columna clients.ruc guarda los dos y el tipo se
+    // deduce del largo; ver docs/ARQUITECTURA.md §3. El esquema de /api/ruc
+    // (más abajo) SÍ exige 11: esa ruta consulta SUNAT, que sólo tiene RUC.
+    .regex(/^(\d{8}|\d{11})$/, "El documento debe tener 8 dígitos (DNI) u 11 (RUC).")
     .optional()
     .nullable()
     .or(z.literal("")),
