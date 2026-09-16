@@ -145,6 +145,35 @@ export default function QuotationDetailPage() {
     }
   }
 
+  const [subiendoArte, setSubiendoArte] = useState<number | null>(null);
+
+  async function handleArtUpload(index: number, file: File) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      showToast("Tu sesión expiró. Vuelve a iniciarla.", "error");
+      return;
+    }
+    setSubiendoArte(index);
+    try {
+      const ext = file.name.split(".").pop();
+      const nombre = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+      // El primer segmento DEBE ser el uid: lo exige la política del bucket.
+      const ruta = `${user.id}/${nombre}`;
+
+      const { error } = await supabase.storage.from("client-art").upload(ruta, file);
+      if (error) throw error;
+
+      // La ruta NO pasa por recalcQuotationItem: su lista de overrides es
+      // cerrada y la descartaría en silencio (ver ARQUITECTURA §4.5).
+      setItems((prev) => prev.map((it, k) => k === index ? { ...it, client_design_url: ruta } : it));
+      showToast("Arte adjuntado. Guardá la cotización para conservarlo.");
+    } catch (err: any) {
+      showToast(err?.message || "No se pudo subir el archivo", "error");
+    } finally {
+      setSubiendoArte(null);
+    }
+  }
+
   function updateItem(index: number, changes: Partial<QuotationItem>) {
     const updated = [...items];
     // Reenviar `changes` COMPLETO. recalcQuotationItem resuelve cada campo con
@@ -470,18 +499,7 @@ export default function QuotationDetailPage() {
                                   {item.product_code}
                                 </div>
                               )}
-                              {(item.has_design === false && (item.design_cost || 0) > 0) && (
-                                <div style={{ marginTop: 4, padding: 6, background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
-                                  <span style={{ fontSize: '0.7rem', display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                                    Diseño adjunto por cliente
-                                  </span>
-                                  {item.client_design_url ? (
-                                    <a href={`/api/art?path=${encodeURIComponent(item.client_design_url)}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: 'var(--accent)' }}>Ver archivo</a>
-                                  ) : (
-                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Ninguno</span>
-                                  )}
-                                </div>
-                              )}
+                              {/* Arte adjunto: ahora en fila propia (ADJ-T2) */}
                             </td>
                             <td style={{ fontSize: "0.8rem" }}>{item.unit}</td>
                             <td>
@@ -635,6 +653,43 @@ export default function QuotationDetailPage() {
                                 {formatCurrency(calcItemSubtotal(item.transport_quantity ?? 1, calcUnitPrice(item.transport_unit_cost ?? 0, item.transport_margin_percent ?? item.margin_percent)))}
                               </td>
                               <td></td>
+                            </tr>
+                          )}
+                          {/* Arte del cliente: fila propia, después de los componentes */}
+                          {(item.has_design === false && (item.design_cost || 0) > 0) && (
+                            <tr>
+                              <td />
+                              <td colSpan={8} style={{ paddingTop: 0, paddingBottom: 6 }}>
+                                <div style={{ padding: 6, background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
+                                  <span style={{ fontSize: '0.7rem', display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                                    Diseño adjunto por cliente
+                                  </span>
+                                  {item.client_design_url ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                      <a href={`/api/art?path=${encodeURIComponent(item.client_design_url)}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: 'var(--accent)' }}>Ver archivo</a>
+                                      <button
+                                        type="button"
+                                        onClick={() => setItems((prev) => prev.map((it, k) => k === i ? { ...it, client_design_url: null } : it))}
+                                        style={{ fontSize: '0.7rem', color: 'var(--error)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                                      >
+                                        Quitar
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <input
+                                      key={`file-${(item as any).row_key ?? i}`}
+                                      type="file"
+                                      accept="image/*,.pdf,.ai,.psd"
+                                      disabled={subiendoArte === i}
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) handleArtUpload(i, f);
+                                      }}
+                                      style={{ fontSize: '0.7rem', width: '100%' }}
+                                    />
+                                  )}
+                                </div>
+                              </td>
                             </tr>
                           )}
                         </React.Fragment>
