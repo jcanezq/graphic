@@ -123,11 +123,8 @@ export function buildCatalogPricing(
   const materialCostRaw = materials.reduce((acc: number, m: any) => acc + (m.quantity * m.unit_cost), 0);
   const laborCostRaw = labor.reduce((acc: number, l: any) => acc + (l.hours * l.hourly_rate), 0);
   
-  const designCostItem = findIndirectByKind(indirects as any, 'design');
-  const designCostRaw = designCostItem ? indirectRowCost(designCostItem as any) : 0;
-  
-  const transportCostItem = findIndirectByKind(indirects as any, 'transport');
-  const transportCostRaw = transportCostItem ? indirectRowCost(transportCostItem as any) : 0;
+  const designCostRaw = sumIndirectByKind(indirects as any, 'design');
+  const transportCostRaw = sumIndirectByKind(indirects as any, 'transport');
   
   const totalIndirectRaw = calcIndirectCost(indirects as any);
   const otherIndirectRaw = totalIndirectRaw - designCostRaw - transportCostRaw;
@@ -248,11 +245,8 @@ export function createQuotationItemFromProduct(
   
   // Design / transport se identifican por `kind` (columna estable), no por texto.
   // Fallback por texto normalizado sólo para filas anteriores a la migración de `kind`.
-  const designCostItem = findIndirectByKind(product.indirect_costs, 'design');
-  const designCost = designCostItem ? indirectRowCost(designCostItem as any) : 0;
-
-  const transportCostItem = findIndirectByKind(product.indirect_costs, 'transport');
-  const transportCost = transportCostItem ? indirectRowCost(transportCostItem as any) : 0;
+  const designCost = sumIndirectByKind(product.indirect_costs, 'design');
+  const transportCost = sumIndirectByKind(product.indirect_costs, 'transport');
   
   const indirectCost = calcIndirectCost(product.indirect_costs || []);
   const baseIndirectCost = indirectCost - designCost - transportCost;
@@ -334,6 +328,23 @@ export function round2(n: number): number {
  * (dato previo a la migración), cae a coincidencia de texto NORMALIZADA
  * — sin tildes y en minúsculas — para que "Diseno" y "Diseño" sean lo mismo.
  */
+/** Costo total de un componente opcional. Suma TODAS sus filas: si un artículo
+ *  tiene «Diseño gráfico» y «Diseño personalizado», los dos son diseño. Antes se
+ *  tomaba sólo la primera, y cuál era la primera no estaba definido. */
+export function sumIndirectByKind(
+  indirects: Array<{ concept: string; cost?: number | null; kind?: string | null; quantity?: number | null; unit_cost?: number | null }> | undefined | null,
+  kind: 'design' | 'transport',
+): number {
+  const list = indirects || [];
+  const propias = list.filter((ic) => ic.kind === kind);
+  if (propias.length > 0) {
+    return propias.reduce((acc, ic) => acc + indirectRowCost(ic as any), 0);
+  }
+  // Respaldo por texto, sólo mientras queden filas sin clasificar. Se retira en KIND-T5.
+  const item = findIndirectByKind(list, kind);
+  return item ? indirectRowCost(item as any) : 0;
+}
+
 export function findIndirectByKind(
   indirects: Array<{ concept: string; cost: number; kind?: string | null }> | undefined | null,
   kind: 'design' | 'transport',
