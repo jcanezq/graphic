@@ -529,23 +529,7 @@ export default function NewQuotationPage() {
                                   {item.product_code}
                                 </div>
                               )}
-                              {(item.item_type !== 'Material' && item.has_design === false) && (
-                                <div style={{ marginTop: 4, padding: 6, background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
-                                  <span style={{ fontSize: '0.7rem', display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                                    Sube el diseño del cliente:
-                                  </span>
-                                  <input 
-                                    key={`file-${(item as any).row_key ?? i}`}
-                                    type="file" 
-                                    accept="image/*,.pdf,.ai,.psd" 
-                                    style={{ fontSize: '0.7rem', width: '100%' }} 
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0] || null;
-                                      setItems((prev) => prev.map((it, k) => k === i ? { ...it, client_design_file: file } : it));
-                                    }} 
-                                  />
-                                </div>
-                              )}
+                              {/* The artwork box has been moved to its own row */}
                             </td>
                             <td style={{ fontSize: "0.8rem" }}>{item.unit}</td>
                             <td>
@@ -699,6 +683,29 @@ export default function NewQuotationPage() {
                                 {formatCurrency(calcItemSubtotal(item.transport_quantity ?? 1, calcUnitPrice(item.transport_unit_cost ?? 0, item.transport_margin_percent ?? item.margin_percent)))}
                               </td>
                               <td></td>
+                            </tr>
+                          )}
+                          {/* Arte del cliente: fila propia, después de los componentes */}
+                          {(item.item_type !== 'Material' && item.has_design === false) && (
+                            <tr>
+                              <td />
+                              <td colSpan={8} style={{ paddingTop: 0, paddingBottom: 6 }}>
+                                <div style={{ padding: 6, background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
+                                  <span style={{ fontSize: '0.7rem', display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                                    Sube el diseño del cliente:
+                                  </span>
+                                  <input
+                                    key={`file-${(item as any).row_key ?? i}`}
+                                    type="file"
+                                    accept="image/*,.pdf,.ai,.psd"
+                                    style={{ fontSize: '0.7rem', width: '100%' }}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0] || null;
+                                      setItems((prev) => prev.map((it, k) => k === i ? { ...it, client_design_file: file } : it));
+                                    }}
+                                  />
+                                </div>
+                              </td>
                             </tr>
                           )}
                           {/* Observación de la línea */}
