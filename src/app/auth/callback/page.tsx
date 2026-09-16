@@ -16,7 +16,7 @@ export default function AuthCallback() {
 
         // Solo rutas internas conocidas. Un destino arbitrario acá era un open redirect
         // (y, con esquema javascript:, un vector de XSS en el origen de la app).
-        const SAFE_DESTINATIONS = new Set(["/dashboard", "/cotizar", "/mis-cotizaciones"]);
+        const SAFE_DESTINATIONS = new Set(["/", "/dashboard", "/cotizar", "/mis-cotizaciones"]);
         const sanitizeDestination = (raw: string | null): string | null => {
           if (!raw) return null;
           if (!raw.startsWith("/") || raw.startsWith("//")) return null;
@@ -34,9 +34,16 @@ export default function AuthCallback() {
           const safeParam = sanitizeDestination(params.get("redirect"));
           if (safeParam) return safeParam;
 
-          // Sin destino explícito: el landing neutro. Si el usuario es admin, el middleware
-          // lo manda al panel; el privilegio no se adivina desde el correo.
-          return "/cotizar";
+          // Sin destino explícito: el catálogo. Era `/cotizar`, y quien entraba desde
+          // «Ingresar» —sin carrito— caía en un detalle de cotización vacío.
+          //
+          // Quien SÍ tenía productos no pasa por acá: `cotizar/page.tsx` guarda su
+          // destino antes de mandar al ingreso, y ese caso se atiende más arriba.
+          //
+          // El equipo tampoco pasa por acá: /login declara `/dashboard` antes de
+          // mandar al ingreso (edición (a) de esta misma tarea). Acá cae sólo quien
+          // entró sin decir a dónde iba, y para ése el catalogo es el lugar.
+          return "/";
         };
 
         // 1. Session already exists

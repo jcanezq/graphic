@@ -15,6 +15,13 @@ export default function LoginPage() {
     try {
       setLoading(true);
       setError("");
+      // Esta pantalla es la del equipo: su destino es el panel. La rama de correo y
+      // contraseña ya va derecho ahí (abajo); la de Google pasa por /auth/callback y
+      // necesita declararlo, o cae en el destino por omisión.
+      //
+      // Mandar a /dashboard a quien no es administrador NO abre nada: el middleware
+      // lo rebota a /mis-cotizaciones (middleware.ts:62-66).
+      try { localStorage.setItem("cotigrafic_auth_redirect", "/dashboard"); } catch {}
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
