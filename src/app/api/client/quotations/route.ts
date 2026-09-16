@@ -138,6 +138,12 @@ export async function POST(request: Request) {
       snapItem.client_design_url =
         rutaArte && rutaArte.split("/")[0] === auth.user.id ? rutaArte : null;
 
+      // La observación también se asigna DESPUÉS del recálculo: `notes` no está
+      // en la lista de overrides de recalcQuotationItem y se descartaría en
+      // silencio. Acá no hace falta comprobar propiedad: es texto del propio
+      // cliente sobre su propia línea, ya acotado por el esquema.
+      snapItem.notes = raw.notes ?? null;
+
       quotationItems.push(snapItem);
     }
 

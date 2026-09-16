@@ -378,6 +378,7 @@ export default function CotizadorPage() {
             has_design: it.has_design ?? true,
             has_transport: it.has_transport ?? true,
             client_design_url: it.client_design_url ?? null,
+            notes: it.notes ?? null,
           })),
         }),
       });

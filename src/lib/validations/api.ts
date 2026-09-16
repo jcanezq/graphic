@@ -19,6 +19,9 @@ export const clientQuotationItemSchema = z.object({
   has_labor: z.boolean().default(true),
   has_design: z.boolean().default(true),
   has_transport: z.boolean().default(true),
+  /** Observación libre de esta línea, escrita por el cliente. Se acota el
+   *  largo acá: es texto libre que viaja desde el navegador. */
+  notes: z.string().trim().max(2000).optional().nullable(),
   /** Ruta del arte dentro del bucket privado `client-art`: `<uid>/<archivo>`.
    *  NO es una URL. El servidor comprueba además que el <uid> sea el de la
    *  sesión — ver route.ts. La forma se acota acá para que no entre una URL
