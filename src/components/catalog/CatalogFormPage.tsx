@@ -266,7 +266,12 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
                 setValue={form.setValue}
                 fixedType={type}
               />
-              {form.watch("type") === "Servicio" && (
+              {/* Productos y Servicios comparten el desglose de costos: los dos se
+                  componen de materiales, mano de obra e indirectos, y el motor de
+                  precios nunca distinguió entre ellos. Los MATERIALES quedan fuera
+                  a propósito: su costo es manual_unit_cost, y darles una lista de
+                  materiales permitiría meter un material dentro de sí mismo. */}
+              {form.watch("type") !== "Material" && (
                 <>
                   <MaterialsSection 
                     control={form.control} 
