@@ -77,7 +77,7 @@ export default async function DashboardPage() {
           <p className="subtitle">Resumen general de tu negocio</p>
         </div>
         <div className="page-header-actions">
-          <Link href="/dashboard/cotizaciones/nueva" className="btn btn-primary">
+          <Link href="/" className="btn btn-primary">
             <Plus size={18} />
             Nueva Cotización
           </Link>
@@ -277,7 +277,7 @@ export default async function DashboardPage() {
               <FileText size={40} />
               <h3>Sin cotizaciones aún</h3>
               <p>Crea tu primera cotización para verla aquí.</p>
-              <Link href="/dashboard/cotizaciones/nueva" className="btn btn-primary">
+              <Link href="/" className="btn btn-primary">
                 <Plus size={16} />
                 Nueva Cotización
               </Link>

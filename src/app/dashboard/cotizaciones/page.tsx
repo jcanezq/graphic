@@ -375,7 +375,7 @@ export default function QuotationsPage() {
               <LayoutGrid size={16} />
             </button>
           </div>
-          <Link href="/dashboard/cotizaciones/nueva" className="btn btn-primary">
+          <Link href="/" className="btn btn-primary">
             <Plus size={18} />
             Nueva Cotización
           </Link>
@@ -540,7 +540,7 @@ export default function QuotationsPage() {
                 : "Crea tu primera cotización para empezar."}
             </p>
             {!debouncedSearch && !statusFilter && (
-              <Link href="/dashboard/cotizaciones/nueva" className="btn btn-primary">
+              <Link href="/" className="btn btn-primary">
                 <Plus size={16} /> Nueva Cotización
               </Link>
             )}

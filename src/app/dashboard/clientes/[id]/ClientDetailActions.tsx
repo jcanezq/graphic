@@ -88,14 +88,6 @@ export default function ClientDetailActions({ client, quotes, ltv, totalAmount, 
     setEditing(false);
   }
 
-  // Build pre-filled query string for new quotation
-  const newQuotParams = new URLSearchParams({
-    client_name: client.name,
-    ...(client.ruc ? { client_ruc: client.ruc } : {}),
-    ...(client.address ? { client_address: client.address } : {}),
-    ...(client.phone ? { client_phone: client.phone } : {}),
-    ...(client.email ? { client_email: client.email } : {}),
-  }).toString();
 
   const maxStatusCount = Math.max(...statusDist.map(s => s.count), 1);
 
@@ -128,7 +120,7 @@ export default function ClientDetailActions({ client, quotes, ltv, totalAmount, 
               </button>
             </div>
           )}
-          <Link href={`/dashboard/cotizaciones/nueva?${newQuotParams}`} className="btn btn-primary">
+          <Link href="/" className="btn btn-primary">
             <Plus size={16} /> Nueva Cotización
           </Link>
         </div>
@@ -308,7 +300,7 @@ export default function ClientDetailActions({ client, quotes, ltv, totalAmount, 
                   <span style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
                     Monto total: <strong style={{ color: "var(--text-primary)" }}>{formatCurrency(totalAmount)}</strong>
                   </span>
-                  <Link href={`/dashboard/cotizaciones/nueva?${newQuotParams}`} className="btn btn-primary btn-sm">
+                  <Link href="/" className="btn btn-primary btn-sm">
                     <Plus size={14} /> Nueva
                   </Link>
                 </div>
@@ -319,7 +311,7 @@ export default function ClientDetailActions({ client, quotes, ltv, totalAmount, 
                   <FileText size={40} />
                   <h3>Sin cotizaciones</h3>
                   <p>Este cliente aún no tiene cotizaciones asociadas.</p>
-                  <Link href={`/dashboard/cotizaciones/nueva?${newQuotParams}`} className="btn btn-primary">
+                  <Link href="/" className="btn btn-primary">
                     <Plus size={16} /> Crear Primera Cotización
                   </Link>
                 </div>
