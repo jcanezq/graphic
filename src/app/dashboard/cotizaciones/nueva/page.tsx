@@ -287,22 +287,24 @@ export default function NewQuotationPage() {
             const file = item.client_design_file;
             const fileExt = file.name.split('.').pop();
             const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            // El primer segmento DEBE ser el uid: las políticas de 'client-art'
+            // comparan (storage.foldername(name))[1] con auth.uid(). Si cambiás
+            // la forma de la ruta, la subida empieza a fallar con 403.
             const filePath = `${user!.id}/${fileName}`;
-            
+
             const { error: uploadError } = await supabase.storage
-              .from('client-designs')
+              .from('client-art')
               .upload(filePath, file);
-              
+
             if (uploadError) {
                await supabase.from("quotations").delete().eq("id", quotation.id);
                throw new Error(`Error subiendo diseño para ${item.product_name}: ` + uploadError.message);
             }
-            
-            const { data: { publicUrl } } = supabase.storage
-              .from('client-designs')
-              .getPublicUrl(filePath);
-              
-            item.client_design_url = publicUrl;
+
+            // Se guarda la RUTA, no una URL pública: el bucket es privado y el
+            // archivo se entrega firmado por /api/art. La columna se llama
+            // client_design_url por historia; hoy contiene una ruta de Storage.
+            item.client_design_url = filePath;
           }
         }
 
