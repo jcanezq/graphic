@@ -16,7 +16,6 @@ import {
   ShieldAlert
 } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import type { Product, Category } from "@/types";
 
 export interface CatalogListPageProps {
@@ -381,12 +380,13 @@ export default function CatalogListPage({ type, queryKey, basePath, labels }: Ca
                                 cursor: "pointer",
                               }}
                             >
-                              <Image
+                              {/* eslint-disable-next-line @next/next/no-img-element --
+                                  Deliberado: se sirve directo de Supabase Storage y NO por /_next/image.
+                                  Motivo en docs/ARQUITECTURA.md §7.5. */}
+                              <img
                                 src={p.image_url}
                                 alt={p.name}
-                                fill
-                                style={{ objectFit: "cover" }}
-                                sizes="40px"
+                                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
                               />
                             </div>
                           ) : (
@@ -543,12 +543,13 @@ export default function CatalogListPage({ type, queryKey, basePath, labels }: Ca
           onClick={() => setSelectedImage(null)}
         >
           <div style={{ position: "relative", width: "90%", height: "90%", borderRadius: "var(--radius-md)", overflow: "hidden", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)" }}>
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element --
+                Deliberado: se sirve directo de Supabase Storage y NO por /_next/image.
+                Motivo en docs/ARQUITECTURA.md §7.5. */}
+            <img
               src={selectedImage}
               alt="Vista previa"
-              fill
-              style={{ objectFit: "contain" }}
-              sizes="90vw"
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }}
             />
           </div>
         </div>

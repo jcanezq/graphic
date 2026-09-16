@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
 import { useQueryClient } from "@tanstack/react-query";
@@ -187,7 +186,10 @@ export default function SettingsPage() {
                 }}>
                   {logoUrl ? (
                     <>
-                      <Image src={logoUrl} alt="Logo" fill style={{ objectFit: "contain" }} sizes="120px" />
+                      {/* eslint-disable-next-line @next/next/no-img-element --
+                          Deliberado: se sirve directo de Supabase Storage y NO por /_next/image.
+                          Motivo en docs/ARQUITECTURA.md §7.5. */}
+                      <img src={logoUrl} alt="Logo" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />
                       <button 
                         type="button" 
                         onClick={handleRemoveLogo}

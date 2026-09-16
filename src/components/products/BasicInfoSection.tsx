@@ -1,5 +1,4 @@
 import { useState } from "react";
-import Image from "next/image";
 import { Upload, Image as ImageIcon, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
@@ -93,7 +92,10 @@ export function BasicInfoSection({ register, control, setValue, categories, erro
           }}>
             {imageUrl ? (
               <>
-                <Image src={imageUrl} alt="Producto" fill style={{ objectFit: "contain" }} sizes="120px" />
+                {/* eslint-disable-next-line @next/next/no-img-element --
+                    Deliberado: se sirve directo de Supabase Storage y NO por /_next/image.
+                    Motivo en docs/ARQUITECTURA.md §7.5. */}
+                <img src={imageUrl} alt="Producto" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />
                 <button 
                   type="button" 
                   onClick={handleRemoveImage}
