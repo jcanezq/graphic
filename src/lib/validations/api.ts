@@ -58,6 +58,9 @@ export const clientQuotationSchema = z.object({
     .or(z.literal("")),
   client_address: optionalText(300),
   notes: optionalText(2000),
+  /** Días de vigencia. Sólo lo respeta el servidor cuando quien pide es
+   *  administrador; para el resto vale 15. Ver 43-spec-UNIF. */
+  validity_days: z.number().int().min(1).max(365).optional(),
   items: z
     .array(clientQuotationItemSchema)
     .min(1, "Debes incluir al menos un producto o servicio.")

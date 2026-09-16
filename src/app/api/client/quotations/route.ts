@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     // del usuario autenticado (user_id abajo); el cuerpo no puede elegir dueño.
     const auth = await requireUser();
     if (auth instanceof NextResponse) return auth;
-    const { user } = auth;
+    const { user, isAdmin } = auth;
 
     let rawBody: unknown;
     try {
@@ -43,6 +43,7 @@ export async function POST(request: Request) {
       client_email,
       client_ruc,
       client_address,
+      validity_days,
       notes,
       items: rawItems,
     } = parsed.data;
@@ -198,7 +199,13 @@ export async function POST(request: Request) {
 
     // 7. Insert quotation into database
     // We try 'solicitada', if DB check constraint fails, fall back to 'borrador'
-    const fullNotes = `[Solicitud Web de Cliente - Precios sujetos a confirmación] ${notes ? `Notas: ${notes}` : ""}`.trim();
+    // El prefijo existe para que el administrador sepa, al abrir la cotización,
+    // que los precios salieron del catálogo y nadie los revisó todavía. Cuando es
+    // el propio administrador quien la genera, la etiqueta es falsa y ensucia el
+    // PDF: su nota va tal cual.
+    const fullNotes = isAdmin
+      ? (notes || "").trim()
+      : `[Solicitud Web de Cliente - Precios sujetos a confirmación] ${notes ? `Notas: ${notes}` : ""}`.trim();
 
     let insertPayload: any = {
       number,
@@ -213,8 +220,13 @@ export async function POST(request: Request) {
       igv: totals.igv,
       total: totals.total,
       notes: fullNotes,
-      validity_days: 15,
-      status: "solicitada",
+      // La validez del cuerpo SÓLO se respeta si quien pide es administrador. Un
+      // cliente que mandara `validity_days: 3650` se estaría auto-otorgando diez
+      // años de precio congelado.
+      validity_days: isAdmin ? (validity_days ?? 15) : 15,
+      // Una cotización hecha por el administrador no está «solicitada por
+      // confirmar»: es suya y todavía no la mandó.
+      status: isAdmin ? "borrador" : "solicitada",
     };
 
     let { data: quotation, error: insertError } = await adminClient
