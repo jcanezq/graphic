@@ -32,12 +32,11 @@ export default function MisCotizacionesPage() {
         const { data: { user } } = await supabase.auth.getUser();
         setUser(user);
 
-        // Fetch company phone
-        const { data: settings } = await supabase
-          .from("company_settings")
-          .select("phone")
-          .limit(1)
-          .single();
+        // El teléfono de la empresa, por la ruta pública: `company_settings` es
+        // sólo del administrador (guarda `default_margin`) y desde el navegador del
+        // cliente volvía vacía, mandando el WhatsApp al número de relleno.
+        const resCfg = await fetch("/api/public/settings", { cache: "no-store" });
+        const settings = await resCfg.json();
         if (settings?.phone) setCompanyPhone(settings.phone);
 
         if (user) {

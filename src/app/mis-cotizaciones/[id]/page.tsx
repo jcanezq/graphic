@@ -31,11 +31,11 @@ export default function CotizacionListaPage() {
   useEffect(() => {
     async function cargar() {
       try {
-        const { data: settings } = await supabase
-          .from("company_settings")
-          .select("phone")
-          .limit(1)
-          .single();
+        // El teléfono NO se lee de `company_settings` desde el navegador: esa tabla
+        // es sólo del administrador y para el cliente volvía vacía, con lo cual el
+        // enlace de WhatsApp caía al número de relleno de `whatsapp.ts:31`.
+        const resCfg = await fetch("/api/public/settings", { cache: "no-store" });
+        const settings = await resCfg.json();
         if (settings?.phone) setCompanyPhone(settings.phone);
 
         // La cotización se lee con la sesión del usuario, NO con el cliente
