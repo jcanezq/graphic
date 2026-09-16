@@ -87,7 +87,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
       supabase.from("products").select("*").eq("id", productId).single(),
       supabase.from("product_materials").select("*, material_ref:products!product_materials_material_id_fkey(id, manual_unit_cost, name, unit)").eq("product_id", productId),
       supabase.from("product_labor").select("*").eq("product_id", productId),
-      supabase.from("product_indirect_costs").select("*").eq("product_id", productId),
+      supabase.from("product_indirect_costs").select("*").eq("product_id", productId).order("id"),
     ]);
 
     if (prodRes.data) {

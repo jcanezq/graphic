@@ -85,7 +85,7 @@ export default function CatalogListPage({ type, queryKey, basePath, labels }: Ca
       const [matRes, labRes, indRes] = await Promise.all([
         supabase.from("product_materials").select("*, material_ref:products!product_materials_material_id_fkey(id, manual_unit_cost, name, unit)").in("product_id", productIds),
         supabase.from("product_labor").select("*").in("product_id", productIds),
-        supabase.from("product_indirect_costs").select("*").in("product_id", productIds),
+        supabase.from("product_indirect_costs").select("*").in("product_id", productIds).order("id"),
       ]);
 
       const products = prodRes.map((p: any) => {

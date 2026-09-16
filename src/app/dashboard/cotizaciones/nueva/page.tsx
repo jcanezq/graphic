@@ -65,7 +65,7 @@ export default function NewQuotationPage() {
         const [matRes, labRes, indRes] = await Promise.all([
           supabase.from("product_materials").select("*, material_ref:products!product_materials_material_id_fkey(id, manual_unit_cost, name, unit)").in("product_id", ids),
           supabase.from("product_labor").select("*").in("product_id", ids),
-          supabase.from("product_indirect_costs").select("*").in("product_id", ids),
+          supabase.from("product_indirect_costs").select("*").in("product_id", ids).order("id"),
         ]);
 
         prods = productsRes.data.map((p: any) => {
