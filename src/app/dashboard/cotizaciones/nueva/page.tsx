@@ -527,7 +527,7 @@ export default function NewQuotationPage() {
                                   {item.product_code}
                                 </div>
                               )}
-                              {(item.item_type === 'Servicio' && item.has_design === false) && (
+                              {(item.item_type !== 'Material' && item.has_design === false) && (
                                 <div style={{ marginTop: 4, padding: 6, background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
                                   <span style={{ fontSize: '0.7rem', display: 'block', marginBottom: 4, fontWeight: 500 }}>
                                     Sube el diseño del cliente:
