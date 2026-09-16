@@ -1336,6 +1336,42 @@ td.primary {
   min-width: 0;
 }
 
+/* ── Pantalla principal pública: catálogo + panel del carrito ──────────
+   Vivía en un <style> dentro de src/app/page.tsx y de ahí salía un error
+   de hidratación: React escapa el texto que renderiza, así que el `>` de
+   `.catalog-layout > *` llegaba al navegador como `&gt;`; y como <style>
+   es RAWTEXT, el navegador NO decodifica entidades. Resultado: el texto
+   del DOM no coincidía con el de React, y encima la regla quedaba
+   inválida y el navegador la descartaba. No devuelvas este CSS al JSX. */
+.catalog-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+/* Sin esto, la fila de chips (nowrap) estira la pista 1fr y empuja el
+   panel fuera de la pantalla. Es min-width:auto, el default de los ítems
+   de grid. Mismo arreglo que .content-grid, acá arriba. */
+.catalog-layout > * {
+  min-width: 0;
+}
+@media (min-width: 1000px) {
+  .catalog-layout.has-cart {
+    grid-template-columns: 1fr 320px;
+  }
+  .cart-bottom-bar {
+    display: none !important;
+  }
+}
+@media (max-width: 999px) {
+  .cart-panel {
+    display: none !important;
+  }
+  .cart-bottom-bar {
+    display: flex !important;
+  }
+}
+
 /* ── Product Image ──────────────────────────────────────────── */
 .product-image-container {
   width: 100%;

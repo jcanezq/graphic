@@ -220,36 +220,7 @@ export default function HomePage() {
 
       {/* Catalog Section */}
       <section id="catalogo" style={{ padding: "4rem 1.5rem", flex: 1 }}>
-        <style>{`
-          .catalog-layout {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 2rem;
-            align-items: start;
-          }
-          /* Sin esto, la fila de chips (nowrap) estira la pista 1fr y empuja
-             el panel fuera de la pantalla. Es min-width:auto, el default de
-             los ítems de grid. Mismo arreglo que globals.css:679 y :705. */
-          .catalog-layout > * {
-            min-width: 0;
-          }
-          @media (min-width: 1000px) {
-            .catalog-layout.has-cart {
-              grid-template-columns: 1fr 320px;
-            }
-            .cart-bottom-bar {
-              display: none !important;
-            }
-          }
-          @media (max-width: 999px) {
-            .cart-panel {
-              display: none !important;
-            }
-            .cart-bottom-bar {
-              display: flex !important;
-            }
-          }
-        `}</style>
+
         <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
           <div className={`catalog-layout ${quoteItems.length > 0 ? "has-cart" : ""}`}>
             <div>
