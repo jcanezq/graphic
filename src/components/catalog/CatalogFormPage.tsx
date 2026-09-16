@@ -112,7 +112,12 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
         })),
         labor: labRes.data || [],
         production_costs: indRes.data?.filter((ic: any) => ic.kind === 'production') || [],
-        other_costs: indRes.data?.filter((ic: any) => !ic.kind || ic.kind === 'other') || []
+        // `other` es el cajón por defecto Y el de las filas sin kind. Las de diseño y
+        // transporte tienen el suyo: antes no caían en ninguno, no llegaban al
+        // formulario, y el guardado las borraba de la base.
+        other_costs: indRes.data?.filter((ic: any) => !ic.kind || ic.kind === 'other') || [],
+        design_costs: indRes.data?.filter((ic: any) => ic.kind === 'design') || [],
+        transport_costs: indRes.data?.filter((ic: any) => ic.kind === 'transport') || []
       });
     }
     setLoading(false);
@@ -201,9 +206,12 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
       }
     }
     
+    // Los cuatro tipos, o el DELETE de arriba borra lo que no se reinserte.
     const indirectsToInsert = [
       ...values.production_costs.map(ic => ({ ...ic, kind: 'production' })),
-      ...values.other_costs.map(ic => ({ ...ic, kind: 'other' }))
+      ...values.other_costs.map(ic => ({ ...ic, kind: 'other' })),
+      ...values.design_costs.map(ic => ({ ...ic, kind: 'design' })),
+      ...values.transport_costs.map(ic => ({ ...ic, kind: 'transport' }))
     ];
     
     if (indirectsToInsert.length > 0) {
@@ -299,6 +307,22 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
                     name="other_costs" 
                     title="📦 Otros" 
                     buttonText="Agregar otro costo" 
+                  />
+                  <IndirectCostsSection
+                    control={form.control}
+                    register={form.register}
+                    watch={form.watch}
+                    name="design_costs"
+                    title="🎨 Diseño"
+                    buttonText="Agregar costo de diseño"
+                  />
+                  <IndirectCostsSection
+                    control={form.control}
+                    register={form.register}
+                    watch={form.watch}
+                    name="transport_costs"
+                    title="🚚 Transporte"
+                    buttonText="Agregar costo de transporte"
                   />
                 </>
               )}

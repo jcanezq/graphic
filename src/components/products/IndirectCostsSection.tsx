@@ -8,7 +8,7 @@ interface Props {
   control: Control<ProductFormValues>;
   register: UseFormRegister<ProductFormValues>;
   watch: UseFormWatch<ProductFormValues>;
-  name: "production_costs" | "other_costs";
+  name: "production_costs" | "other_costs" | "design_costs" | "transport_costs";
   title: string;
   buttonText: string;
 }

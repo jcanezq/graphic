@@ -36,6 +36,20 @@ export const productSchema = z.object({
     unit: z.string().optional().default("global"),
     quantity: z.number().min(0).catch(0),
     unit_cost: z.number().min(0).catch(0),
+  })),
+  // Los dos componentes que el cliente puede activar o desactivar en su cotización.
+  // Van en la MISMA tabla que los otros indirectos, distinguidos por `kind`.
+  design_costs: z.array(z.object({
+    concept: z.string(),
+    unit: z.string().optional().default("global"),
+    quantity: z.number().min(0).catch(0),
+    unit_cost: z.number().min(0).catch(0),
+  })),
+  transport_costs: z.array(z.object({
+    concept: z.string(),
+    unit: z.string().optional().default("global"),
+    quantity: z.number().min(0).catch(0),
+    unit_cost: z.number().min(0).catch(0),
   }))
 });
 
