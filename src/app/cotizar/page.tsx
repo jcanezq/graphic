@@ -79,6 +79,15 @@ export default function CotizadorPage() {
   const [searchingRuc, setSearchingRuc] = useState(false);
   const [isRegisteredClient, setIsRegisteredClient] = useState(false);
 
+  // El administrador cotiza en esta misma pantalla (ver 43-spec-UNIF). Lo que
+  // cambia para él NO es el precio ni el costo —eso sigue fuera del alcance del
+  // cliente— sino dos datos administrativos: a quién le cotiza y por cuántos días
+  // vale la cotización.
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [validityDays, setValidityDays] = useState(15);
+  const [clientMatches, setClientMatches] = useState<Array<{ id: string; name: string; ruc: string | null; address: string | null; phone: string | null; email: string | null }>>([]);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+
   // Auto-fill RUC from DB if available
   useEffect(() => {
     async function checkRucInDB() {
@@ -137,6 +146,23 @@ export default function CotizadorPage() {
         setCurrentUser(user);
         setClientName(user.user_metadata?.full_name || user.email?.split("@")[0] || "");
         setClientEmail(user.email || "");
+
+        // El privilegio se pregunta al servidor, NUNCA se deduce del correo ni de
+        // los metadatos de la sesión: los dos viajan en el token y el navegador los
+        // ve. Es la misma ruta que usa PublicNavbar (`PublicNavbar.tsx:29`).
+        try {
+          const res = await fetch("/api/me", { cache: "no-store" });
+          const me = await res.json();
+          if (me?.isAdmin) {
+            setIsAdmin(true);
+            // Cotiza PARA un cliente: el nombre y el correo de la sesión son los
+            // del propio administrador y no tienen que quedar pegados al formulario.
+            setClientName("");
+            setClientEmail("");
+          }
+        } catch {
+          // Sin respuesta, se lo trata como cliente: es el lado seguro.
+        }
       }
 
       try {
@@ -177,6 +203,28 @@ export default function CotizadorPage() {
     setItems(newItems);
     localStorage.setItem("cotigrafic_quote_items", JSON.stringify(newItems));
     window.dispatchEvent(new Event("cotigrafic_cart_updated"));
+  }
+
+  // Busca en el CRM mientras el administrador escribe. La consulta va POR DEMANDA
+  // y con `limit(5)`: cargar la tabla `clients` entera en una pantalla pública
+  // sería mandarle al navegador la cartera de la empresa. Para un cliente sin
+  // privilegio ni siquiera se llama, y si se llamara la RLS de `clients` no
+  // devolvería nada.
+  async function buscarClientes(texto: string) {
+    const q = texto.trim();
+    if (q.length < 2) {
+      setClientMatches([]);
+      setShowClientDropdown(false);
+      return;
+    }
+    const { data } = await supabase
+      .from("clients")
+      .select("id, name, ruc, address, phone, email")
+      .ilike("name", `%${q}%`)
+      .order("name")
+      .limit(5);
+    setClientMatches(data || []);
+    setShowClientDropdown((data || []).length > 0);
   }
 
   const [subiendoArte, setSubiendoArte] = useState<number | null>(null);
@@ -371,6 +419,7 @@ export default function CotizadorPage() {
           client_ruc: clientRuc.trim() || null,
           client_address: clientAddress.trim() || null,
           notes: notes.trim() || null,
+          validity_days: validityDays,
           items: items.map((it) => ({
             product_id: it.product_id,
             quantity: it.quantity,
@@ -902,7 +951,7 @@ export default function CotizadorPage() {
                   }}
                 >
                   <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "1rem" }}>
-                    Tus Datos de Contacto
+                    {isAdmin ? "Datos del Cliente" : "Tus Datos de Contacto"}
                   </h2>
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
@@ -937,20 +986,69 @@ export default function CotizadorPage() {
                       </div>
                     </div>
 
-                    <div style={{ gridColumn: "span 2" }}>
+                    <div style={{ gridColumn: "span 2", position: "relative" }}>
                       <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, marginBottom: "0.3rem" }}>
                         Nombre completo o Razón Social *
                       </label>
                       <input
                         type="text"
                         value={clientName}
-                        onChange={(e) => setClientName(e.target.value)}
+                        onChange={(e) => {
+                          setClientName(e.target.value);
+                          if (isAdmin) buscarClientes(e.target.value);
+                        }}
+                        onBlur={() => setTimeout(() => setShowClientDropdown(false), 120)}
                         placeholder="Ej: Impresos del Norte S.A.C. / Juan Pérez"
                         className="form-input"
                         style={{ width: "100%", padding: "0.55rem 0.8rem" }}
                         disabled={isRegisteredClient}
                       />
+
+                      {/* Sólo para el administrador: elegir un cliente ya registrado. */}
+                      {isAdmin && showClientDropdown && clientMatches.length > 0 && (
+                        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--bg-elevated)", border: "1px solid var(--surface-border)", borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-lg)", zIndex: 50, maxHeight: 200, overflowY: "auto" }}>
+                          {clientMatches.map((c) => (
+                            <div
+                              key={c.id}
+                              onMouseDown={() => {
+                                setClientName(c.name);
+                                setClientRuc(c.ruc || "");
+                                setClientAddress(c.address || "");
+                                setClientPhone(c.phone || "");
+                                setClientEmail(c.email || "");
+                                setShowClientDropdown(false);
+                              }}
+                              style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--surface-divider)", fontSize: "0.85rem" }}
+                            >
+                              <div style={{ fontWeight: 600 }}>{c.name}</div>
+                              {c.ruc && (
+                                <div style={{ color: "var(--text-muted)", fontSize: "0.78rem" }}>
+                                  RUC: {c.ruc}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
+
+                    {/* Sólo para el administrador: por cuántos días vale la cotización. */}
+                    {isAdmin && (
+                      <div style={{ gridColumn: "span 2" }}>
+                        <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, marginBottom: "0.3rem" }}>
+                          Validez (días)
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={365}
+                          value={validityDays}
+                          onChange={(e) => setValidityDays(Number(e.target.value))}
+                          className="form-input"
+                          style={{ width: "100%", padding: "0.55rem 0.8rem" }}
+                        />
+                      </div>
+                    )}
 
                     <div style={{ gridColumn: "span 2" }}>
                       <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, marginBottom: "0.3rem" }}>
