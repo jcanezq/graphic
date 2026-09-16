@@ -171,6 +171,13 @@ export async function generatePDF(quotation: Quotation, settings: CompanySetting
         desc += `\n${item.product_description}`;
       }
 
+      // La observación de la línea, escrita por el cliente o por el administrador.
+      // Va en la celda de Descripción y no en una columna propia: es la única con
+      // ancho automático, y puede traer hasta 2000 caracteres.
+      if (item.notes && item.notes.trim()) {
+        desc += `\nObs.: ${item.notes.trim()}`;
+      }
+
       // Filas exactamente como las calcula el motor canónico. Cada una cumple
       // cantidad x P.U. = subtotal, y su suma es el Subtotal del pie.
       const lines = buildQuotationItemLines(item);
