@@ -25,31 +25,24 @@ export const productSchema = z.object({
     hours: z.number().min(0).catch(0),
     hourly_rate: z.number().min(0).catch(0),
   })),
+  // Sólo DOS categorías de indirectos, las del modelo del negocio. El diseño es
+  // una fila de Producción marcada como componente, y el transporte una de Otros.
   production_costs: z.array(z.object({
     concept: z.string(),
     unit: z.string().optional().default("global"),
     quantity: z.number().min(0).catch(0),
     unit_cost: z.number().min(0).catch(0),
+    /** Marca la fila como el componente opcional de su categoría: en Producción
+     *  es Diseño, en Otros es Transporte. Campo SÓLO del formulario — en la base
+     *  se traduce a la columna `kind`, que NO cambia. */
+    is_component: z.boolean().optional().default(false),
   })),
   other_costs: z.array(z.object({
     concept: z.string(),
     unit: z.string().optional().default("global"),
     quantity: z.number().min(0).catch(0),
     unit_cost: z.number().min(0).catch(0),
-  })),
-  // Los dos componentes que el cliente puede activar o desactivar en su cotización.
-  // Van en la MISMA tabla que los otros indirectos, distinguidos por `kind`.
-  design_costs: z.array(z.object({
-    concept: z.string(),
-    unit: z.string().optional().default("global"),
-    quantity: z.number().min(0).catch(0),
-    unit_cost: z.number().min(0).catch(0),
-  })),
-  transport_costs: z.array(z.object({
-    concept: z.string(),
-    unit: z.string().optional().default("global"),
-    quantity: z.number().min(0).catch(0),
-    unit_cost: z.number().min(0).catch(0),
+    is_component: z.boolean().optional().default(false),
   }))
 });
 

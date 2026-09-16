@@ -8,12 +8,15 @@ interface Props {
   control: Control<ProductFormValues>;
   register: UseFormRegister<ProductFormValues>;
   watch: UseFormWatch<ProductFormValues>;
-  name: "production_costs" | "other_costs" | "design_costs" | "transport_costs";
+  name: "production_costs" | "other_costs";
+  /** Nombre del componente opcional de esta categoría: «Diseño» en Producción,
+   *  «Transporte» en Otros. Si no viene, la columna no se dibuja. */
+  componentLabel?: string;
   title: string;
   buttonText: string;
 }
 
-export function IndirectCostsSection({ control, register, watch, name, title, buttonText }: Props) {
+export function IndirectCostsSection({ control, register, watch, name, title, buttonText, componentLabel }: Props) {
   const [isOpen, setIsOpen] = useState(true);
   const { fields, append, remove } = useFieldArray({
     control,
@@ -35,7 +38,12 @@ export function IndirectCostsSection({ control, register, watch, name, title, bu
             <table className="cost-table">
               <thead>
                 <tr>
-                  <th style={{ width: "35%", textAlign: "left" }}>CONCEPTO</th>
+                  <th style={{ width: "27%", textAlign: "left" }}>CONCEPTO</th>
+                  {componentLabel && (
+                    <th style={{ width: "8%", textAlign: "center" }} title={`El cliente puede quitar ${componentLabel} de su cotización`}>
+                      {componentLabel.toUpperCase()}
+                    </th>
+                  )}
                   <th style={{ width: "15%", textAlign: "left" }}>UNIDAD</th>
                   <th style={{ width: "15%", textAlign: "left" }}>CANTIDAD</th>
                   <th style={{ width: "15%", textAlign: "right" }}>COSTO UNIT. (S/)</th>
@@ -90,6 +98,15 @@ export function IndirectCostsSection({ control, register, watch, name, title, bu
                     <td style={{ color: "var(--text-primary)", fontWeight: 500, textAlign: "right", paddingRight: 10 }}>
                       {formatCurrency(qty * uCost)}
                     </td>
+                    {componentLabel && (
+                      <td style={{ textAlign: "center" }}>
+                        <input
+                          type="checkbox"
+                          {...register(`${name}.${i}.is_component` as const)}
+                          title={`Marcar como ${componentLabel}: el cliente podrá quitarlo de su cotización`}
+                        />
+                      </td>
+                    )}
                     <td className="row-actions">
                       <button
                         type="button"
@@ -108,7 +125,7 @@ export function IndirectCostsSection({ control, register, watch, name, title, bu
           <button
             type="button"
             className="add-row-btn"
-            onClick={() => append({ concept: "", unit: "global", quantity: 1, unit_cost: 0 })}
+            onClick={() => append({ concept: "", unit: "global", quantity: 1, unit_cost: 0, is_component: false })}
           >
             <Plus size={14} /> {buttonText}
           </button>

@@ -111,13 +111,14 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
           unit: m.material_ref?.unit ?? m.unit
         })),
         labor: labRes.data || [],
-        production_costs: indRes.data?.filter((ic: any) => ic.kind === 'production') || [],
-        // `other` es el cajón por defecto Y el de las filas sin kind. Las de diseño y
-        // transporte tienen el suyo: antes no caían en ninguno, no llegaban al
-        // formulario, y el guardado las borraba de la base.
-        other_costs: indRes.data?.filter((ic: any) => !ic.kind || ic.kind === 'other') || [],
-        design_costs: indRes.data?.filter((ic: any) => ic.kind === 'design') || [],
-        transport_costs: indRes.data?.filter((ic: any) => ic.kind === 'transport') || []
+        // Cada categoría trae también sus filas marcadas: 'design' es Producción y
+        // 'transport' es Otros. La casilla del formulario sale del `kind` guardado.
+        production_costs: (indRes.data || [])
+          .filter((ic: any) => ic.kind === 'production' || ic.kind === 'design')
+          .map((ic: any) => ({ ...ic, is_component: ic.kind === 'design' })),
+        other_costs: (indRes.data || [])
+          .filter((ic: any) => !ic.kind || ic.kind === 'other' || ic.kind === 'transport')
+          .map((ic: any) => ({ ...ic, is_component: ic.kind === 'transport' }))
       });
     }
     setLoading(false);
@@ -206,12 +207,12 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
       }
     }
     
-    // Los cuatro tipos, o el DELETE de arriba borra lo que no se reinserte.
+    // El DELETE de arriba borra TODO, así que lo que no se reinserte se pierde.
+    // La sección da la categoría; la casilla decide si además es su componente
+    // opcional. Los cuatro valores de `kind` se siguen escribiendo igual.
     const indirectsToInsert = [
-      ...values.production_costs.map(ic => ({ ...ic, kind: 'production' })),
-      ...values.other_costs.map(ic => ({ ...ic, kind: 'other' })),
-      ...values.design_costs.map(ic => ({ ...ic, kind: 'design' })),
-      ...values.transport_costs.map(ic => ({ ...ic, kind: 'transport' }))
+      ...values.production_costs.map(ic => ({ ...ic, kind: ic.is_component ? 'design' : 'production' })),
+      ...values.other_costs.map(ic => ({ ...ic, kind: ic.is_component ? 'transport' : 'other' }))
     ];
     
     if (indirectsToInsert.length > 0) {
@@ -299,6 +300,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
                     name="production_costs" 
                     title="🏭 Producción" 
                     buttonText="Agregar costo de producción" 
+                    componentLabel="Diseño"
                   />
                   <IndirectCostsSection 
                     control={form.control} 
@@ -307,22 +309,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
                     name="other_costs" 
                     title="📦 Otros" 
                     buttonText="Agregar otro costo" 
-                  />
-                  <IndirectCostsSection
-                    control={form.control}
-                    register={form.register}
-                    watch={form.watch}
-                    name="design_costs"
-                    title="🎨 Diseño"
-                    buttonText="Agregar costo de diseño"
-                  />
-                  <IndirectCostsSection
-                    control={form.control}
-                    register={form.register}
-                    watch={form.watch}
-                    name="transport_costs"
-                    title="🚚 Transporte"
-                    buttonText="Agregar costo de transporte"
+                    componentLabel="Transporte"
                   />
                 </>
               )}

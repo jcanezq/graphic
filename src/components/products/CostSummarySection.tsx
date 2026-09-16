@@ -15,8 +15,6 @@ export function CostSummarySection({ watch, saving, isNew }: Props) {
   const labor = watch("labor") || [];
   const production_costs = watch("production_costs") || [];
   const other_costs = watch("other_costs") || [];
-  const design_costs = watch("design_costs") || [];
-  const transport_costs = watch("transport_costs") || [];
   const defaultMargin = watch("default_margin") || 0;
   const useManualCost = watch("useManualCost");
   const manualCost = watch("manual_unit_cost");
@@ -41,10 +39,8 @@ export function CostSummarySection({ watch, saving, isNew }: Props) {
     materials.map((m) => ({ quantity: m.quantity || 0, unit_cost: m.unit_cost || 0 })),
     labor.map((l) => ({ hours: l.hours || 0, hourly_rate: l.hourly_rate || 0 })),
     [
-      ...production_costs.map((i) => ({ concept: i.concept, kind: 'production', quantity: i.quantity, unit_cost: i.unit_cost })),
-      ...other_costs.map((i) => ({ concept: i.concept, kind: 'other', quantity: i.quantity, unit_cost: i.unit_cost })),
-      ...design_costs.map((i) => ({ concept: i.concept, kind: 'design', quantity: i.quantity, unit_cost: i.unit_cost })),
-      ...transport_costs.map((i) => ({ concept: i.concept, kind: 'transport', quantity: i.quantity, unit_cost: i.unit_cost })),
+      ...production_costs.map((i: any) => ({ concept: i.concept, kind: i.is_component ? 'design' : 'production', quantity: i.quantity, unit_cost: i.unit_cost })),
+      ...other_costs.map((i: any) => ({ concept: i.concept, kind: i.is_component ? 'transport' : 'other', quantity: i.quantity, unit_cost: i.unit_cost })),
     ],
   );
 
