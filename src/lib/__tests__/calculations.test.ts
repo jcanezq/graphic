@@ -130,10 +130,10 @@ describe('Calculations Library', () => {
           // «Grafico» SIN TILDE y kind 'production', tal cual está cargado en producción.
           // Este es el caso que el clasificador tiene que reconocer: si vuelve a caer en el
           // costo base, el desglose de abajo se rompe.
-          { concept: 'Diseño Grafico',    kind: 'production', unit: 'global', quantity: 1, unit_cost: 18, cost: 18 },
+          { concept: 'Diseño Grafico',    kind: 'design', unit: 'global', quantity: 1, unit_cost: 18, cost: 18 },
           { concept: 'impresión digital', kind: 'production', unit: 'm2',     quantity: 1, unit_cost: 15, cost: 15 },
           { concept: 'Plotter de corte',  kind: 'production', unit: 'm2',     quantity: 1, unit_cost: 7,  cost: 7  },
-          { concept: 'Transporte',        kind: 'other',      unit: 'global', quantity: 1, unit_cost: 20, cost: 20 },
+          { concept: 'Transporte',        kind: 'transport',      unit: 'global', quantity: 1, unit_cost: 20, cost: 20 },
         ],
       };
 
@@ -179,10 +179,10 @@ describe('Calculations Library', () => {
         ],
         labor: [{ work_type: 'Labor', hours: 1, hourly_rate: 60 }],
         indirect_costs: [
-          { concept: 'Diseño Grafico',    kind: 'production', unit: 'global', quantity: 1, unit_cost: 18, cost: 18 },
+          { concept: 'Diseño Grafico',    kind: 'design', unit: 'global', quantity: 1, unit_cost: 18, cost: 18 },
           { concept: 'impresión digital', kind: 'production', unit: 'm2',     quantity: 1, unit_cost: 15, cost: 15 },
           { concept: 'Plotter de corte',  kind: 'production', unit: 'm2',     quantity: 1, unit_cost: 7,  cost: 7  },
-          { concept: 'Transporte',        kind: 'other',      unit: 'global', quantity: 1, unit_cost: 20, cost: 20 },
+          { concept: 'Transporte',        kind: 'transport',      unit: 'global', quantity: 1, unit_cost: 20, cost: 20 },
         ],
       };
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import { calcUnitPrice, round2, findIndirectByKind, indirectRowCost, calcIndirectCost, buildCatalogPricing } from "@/lib/calculations";
+import { buildCatalogPricing } from "@/lib/calculations";
 import { COMPONENT_SCOPE_DEFAULTS } from "@/lib/pricing";
 import type { PublicProduct } from "@/types";
 

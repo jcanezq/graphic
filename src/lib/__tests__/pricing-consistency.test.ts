@@ -13,7 +13,7 @@ const SERVICIO: any = {
   category_id: null, image_url: null,
   materials: [{ name: 'Vinil', quantity: 1, unit_cost: 10, unit: 'm2', material_id: null }],
   labor: [{ work_type: 'Instalacion', hours: 1, hourly_rate: 20 }],
-  indirect_costs: [{ concept: 'Diseño gráfico', cost: 15 }, { concept: 'Transporte', cost: 5 }],
+  indirect_costs: [{ concept: 'Diseño gráfico', kind: 'design', cost: 15 }, { concept: 'Transporte', kind: 'transport', cost: 5 }],
 };
 const MARGEN = 35;
 const IGV = 0.18;
@@ -23,8 +23,8 @@ function totalDelCarrito(product: any, qty: number) {
   // Simulate route.ts
   const materialCost = product.materials.reduce((acc: number, m: any) => acc + (m.quantity * m.unit_cost), 0);
   const laborCost = product.labor.reduce((acc: number, l: any) => acc + (l.hours * l.hourly_rate), 0);
-  const designCost = product.indirect_costs.find((i: any) => i.concept === 'Diseño gráfico' || i.concept === 'Diseno grafico')?.cost ?? 0;
-  const transportCost = product.indirect_costs.find((i: any) => i.concept === 'Transporte')?.cost ?? 0;
+  const designCost = product.indirect_costs.filter((i: any) => i.kind === 'design').reduce((acc: number, ic: any) => acc + (ic.cost ?? 0), 0);
+  const transportCost = product.indirect_costs.filter((i: any) => i.kind === 'transport').reduce((acc: number, ic: any) => acc + (ic.cost ?? 0), 0);
   
   const baseCost = materialCost;
   const margin = product.default_margin;

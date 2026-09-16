@@ -3,7 +3,7 @@
 // ============================================================
 
 import type { Product, ProductMaterial, ProductLabor, ProductIndirectCost, QuotationItem } from '@/types';
-import { normalizeText } from '@/lib/formatters';
+
 import {
   buildItemLines, itemSubtotal, quotationTotals,
   COMPONENT_SCOPE_DEFAULTS, LEGACY_SCOPE,
@@ -323,11 +323,7 @@ export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/**
- * Localiza un indirecto por su `kind`. Si la fila todavía no tiene `kind`
- * (dato previo a la migración), cae a coincidencia de texto NORMALIZADA
- * — sin tildes y en minúsculas — para que "Diseno" y "Diseño" sean lo mismo.
- */
+
 /** Costo total de un componente opcional. Suma TODAS sus filas: si un artículo
  *  tiene «Diseño gráfico» y «Diseño personalizado», los dos son diseño. Antes se
  *  tomaba sólo la primera, y cuál era la primera no estaba definido. */
@@ -340,27 +336,10 @@ export function sumIndirectByKind(
   if (propias.length > 0) {
     return propias.reduce((acc, ic) => acc + indirectRowCost(ic as any), 0);
   }
-  // Respaldo por texto, sólo mientras queden filas sin clasificar. Se retira en KIND-T5.
-  const item = findIndirectByKind(list, kind);
-  return item ? indirectRowCost(item as any) : 0;
+  return 0;
 }
 
-export function findIndirectByKind(
-  indirects: Array<{ concept: string; cost: number; kind?: string | null }> | undefined | null,
-  kind: 'design' | 'transport',
-) {
-  const list = indirects || [];
-  const byKind = list.find((ic) => ic.kind === kind);
-  if (byKind) return byKind;
-  const needles = kind === 'design'
-    ? ['diseno', 'design']
-    : ['transporte', 'movilidad', 'flete'];
-  return list.find((ic) => {
-    if (ic.kind && !['other', 'production'].includes(ic.kind)) return false;
-    const n = normalizeText(ic.concept);
-    return needles.some((x) => n.includes(x));
-  });
-}
+
 
 /**
  * Traduce un QuotationItem al modelo canónico del motor de precios.
