@@ -16,13 +16,10 @@ import {
   Calculator,
   Trash2,
   ArrowLeft,
-  CheckCircle2,
   ShieldAlert,
   Send,
-  MessageCircle,
   LogIn,
   Layers,
-  FileText,
   User,
   Sparkles,
 } from "lucide-react";
@@ -115,12 +112,6 @@ export default function CotizadorPage() {
   // Submission & Auth Modal state
   const [submitting, setSubmitting] = useState(false);
   const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [completedQuote, setCompletedQuote] = useState<{
-    quotationId: string;
-    number: string;
-    total: number;
-    whatsappUrl: string;
-  } | null>(null);
 
   // Load catalog for settings
   const { data: catalogData } = useQuery({
@@ -442,14 +433,11 @@ export default function CotizadorPage() {
       localStorage.removeItem("cotigrafic_quote_form");
       window.dispatchEvent(new Event("cotigrafic_cart_updated"));
 
-      setCompletedQuote({
-        quotationId: data.quotationId,
-        number: data.number,
-        total: data.total,
-        whatsappUrl: data.whatsappUrl,
-      });
-
       showToast("¡Cotización generada exitosamente!");
+
+      // La entrega —PDF, correo y WhatsApp— vive en su propia página, con URL
+      // propia: la confirmación tiene que sobrevivir a una recarga.
+      router.push(`/mis-cotizaciones/${data.quotationId}`);
     } catch (err: any) {
       console.error(err);
       showToast(err.message, "error");
@@ -463,127 +451,7 @@ export default function CotizadorPage() {
       <PublicNavbar />
 
       <main style={{ maxWidth: "1240px", margin: "0 auto", padding: "2.5rem 1.5rem", width: "100%", flex: 1 }}>
-        {/* If Quote Completed View */}
-        {completedQuote ? (
-          <div
-            style={{
-              maxWidth: "680px",
-              margin: "2rem auto",
-              background: "var(--bg-secondary)",
-              border: "1px solid var(--surface-border)",
-              borderRadius: "var(--radius-xl)",
-              padding: "3rem 2rem",
-              textAlign: "center",
-              boxShadow: "var(--shadow-lg)",
-            }}
-          >
-            <div
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: "50%",
-                background: "rgba(16, 185, 129, 0.12)",
-                color: "var(--success)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                margin: "0 auto 1.5rem auto",
-              }}
-            >
-              <CheckCircle2 size={44} />
-            </div>
-
-            <div
-              style={{
-                display: "inline-block",
-                padding: "0.25rem 0.85rem",
-                borderRadius: "var(--radius-full)",
-                background: "var(--accent-light)",
-                color: "var(--accent)",
-                fontSize: "0.85rem",
-                fontWeight: 700,
-                marginBottom: "0.75rem",
-              }}
-            >
-              {completedQuote.number}
-            </div>
-
-            <h1 style={{ fontSize: "2rem", fontWeight: 800, color: "var(--text-primary)", marginBottom: "0.5rem" }}>
-              ¡Tu cotización ha sido generada!
-            </h1>
-
-            <p style={{ color: "var(--text-secondary)", fontSize: "1rem", lineHeight: 1.5, marginBottom: "1.75rem" }}>
-              Hemos registrado tu solicitud por un total preliminar de{" "}
-              <strong style={{ color: "var(--text-primary)", fontSize: "1.15rem" }}>
-                {formatCurrency(completedQuote.total)}
-              </strong>
-              . Para coordinar los detalles técnicos y validar las medidas, confirma con nuestro asesor:
-            </p>
-
-            {/* BIG WHATSAPP ACTION BUTTON */}
-            <a
-              href={completedQuote.whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.75rem",
-                width: "100%",
-                background: "#25D366",
-                color: "#ffffff",
-                padding: "1rem 1.5rem",
-                borderRadius: "var(--radius-lg)",
-                fontSize: "1.05rem",
-                fontWeight: 700,
-                textDecoration: "none",
-                boxShadow: "0 8px 20px rgba(37, 211, 102, 0.35)",
-                marginBottom: "1.25rem",
-                transition: "transform 0.2s ease",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-            >
-              <MessageCircle size={24} />
-              <span>Confirmar por WhatsApp con un Asesor</span>
-            </a>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                gap: "1rem",
-                flexWrap: "wrap",
-                borderTop: "1px solid var(--surface-divider)",
-                paddingTop: "1.5rem",
-                marginTop: "1.5rem",
-              }}
-            >
-              <Link
-                href="/mis-cotizaciones"
-                prefetch={false}
-                className="btn btn-secondary"
-                style={{ fontSize: "0.9rem", padding: "0.65rem 1.25rem" }}
-              >
-                <FileText size={16} />
-                <span>Ver en Mis Cotizaciones</span>
-              </Link>
-
-              <button
-                onClick={() => {
-                  setCompletedQuote(null);
-                  setItems([]);
-                }}
-                className="btn btn-ghost"
-                style={{ fontSize: "0.9rem", padding: "0.65rem 1.25rem" }}
-              >
-                + Crear otra cotización
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div>
+        <div>
             {/* Header */}
             <div style={{ marginBottom: "2rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
@@ -1182,7 +1050,6 @@ export default function CotizadorPage() {
               </div>
             </div>
           </div>
-        )}
       </main>
 
       {/* Google Login Modal */}
