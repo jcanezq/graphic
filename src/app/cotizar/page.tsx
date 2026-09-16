@@ -712,25 +712,6 @@ export default function CotizadorPage() {
                             </div>
                           </div>
 
-                          {/* Observación de la línea */}
-                          <div style={{ padding: "0 1.25rem 0.75rem", marginLeft: "1rem" }}>
-                            <textarea
-                              value={item.notes ?? ""}
-                              onChange={(e) => handleNotesChange(idx, e.target.value)}
-                              placeholder="Observaciones de este ítem (opcional)"
-                              rows={2}
-                              style={{
-                                width: "100%",
-                                fontSize: "0.8rem",
-                                padding: "0.5rem 0.65rem",
-                                border: "1px solid var(--surface-border)",
-                                borderRadius: "var(--radius-sm)",
-                                background: "var(--bg-primary)",
-                                color: "var(--text-primary)",
-                                resize: "vertical",
-                              }}
-                            />
-                          </div>
 
                           {/* Components Rows */}
                           {((item.labor_price ?? 0) > 0 || (item.design_price ?? 0) > 0 || (item.transport_price ?? 0) > 0) && (
@@ -834,51 +815,75 @@ export default function CotizadorPage() {
                                 </div>
                               )}
 
-                              {item.has_design === false && (
-                                <div style={{ marginTop: 4, padding: 8, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--surface-divider)' }}>
-                                  <span style={{ fontSize: '0.75rem', display: 'block', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                                    Como desmarcaste Diseño Gráfico, adjuntá acá tu archivo final.
-                                  </span>
+                            </div>
+                          )}
 
-                                  {!currentUser ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => setShowGoogleModal(true)}
-                                      style={{ fontSize: '0.75rem', color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}
-                                    >
-                                      Inicia sesión para adjuntar tu arte
-                                    </button>
-                                  ) : item.client_design_url ? (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.75rem' }}>
-                                      <span style={{ color: 'var(--success)' }}>✓ Archivo adjuntado</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const updated = [...items];
-                                          updated[idx] = { ...updated[idx], client_design_url: null };
-                                          persistItems(updated);
-                                        }}
-                                        style={{ fontSize: '0.75rem', color: 'var(--error)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                                      >
-                                        Quitar
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <input
-                                      type="file"
-                                      accept="image/jpeg,image/png,image/tiff,application/pdf"
-                                      disabled={subiendoArte === idx}
-                                      onChange={(e) => {
-                                        const f = e.target.files?.[0];
-                                        if (f) handleArtUpload(idx, f);
-                                      }}
-                                      style={{ fontSize: '0.72rem', width: '100%' }}
-                                    />
-                                  )}
+                          {/* Arte del cliente. Fuera del panel de componentes: el orden
+                              del ítem es componentes → arte → observación, igual que en
+                              las dos pantallas del administrador. */}
+                          {item.has_design === false && (
+                            <div style={{ margin: "0 1.25rem 0.5rem", marginLeft: "1rem", padding: 8, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--surface-divider)' }}>
+                              <span style={{ fontSize: '0.75rem', display: 'block', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                                Como desmarcaste Diseño Gráfico, adjuntá acá tu archivo final.
+                              </span>
+
+                              {!currentUser ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowGoogleModal(true)}
+                                  style={{ fontSize: '0.75rem', color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}
+                                >
+                                  Inicia sesión para adjuntar tu arte
+                                </button>
+                              ) : item.client_design_url ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.75rem' }}>
+                                  <span style={{ color: 'var(--success)' }}>✓ Archivo adjuntado</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = [...items];
+                                      updated[idx] = { ...updated[idx], client_design_url: null };
+                                      persistItems(updated);
+                                    }}
+                                    style={{ fontSize: '0.75rem', color: 'var(--error)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                                  >
+                                    Quitar
+                                  </button>
                                 </div>
+                              ) : (
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/tiff,application/pdf"
+                                  disabled={subiendoArte === idx}
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) handleArtUpload(idx, f);
+                                  }}
+                                  style={{ fontSize: '0.72rem', width: '100%' }}
+                                />
                               )}
                             </div>
                           )}
+
+                          {/* Observación de la línea. Va última: cierra el ítem. */}
+                          <div style={{ padding: "0 1.25rem 0.75rem", marginLeft: "1rem" }}>
+                            <textarea
+                              value={item.notes ?? ""}
+                              onChange={(e) => handleNotesChange(idx, e.target.value)}
+                              placeholder="Observaciones de este ítem (opcional)"
+                              rows={2}
+                              style={{
+                                width: "100%",
+                                fontSize: "0.8rem",
+                                padding: "0.5rem 0.65rem",
+                                border: "1px solid var(--surface-border)",
+                                borderRadius: "var(--radius-sm)",
+                                background: "var(--bg-primary)",
+                                color: "var(--text-primary)",
+                                resize: "vertical",
+                              }}
+                            />
+                          </div>
                         </div>
                       ))}
                     </div>
