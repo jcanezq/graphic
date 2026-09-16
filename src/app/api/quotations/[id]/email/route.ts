@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Resend } from "resend";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/guards";
 import { generatePDF } from "@/lib/pdf-export";
 
@@ -63,9 +63,14 @@ export async function POST(
       );
     }
 
-    const { data: settings } = await supabase
+    // Mismo motivo que en /api/pdf/[id]: `company_settings` es sólo del
+    // administrador y con la sesión del cliente no volvía nada. Se lee con el
+    // cliente administrador, columnas acotadas, DESPUÉS de haber comprobado que
+    // la cotización es de quien pide.
+    const { data: settings } = await createAdminClient()
       .from("company_settings")
-      .select("*")
+      .select("company_name, ruc, address, phone, email, logo_url")
+      .limit(1)
       .single();
     if (!settings) {
       return NextResponse.json({ error: "Falta la configuración de la empresa." }, { status: 500 });
