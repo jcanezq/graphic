@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -213,7 +213,27 @@ export default function CotizadorPage() {
 
 
 
-  async function handleSearchDocumento() {
+  // Verificación automática: en cuanto el documento queda completo se consulta
+  // solo, una única vez por número. El botón sigue estando para reintentar.
+  // El límite de la ruta es de 20 consultas por minuto y por usuario
+  // (api/ruc/route.ts:10), así que una por documento no se le acerca.
+  const ultimoDocConsultado = useRef<string>("");
+
+  useEffect(() => {
+    const doc = clientRuc.replace(/\D/g, "");
+    if (![8, 11].includes(doc.length)) return;
+    if (isRegisteredClient) return;
+    if (ultimoDocConsultado.current === doc) return;
+
+    const t = setTimeout(() => {
+      ultimoDocConsultado.current = doc;
+      handleSearchDocumento(true);
+    }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientRuc, isRegisteredClient]);
+
+  async function handleSearchDocumento(silencioso = false) {
     const doc = clientRuc.replace(/\D/g, "");
     if (doc.length !== 8 && doc.length !== 11) return;
     try {
@@ -225,7 +245,10 @@ export default function CotizadorPage() {
       }
       showToast(data.tipo === 'DNI' ? "Datos de Reniec obtenidos" : "Datos de Sunat obtenidos");
     } catch (err: any) {
-      showToast(err.message, "error");
+      // En la consulta automática el usuario no pidió nada: si el servicio no
+      // responde, que escriba el nombre a mano sin un error en la cara. Con el
+      // botón sí se avisa, porque ahí sí lo pidió.
+      if (!silencioso) showToast(err.message, "error");
     } finally {
       setSearchingRuc(false);
     }
