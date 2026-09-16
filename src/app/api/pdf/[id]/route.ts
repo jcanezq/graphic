@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/guards";
 import { generatePDF } from "@/lib/pdf-export";
 
@@ -45,10 +45,18 @@ export async function GET(
       return NextResponse.json({ error: "Cotización no encontrada." }, { status: 404 });
     }
 
-    // Fetch settings
-    const { data: settings, error: sError } = await supabase
+    // La configuración de la empresa es el membrete del PDF —nombre, RUC, dirección,
+    // teléfono, correo y logo—, no un dato del usuario. `company_settings` está
+    // reservada al administrador porque guarda `default_margin`, así que con la
+    // sesión del cliente esta consulta no devolvía NADA y la ruta contestaba 404:
+    // el PDF del cliente no salía nunca.
+    //
+    // Se lee con el cliente administrador y SÓLO las seis columnas que el PDF usa.
+    // `default_margin` no está en la lista y no puede salir de acá ni por error.
+    const { data: settings, error: sError } = await createAdminClient()
       .from("company_settings")
-      .select("*")
+      .select("company_name, ruc, address, phone, email, logo_url")
+      .limit(1)
       .single();
 
     if (sError || !settings) {

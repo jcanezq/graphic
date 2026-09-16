@@ -8,7 +8,17 @@ import type { Quotation, CompanySettings } from "@/types";
 import { formatCurrency, formatDate } from "./formatters";
 import { buildQuotationItemLines } from "@/lib/calculations";
 
-export async function generatePDF(quotation: Quotation, settings: CompanySettings) {
+/** Lo único que el PDF usa de la configuración de la empresa: el membrete.
+ *  Se escribe como `Pick` y no como `CompanySettings` entera para dejar por
+ *  escrito qué columnas hacen falta —son seis— y que el `select` de cada ruta
+ *  se pueda acotar a ellas sin pelearse con el compilador. `default_margin`
+ *  no está, y no tiene por qué estar. */
+export type PdfCompanySettings = Pick<
+  CompanySettings,
+  "company_name" | "ruc" | "address" | "phone" | "email" | "logo_url"
+>;
+
+export async function generatePDF(quotation: Quotation, settings: PdfCompanySettings) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
