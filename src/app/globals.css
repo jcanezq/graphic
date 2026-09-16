@@ -124,6 +124,28 @@ img {
   height: auto;
 }
 
+/* ── Imagen de la tarjeta de catálogo, con zoom al pasar el mouse ────
+   El posicionamiento vive acá y NO en el JSX a propósito: el `transform`
+   en línea ganaba sobre la regla de hover y obligaba a un !important.
+   Ojo: el scale se compone CON el translateY, no lo reemplaza. */
+.product-card-media {
+  position: relative;
+  overflow: hidden;
+}
+.product-card-img {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: translateY(-50%);
+  transition: transform 0.35s ease;
+}
+.product-card-media:hover .product-card-img {
+  transform: translateY(-50%) scale(1.08);
+}
+
 /* ── Catalog Grid (DIS-T4) ──────────────────────────────────── */
 .catalog-grid {
   display: grid;

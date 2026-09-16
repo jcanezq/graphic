@@ -32,14 +32,13 @@ export function ProductCard({ product, onAdd, showCost }: ProductCardProps) {
     >
       {/* 1:1 Image Container */}
       <div
+        className="product-card-media"
         style={{
           width: "100%",
           paddingBottom: "100%",
-          position: "relative",
           marginBottom: "8px",
           background: "#f5f5f5",
           borderRadius: "2px",
-          overflow: "hidden",
         }}
       >
         {product.image_url ? (
@@ -48,17 +47,9 @@ export function ProductCard({ product, onAdd, showCost }: ProductCardProps) {
              Motivo en 12-spec-DIS §DIS-T3 (costo del plan Pro, cláusula comercial de Vercel Hobby
              y CVE del optimizador de Next 14). No cambiar a next/image sin revisar esa decisión. */
           <img
+            className="product-card-img"
             src={product.image_url}
             alt={product.name}
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "0",
-              transform: "translateY(-50%)",
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            }}
             loading="lazy"
           />
         ) : (
