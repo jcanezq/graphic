@@ -820,16 +820,19 @@ export default function CotizadorPage() {
                           className="form-input"
                           style={{ width: "100%", padding: "0.55rem 0.8rem" }}
                         />
-                        {(clientRuc.length === 8 || clientRuc.length === 11) && !isRegisteredClient && (
+                        {!isRegisteredClient && (
                           <button
                             type="button"
-                            onClick={handleSearchDocumento}
-                            disabled={searchingRuc}
+                            onClick={() => handleSearchDocumento()}
+                            disabled={
+                              searchingRuc ||
+                              ![8, 11].includes(clientRuc.replace(/\D/g, "").length)
+                            }
                             className="btn btn-secondary"
                             style={{ padding: "0.45rem 0.75rem", fontSize: "0.75rem", whiteSpace: "nowrap" }}
-                            title="Consultar en SUNAT o RENIEC"
+                            title="Consultar en SUNAT (RUC) o RENIEC (DNI)"
                           >
-                            {searchingRuc ? "..." : "Consultar SUNAT"}
+                            {searchingRuc ? "..." : "Consultar"}
                           </button>
                         )}
                       </div>
