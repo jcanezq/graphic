@@ -219,7 +219,9 @@ export default function HomePage() {
 
 
       {/* Catalog Section */}
-      <section id="catalogo" style={{ padding: "4rem 1.5rem", flex: 1 }}>
+      {/* 1.5rem arriba en vez de 4rem: el catálogo es lo que la gente viene a
+          ver, y 64 px de aire antes de la grilla eran 64 px de nada. */}
+      <section id="catalogo" style={{ padding: "1.5rem 1.5rem 4rem 1.5rem", flex: 1 }}>
 
         <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
           <div className={`catalog-layout ${quoteItems.length > 0 ? "has-cart" : ""}`}>
@@ -232,16 +234,13 @@ export default function HomePage() {
               alignItems: "flex-end",
               flexWrap: "wrap",
               gap: "1.5rem",
-              marginBottom: "2rem",
+              marginBottom: "1.25rem",
             }}
           >
             <div>
               <h2 style={{ fontSize: "1.85rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
                 Catálogo de Productos y Servicios
               </h2>
-              <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem", marginTop: "0.3rem" }}>
-                Precios unitarios estimados de venta al público
-              </p>
               <div style={{ marginTop: "0.5rem", fontSize: "0.86rem", color: "var(--warning)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <ShieldAlert size={16} />
                 <span>
