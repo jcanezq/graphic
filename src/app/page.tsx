@@ -74,6 +74,26 @@ export default function HomePage() {
   const categories = data?.categories || [];
   const settings = data?.settings;
 
+  // El slug viaja en la URL —lo usan los banners de la portada— y hay que
+  // traducirlo al id, porque el filtro del catálogo trabaja con category_id.
+  //
+  // Se lee con window.location en un efecto y NO con useSearchParams: esta
+  // página se prerenderiza (sale ○ en la tabla de rutas del build), y
+  // useSearchParams en una página estática obliga a envolverla en <Suspense> o
+  // el build falla. Para leer un parámetro una sola vez, esto es más barato y no
+  // cambia la naturaleza de la página.
+  const [categoriaInicial, setCategoriaInicial] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!categories.length) return;
+    const slug = new URLSearchParams(window.location.search).get("categoria");
+    if (!slug) return;
+    const cat = categories.find((c: any) => c.slug === slug);
+    // Un slug que no existe NO filtra: se muestra el catálogo entero. Dejarlo en
+    // cero resultados sería castigar al visitante por un enlace mal escrito.
+    if (cat) setCategoriaInicial(cat.id);
+  }, [categories]);
+
   const { data: bannersData } = useQuery({
     queryKey: ["home_banners"],
     queryFn: async () => {
@@ -233,7 +253,12 @@ export default function HomePage() {
               </button>
             </div>
           ) : (
-            <CatalogBrowser products={products} categories={categories} onAdd={addToQuote} />
+            <CatalogBrowser
+              products={products}
+              categories={categories}
+              onAdd={addToQuote}
+              initialCategoryId={categoriaInicial}
+            />
           )}
           </div>
 

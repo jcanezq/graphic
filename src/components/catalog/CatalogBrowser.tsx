@@ -10,12 +10,28 @@ interface CatalogBrowserProps {
   onAdd: (product: CatalogProduct) => void;
   /** El admin muestra el costo; el cliente sólo el precio de venta. */
   showCost?: boolean;
+  initialCategoryId?: string;
 }
 
-export function CatalogBrowser({ products, categories, onAdd, showCost }: CatalogBrowserProps) {
+export function CatalogBrowser({ products, categories, onAdd, showCost, initialCategoryId }: CatalogBrowserProps) {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<"Todos" | "Producto" | "Servicio" | "Material">("Todos");
+
+  // La categoría inicial llega TARDE: las categorías se piden por red, así que en
+  // el primer render todavía no existe y `useState(initial)` se quedaría con
+  // "all" para siempre. Por eso se aplica en un efecto.
+  //
+  // El `ref` es lo que impide pisar al usuario: sin él, cualquier re-render que
+  // vuelva a pasar la misma prop devolvería el filtro al valor del enlace justo
+  // después de que la persona eligió otra categoría.
+  const inicialAplicada = React.useRef(false);
+  React.useEffect(() => {
+    if (!inicialAplicada.current && initialCategoryId) {
+      setSelectedCategory(initialCategoryId);
+      inicialAplicada.current = true;
+    }
+  }, [initialCategoryId]);
 
   const normalizedSearch = normalizeText(search);
   const searchTokens = normalizedSearch.split(/\s+/).filter(Boolean);
