@@ -14,6 +14,9 @@ export function BannersManager() {
   const [uploading, setUploading] = useState(false);
   const [newAltText, setNewAltText] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newSubtitle, setNewSubtitle] = useState("");
+  const [newCtaLabel, setNewCtaLabel] = useState("");
   const [newFile, setNewFile] = useState<File | null>(null);
 
   const { data: banners = [], isLoading } = useQuery({
@@ -55,6 +58,9 @@ export function BannersManager() {
         image_url: filePath,
         alt_text: newAltText.trim(),
         link_url: newLinkUrl.trim() || null,
+        title: newTitle.trim() || null,
+        subtitle: newSubtitle.trim() || null,
+        cta_label: newCtaLabel.trim() || null,
         sort_order: banners.length,
       });
 
@@ -64,6 +70,9 @@ export function BannersManager() {
       setNewFile(null);
       setNewAltText("");
       setNewLinkUrl("");
+      setNewTitle("");
+      setNewSubtitle("");
+      setNewCtaLabel("");
       queryClient.invalidateQueries({ queryKey: ["admin_home_banners"] });
     } catch (error: any) {
       showToast(error.message, "error");
@@ -169,6 +178,44 @@ export function BannersManager() {
               style={{ width: "100%", padding: "0.4rem" }}
             />
           </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: "0.5rem", lineHeight: 1.4 }}>
+              El <strong>texto alternativo</strong> describe la imagen y no se ve. El <strong>titular</strong> sí se ve: lo escribe la aplicación encima del banner. Si lo dejás vacío, el banner se muestra tal cual lo subiste.
+            </p>
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "0.5rem" }}>Titular (opcional)</label>
+            <input 
+              type="text" 
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="Ej: 20% descuento"
+              maxLength={60}
+              style={{ width: "100%", padding: "0.4rem" }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "0.5rem" }}>Bajada (opcional)</label>
+            <input 
+              type="text" 
+              value={newSubtitle}
+              onChange={(e) => setNewSubtitle(e.target.value)}
+              placeholder="Ej: En todos los productos"
+              maxLength={120}
+              style={{ width: "100%", padding: "0.4rem" }}
+            />
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "0.5rem" }}>Botón (opcional)</label>
+            <input 
+              type="text" 
+              value={newCtaLabel}
+              onChange={(e) => setNewCtaLabel(e.target.value)}
+              placeholder="Ej: Ver más"
+              maxLength={30}
+              style={{ width: "100%", padding: "0.4rem" }}
+            />
+          </div>
         </div>
         <button 
           type="submit" 
@@ -211,7 +258,8 @@ export function BannersManager() {
                 style={{ width: "120px", height: "30px", objectFit: "cover", borderRadius: "4px" }}
               />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>{banner.alt_text}</div>
+                <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>{banner.title || banner.alt_text}</div>
+                {banner.title && <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{banner.alt_text}</div>}
                 {banner.link_url && <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Enlace: {banner.link_url}</div>}
               </div>
               <div style={{ display: "flex", gap: "0.5rem" }}>
