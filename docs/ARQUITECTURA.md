@@ -460,6 +460,17 @@ Para crear un cliente: **Authentication → Users → Add user**, con **«Auto C
 Sin eso el ingreso falla con «Email not confirmed», y con un dominio inventado el correo de
 confirmación no puede llegar nunca. No hay que tocar `user_roles` ni `ADMIN_EMAILS`.
 
+**La coherencia entre las dos autoridades se comprueba, no se supone.** Es una verificación de un
+minuto y conviene correrla cada vez que se agrega o se quita un administrador: listar los usuarios
+de `auth.users` y las filas de `user_roles` con la clave de servicio, y cruzarlos contra
+`ADMIN_EMAILS`. **Sano significa que las dos columnas dicen lo mismo para todos**: quien está en la
+lista tiene su fila, y quien no está no la tiene. Cualquier fila suelta en una sola de las dos es el
+defecto descrito arriba, y no se manifiesta al ingresar —se manifiesta después, como permisos
+negados dentro del panel, que es el peor momento para descubrirlo.
+
+> Verificado el 2026-09-16 sobre los siete usuarios existentes: **coinciden**. Un solo
+> administrador, presente en las dos.
+
 > **El formulario de `/login` completa el dominio.** Si lo que se escribe no tiene `@`, le agrega
 > `@cotigrafic.local` (`login/page.tsx:56-58`). O sea que **el correo no tiene que ser real**: se
 > crea `juan@cotigrafic.local` y la persona entra escribiendo `juan`. Sirve para dar acceso sin
