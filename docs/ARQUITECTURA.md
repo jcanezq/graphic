@@ -1,6 +1,6 @@
 # Arquitectura del Sistema CotiGrafix
 
-> **Actualizado: 2026-09-15**, verificado contra el código en `006a4db`. Cada afirmación de este
+> **Actualizado: 2026-09-16**, verificado contra el código en `5405846`. Cada afirmación de este
 > documento se comprobó ejecutando o leyendo el archivo que se cita. **Si algo acá no coincide con
 > el código, el código manda y este documento está vencido: corregilo.**
 
@@ -39,19 +39,21 @@ src/
 ├── app/
 │   ├── page.tsx              # Pantalla principal PÚBLICA: catálogo + panel lateral del carrito
 │   ├── cotizar/              # Detalle de la cotización del cliente (edición + datos de contacto)
-│   ├── mis-cotizaciones/     # Historial del cliente autenticado
+│   ├── mis-cotizaciones/     # Historial del cliente + [id]/ = pantalla de entrega (§5.4)
 │   ├── login/  ·  auth/      # Sesión y callbacks OAuth
 │   ├── dashboard/            # Zona protegida
 │   │   ├── clientes/         # Mantenedor de clientes (RUC y DNI)
 │   │   ├── configuracion/    # Perfil y datos de la empresa
-│   │   ├── cotizaciones/     # Listado, Kanban, nueva/ y [id]/
+│   │   ├── cotizaciones/     # Listado, Kanban y [id]/ — nueva/ SÓLO redirige (§5.2)
 │   │   ├── materiales/  ·  productos/  ·  servicios/   # Tres vistas sobre la MISMA tabla
 │   ├── api/
 │   │   ├── public/products/  # Catálogo público — SIN costos ni márgenes
+│   │   ├── public/settings/  # Datos públicos de la empresa (§6.5)
 │   │   ├── client/quotations/# Alta de cotización desde la pantalla del cliente
 │   │   ├── ruc/  ·  dni/     # Consulta a SUNAT y RENIEC
 │   │   ├── me/               # Identidad y rol del usuario
-│   │   └── pdf/[id]/         # Generación del PDF
+│   │   ├── pdf/[id]/         # Generación del PDF
+│   │   └── quotations/[id]/email/   # Envío de la cotización por correo (Resend)
 │   └── globals.css           # Sistema de tokens y estilos globales
 ├── components/
 │   ├── catalog/              # CatalogBrowser · CatalogFormPage · CatalogListPage
@@ -262,16 +264,33 @@ componentes.
 6. **Si desmarca el diseño, adjunta su arte ahí mismo** — sólo con sesión iniciada, porque las
    políticas del bucket exigen que la carpeta sea su `uid`. El archivo va directo a `client-art`
    desde el navegador y en el borrador queda **la ruta**, no una URL.
-7. Se guarda por `POST /api/client/quotations`.
+7. Se guarda por `POST /api/client/quotations` y la pantalla **navega a la página de entrega**,
+   `/mis-cotizaciones/<id>` (§5.4).
 
 ### 5.2 Administrador
 
-Todo en **una sola pantalla** (`dashboard/cotizaciones/nueva`): datos del cliente, catálogo,
-tabla editable de ítems y notas. El panel lateral derecho resume totales y muestra las
-miniaturas; su botón **«Ver cotización (n)»** baja al detalle, y la confirmación
-(**«Guardar Cotización»**) está al final del detalle — el mismo recorrido que el cliente.
+**Desde el 2026-09-16 el administrador no tiene cotizador propio: recorre el mismo circuito que el
+cliente.** `dashboard/cotizaciones/nueva` quedó reducida a una redirección al catálogo, y con ella
+desapareció el botón «Guardar Cotización».
 
-La diferencia con el cliente: el administrador **edita costo unitario y margen por línea**.
+1. Arma la cotización en el catálogo público y en `/cotizar`, exactamente como un cliente.
+2. Ahí ve **dos campos que el cliente no ve, y sólo esos**: el **buscador de clientes del CRM** por
+   nombre y la **validez en días**. El título del formulario pasa a decir «Datos del Cliente».
+3. Genera con «Generar Cotización» y cae en la misma página de entrega (§5.4).
+4. **El costo y el margen los ajusta después**, en la cotización guardada
+   (`dashboard/cotizaciones/[id]`), que los edita por ítem **y por cada componente**.
+
+El privilegio no se adivina en el navegador: la pantalla le pregunta a `/api/me` qué es la sesión —y
+eso sólo decide **qué campos se dibujan**—, mientras **el servidor lo comprueba por su cuenta**.
+`POST /api/client/quotations` sólo respeta `validity_days` si quien pide es administrador —un
+cliente que mandara 3650 se estaría regalando diez años de precio congelado—, y sólo a él le ahorra
+el prefijo «[Solicitud Web de Cliente]» y le guarda la cotización como `borrador` en vez de
+`solicitada`.
+
+> **Por qué un solo cotizador y no dos pantallas gemelas.** Se corrigieron dos veces defectos que
+> estaban en las dos pantallas y se arreglaron en una sola —la posición de las observaciones y la
+> del arte adjunto—, y las dos veces hubo que volver a pedirlo. Dos pantallas que «deben verse
+> igual» divergen; una sola no puede divergir de sí misma.
 
 ### 5.3 Identificación del cliente
 
@@ -282,6 +301,33 @@ RENIEC no expone domicilio.
 
 > Si las consultas devuelven **503 «Servicio de consulta no disponible»**, falta `APISPERU_TOKEN`
 > en el entorno. No es un defecto del código.
+
+### 5.4 La entrega: una página con URL propia
+
+Al generar, la aplicación navega a **`/mis-cotizaciones/<id>`**, que ofrece las tres entregas.
+
+Antes esto era un estado dentro de `/cotizar`, y tenía tres problemas: no tenía URL, no se podía
+volver a ella, y **al recargar desaparecía** — la cotización quedaba guardada pero la pantalla que
+la entregaba se perdía.
+
+Cuelga de `/mis-cotizaciones` a propósito: el middleware ya protege todo lo que empieza con ese
+prefijo, así que **no hubo que agregar una cuarta regla** sobre quién puede ver qué.
+
+| Entrega | Cómo |
+|---|---|
+| **PDF** | `GET /api/pdf/<id>` — exige sesión; el administrador ve todo y el resto sólo lo suyo |
+| **Correo** | `POST /api/quotations/<id>/email` — Resend, con el PDF adjunto |
+| **WhatsApp** | enlace armado en el navegador con `generateClientToAdminWhatsAppUrl` |
+
+**El destinatario del correo no viene del cuerpo de la petición**: sale de la cotización, que ya se
+comprobó que es de quien pide. Si el cuerpo pudiera elegirlo, la ruta sería un **relé de correo
+abierto** — bastaría registrarse para mandar correo a cualquiera firmado con el dominio de la
+empresa. Con el destinatario fijo, el techo del abuso es mandarse correo a uno mismo.
+
+> **Dos cosas que todavía no están probadas.** El correo necesita `RESEND_API_KEY` y `RESEND_FROM`
+> con un dominio verificado: el código compila, pero **nadie lo vio funcionar**. Y el «Enviado ✓»
+> del botón es sólo visual —vive en el estado de la página—, así que **una recarga permite reenviar
+> sin límite**; el freno del lado del servidor está pendiente (§8).
 
 ---
 
@@ -364,6 +410,30 @@ No era sólo lectura pública: cualquier cliente con cuenta podía destruir el a
 con `20260916140000`, y la comprobación no es el código de estado sino **el cuerpo de la
 respuesta**: `client-designs` devuelve `NoSuchBucket` y `product-images` devuelve `NoSuchKey`. Los
 dos dan HTTP 400; sólo el cuerpo los distingue.
+
+### 6.5 `company_settings` es del administrador, y el membrete se lee con el rol de servicio
+
+`company_settings` guarda **`default_margin`**. Por eso su política es
+`FOR ALL TO authenticated USING (public.is_admin())`
+(`20260909101500_f1_rls_isolation.sql:109-115`): para un cliente autenticado **no devuelve ninguna
+fila**.
+
+Eso tuvo roto el PDF del cliente durante una semana sin que nadie lo notara. La ruta encontraba la
+cotización —el filtro por dueño estaba bien— y después pedía la configuración **con la sesión del
+usuario**; al no volver fila respondía `404 {"error":"Settings not found"}`. **El mensaje señalaba
+la cotización y el que faltaba era el membrete.**
+
+**La política está bien; lo que estaba mal era a quién se le preguntaba.** El membrete —nombre,
+RUC, dirección, teléfono, correo y logo— es dato de la empresa, no del usuario: se lee con
+`createAdminClient()` **después** de haber autorizado, y **nombrando las seis columnas**.
+`default_margin` no aparece en ningún `select`, y `generatePDF` deja ese contrato escrito en su
+firma (`PdfCompanySettings`).
+
+Lo mismo valía para el teléfono de WhatsApp, que las pantallas del cliente leían desde el
+navegador: volvía vacío y el enlace caía al **número de relleno** de `whatsapp.ts:31`, de modo que
+cada cliente que tocaba el botón le escribía a un número ajeno a la empresa. Hoy sale por
+**`GET /api/public/settings`**, que entrega los mismos cuatro campos que `/api/public/products` ya
+le daba a cualquier visitante anónimo — sin superficie nueva.
 
 ---
 
@@ -520,6 +590,18 @@ Y hay dos maneras de equivocarse, las dos silenciosas:
 > hace rato es un accidente, y en los dos casos guardar el pedido sin el arte es mejor que perder
 > la venta.
 
+### 7.13 Una ruta probada sólo con el administrador no está probada
+
+En una aplicación con RLS **el administrador atraviesa políticas que para todos los demás son
+paredes**, y eso lo convierte en el peor usuario posible para verificar nada. El PDF del cliente
+estuvo roto mientras el del administrador salía perfecto, y la ruta de correo nació con el mismo
+defecto por copiar el patrón del PDF dando por sentado que funcionaba.
+
+**Toda ruta que un cliente pueda tocar se prueba con una sesión de cliente**, y ese caso se escribe
+en el spec. Cuando el defecto aparezca, vale además §7.8: **mirar el cuerpo que devuelve la ruta**
+antes de armar una hipótesis. Acá decía `Settings not found`, y esas dos palabras eran la causa
+entera.
+
 ---
 
 ## 8. Estado y pendientes conocidos
@@ -527,6 +609,11 @@ Y hay dos maneras de equivocarse, las dos silenciosas:
 | Asunto | Estado |
 |---|---|
 | Migraciones | **39 aplicadas**; la fuga de `clients_with_stats` cerrada y el arte del cliente en privado |
+| Cotizador | **unificado**: el administrador usa el circuito público; `cotizaciones/nueva` sólo redirige |
+| Entrega | página propia con PDF, correo y WhatsApp (§5.4) |
+| Correo | **escrito y sin probar** — falta `RESEND_API_KEY` y `RESEND_FROM` con dominio verificado |
+| Reenvío de correo | **sin freno del lado del servidor**: recargar la página permite reenviar sin límite |
+| Teléfono de la empresa | cargado como `888888888` — **no es un número al que WhatsApp pueda escribir**; es dato, no código |
 | Imágenes | plan completo: buckets cerrados, cero optimizador, arte privado con entrega firmada |
 | Integración continua | `ci.yml` verde con los cuatro pasos (typecheck, lint, test, build) |
 | Protección de rama `main` | **desactivada** — el CI avisa pero no bloquea |
@@ -558,6 +645,11 @@ Y hay dos maneras de equivocarse, las dos silenciosas:
 | **`client_design_url` guarda una ruta, no una URL** | §3 · §6.4 |
 | **El cliente adjunta su arte, sólo con sesión** | §5.1 |
 | **Lo que el cliente manda se asigna DESPUÉS de reconstruir el ítem** | §7.12 |
+| **Un solo cotizador: el administrador recorre el circuito del cliente** | §5.2 |
+| **La confirmación es una página con URL, no un estado de pantalla** | §5.4 |
+| **El destinatario del correo sale de la cotización, nunca del cuerpo** | §5.4 |
+| **`company_settings` es del administrador; el membrete se lee con el rol de servicio** | §6.5 |
+| **Una ruta probada sólo con el administrador no está probada** | §7.13 |
 | Sin galería, sin requisitos de arte, sin validación por contenido | decisión del dueño, 2026-09-16 |
 | **CSS en la hoja de estilos, nunca como texto en el JSX** | §7.9 |
 | CSS con tokens en vez de Tailwind | §1 |
