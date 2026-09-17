@@ -167,8 +167,8 @@ export function HeroCarousel({ banners }: { banners: Banner[] }) {
               color: "white",
               border: "none",
               borderRadius: "50%",
-              width: "44px",
-              height: "44px",
+              width: "52px",
+              height: "52px",
               boxShadow: "0 0 0 1px rgba(255,255,255,0.35)",
               display: "flex",
               alignItems: "center",
@@ -183,17 +183,20 @@ export function HeroCarousel({ banners }: { banners: Banner[] }) {
                 se lee. Mismo motivo y misma solución que el `+` de ProductCard
                 (docs/ARQUITECTURA.md §7.6). */}
             <svg
-              width={28}
-              height={28}
+              width={34}
+              height={34}
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth={2.6}
+              strokeWidth={3.2}
               strokeLinecap="round"
               strokeLinejoin="round"
               aria-hidden="true"
             >
-              <path d="M16 3 L7 12 L16 21" />
+              {/* Más ANCHO que el anterior, no sólo más alto: el path va de x=6 a
+                  x=17 (46 % de la caja) contra 7→16 (37 %). En un chevron lo que
+                  se percibe como tamaño es el ancho y el grosor, no el alto. */}
+              <path d="M17 4 L6 12 L17 20" />
             </svg>
           </button>
 
@@ -209,8 +212,8 @@ export function HeroCarousel({ banners }: { banners: Banner[] }) {
               color: "white",
               border: "none",
               borderRadius: "50%",
-              width: "44px",
-              height: "44px",
+              width: "52px",
+              height: "52px",
               boxShadow: "0 0 0 1px rgba(255,255,255,0.35)",
               display: "flex",
               alignItems: "center",
@@ -220,17 +223,17 @@ export function HeroCarousel({ banners }: { banners: Banner[] }) {
             }}
           >
             <svg
-              width={28}
-              height={28}
+              width={34}
+              height={34}
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth={2.6}
+              strokeWidth={3.2}
               strokeLinecap="round"
               strokeLinejoin="round"
               aria-hidden="true"
             >
-              <path d="M8 3 L17 12 L8 21" />
+              <path d="M7 4 L18 12 L7 20" />
             </svg>
           </button>
 
