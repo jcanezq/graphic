@@ -543,11 +543,26 @@ lo viera. Se cerró el 2026-09-16.
 > inset:0; width:100%; height:100%` con el contenedor en `position:relative`— y `sizes` se elimina.
 > `alt` se conserva siempre.
 
-### 7.6 El `+` del botón de agregar está dibujado a mano
-El ícono `Plus` de `lucide-react` dibuja su cruz de 5 a 19 dentro de un `viewBox` de 24: **sólo
-ocupa el 58 % de su caja**, y ese porcentaje no es configurable. Subir `size` rinde la mitad de lo
-esperado y el techo llega antes del objetivo — por encima de 46 px el `<svg>` no entra en el botón
-y `flex` lo deforma. Por eso ese botón usa un `<svg>` propio cuya cruz ocupa el 83 % de la caja.
+### 7.6 Un ícono de lucide NO llena su caja: cuando el ícono es el control, se dibuja a mano
+Los íconos de `lucide-react` dejan margen dentro de su `viewBox` de 24, y **ese margen no es
+configurable**. Subir `size` agranda la caja, no el dibujo, y el techo llega antes del objetivo:
+por encima de 46 px el `<svg>` no entra en el botón y `flex` lo deforma.
+
+| Ícono | Ancho del dibujo | Alto del dibujo |
+|---|---|---|
+| `Plus` (de 5 a 19) | 58 % | 58 % |
+| `ChevronLeft` (`m15 18-6-6 6-6`) | **25 %** | 50 % |
+
+**La regla:** cuando el ícono **es** el contenido del control —no un adorno junto a un texto— hay
+que mirar cuánto de su caja ocupa el trazo, y si es poco, dibujarlo con un `<svg>` propio. Dos
+lugares lo hacen y son el modelo a copiar: el `+` de `ProductCard.tsx:110-121` (cruz de 2 a 22, el
+83 %) y las flechas del carrusel en `HeroCarousel.tsx` (chevron de y=3 a y=21, el 75 %).
+
+**Costó dos vueltas la segunda vez.** Al reportarse que las flechas «se ven apenas», la primera
+corrección atacó el grosor del trazo —una mejora real— sin preguntarse cuánto de la caja ocupaba el
+dibujo, que es lo que esta misma sección ya explicaba para el `+`. El dato útil para decidir:
+**el trazo real de un ícono de lucide es `strokeWidth × size / 24`**, y el tamaño aparente es esa
+proporción de la tabla multiplicada por `size`.
 
 ### 7.7 Una migración escrita no es una migración aplicada
 El archivo `.sql` no cambia nada hasta `supabase db push`. Se comprueba con
