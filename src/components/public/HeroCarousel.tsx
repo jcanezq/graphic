@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 
 /** Se exporta a propósito: la portada declaraba esta misma forma por su cuenta y
  *  las dos se separaron cuando el banner ganó titular, bajada y botón. Un solo
@@ -177,7 +177,24 @@ export function HeroCarousel({ banners }: { banners: Banner[] }) {
               zIndex: 10,
             }}
           >
-            <ChevronLeft size={26} strokeWidth={2.5} />
+            {/* Dibujado a mano, no `ChevronLeft`: el ícono de lucide ocupa el 25 %
+                del ancho y el 50 % del alto de su viewBox, así que subir `size`
+                agranda la caja y no el trazo. Éste va de y=3 a y=21 —el 75 %— y
+                se lee. Mismo motivo y misma solución que el `+` de ProductCard
+                (docs/ARQUITECTURA.md §7.6). */}
+            <svg
+              width={28}
+              height={28}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.6}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M16 3 L7 12 L16 21" />
+            </svg>
           </button>
 
           <button
@@ -202,7 +219,19 @@ export function HeroCarousel({ banners }: { banners: Banner[] }) {
               zIndex: 10,
             }}
           >
-            <ChevronRight size={26} strokeWidth={2.5} />
+            <svg
+              width={28}
+              height={28}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.6}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M8 3 L17 12 L8 21" />
+            </svg>
           </button>
 
           <div
