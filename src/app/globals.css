@@ -1546,3 +1546,62 @@ td.primary {
     padding: var(--space-md);
   }
 }
+
+/* ── Banner de portada: titular superpuesto ──────────────────── */
+.banner-slide { position: relative; }
+
+/* Escritorio: el texto va encima, sobre la mitad izquierda que el arte deja
+   limpia. El velo NO es decorativo: sin él el contraste depende de la foto que
+   suba el administrador, y eso no se puede garantizar. Con blanco al 86 % el
+   texto #191919 queda por encima de 12:1 incluso sobre una foto negra. */
+.banner-text {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 55%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.94) 0%,
+    rgba(255, 255, 255, 0.86) 60%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+.banner-title {
+  font-size: clamp(1.1rem, 2.2vw, 1.9rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: #191919;
+  margin: 0;
+}
+.banner-subtitle {
+  font-size: clamp(0.8rem, 1.1vw, 1rem);
+  line-height: 1.4;
+  color: var(--text-secondary);
+  margin: 0;
+}
+.banner-cta {
+  align-self: flex-start;
+  background: #191919;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--radius-md);
+}
+
+/* Móvil: el texto NO se superpone. A 375 px el banner mide 94 px de alto y ahí
+   no entra un titular legible. Baja al flujo normal, debajo de la imagen. */
+@media (max-width: 767px) {
+  .banner-text {
+    position: static;
+    width: 100%;
+    background: none;
+    padding: 0.85rem 1rem 1rem;
+  }
+}

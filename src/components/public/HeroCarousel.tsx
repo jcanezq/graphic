@@ -6,8 +6,13 @@ import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 interface Banner {
   id: string;
   image_url: string;
+  /** Describe la IMAGEN para quien no la ve. No es el titular. */
   alt_text: string;
   link_url: string | null;
+  /** Titular visible. Si viene vacío no se dibuja nada encima de la imagen. */
+  title: string | null;
+  subtitle: string | null;
+  cta_label: string | null;
 }
 
 export function HeroCarousel({ banners }: { banners: Banner[] }) {
@@ -115,7 +120,25 @@ export function HeroCarousel({ banners }: { banners: Banner[] }) {
 
           return (
             <div key={banner.id} style={{ minWidth: "100%", flexShrink: 0 }}>
-              {banner.link_url ? (
+              {/* Con titular, el banner NO es un enlace entero: lo es sólo el
+                  botón. Envolver todo en <a> y meter otro <a> adentro produce
+                  enlaces anidados —HTML inválido— y deja a quien navega con
+                  teclado sin saber adónde va. Sin titular se conserva el
+                  comportamiento de antes: toda la imagen es el enlace. */}
+              {banner.title ? (
+                <div className="banner-slide">
+                  {content}
+                  <div className="banner-text">
+                    <h2 className="banner-title">{banner.title}</h2>
+                    {banner.subtitle && <p className="banner-subtitle">{banner.subtitle}</p>}
+                    {banner.cta_label && banner.link_url && (
+                      <a href={banner.link_url} className="banner-cta">
+                        {banner.cta_label}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ) : banner.link_url ? (
                 <a href={banner.link_url} style={{ display: "block", width: "100%" }}>
                   {content}
                 </a>
