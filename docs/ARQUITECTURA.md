@@ -1,6 +1,6 @@
 # Arquitectura del Sistema CotiGrafix
 
-> **Actualizado: 2026-09-16**, verificado contra el código en `5405846`. Cada afirmación de este
+> **Actualizado: 2026-09-17**, verificado contra el código en `c05a2d4`. Cada afirmación de este
 > documento se comprobó ejecutando o leyendo el archivo que se cita. **Si algo acá no coincide con
 > el código, el código manda y este documento está vencido: corregilo.**
 
@@ -49,6 +49,7 @@ src/
 │   ├── api/
 │   │   ├── public/products/  # Catálogo público — SIN costos ni márgenes
 │   │   ├── public/settings/  # Datos públicos de la empresa (§6.5)
+│   │   ├── public/banners/   # Carrusel de la portada (§5.5)
 │   │   ├── client/quotations/# Alta de cotización desde la pantalla del cliente
 │   │   ├── ruc/  ·  dni/     # Consulta a SUNAT y RENIEC
 │   │   ├── me/               # Identidad y rol del usuario
@@ -57,7 +58,8 @@ src/
 │   └── globals.css           # Sistema de tokens y estilos globales
 ├── components/
 │   ├── catalog/              # CatalogBrowser · CatalogFormPage · CatalogListPage
-│   ├── public/               # ProductCard · ProductThumbnail · QuoteItemThumb · PublicNavbar
+│   ├── public/               # ProductCard · ProductThumbnail · QuoteItemThumb · PublicNavbar · HeroCarousel
+│   ├── admin/                # BannersManager (carga de banners, §5.5)
 │   ├── products/             # Secciones del formulario de producto (materiales, mano de obra…)
 │   ├── quotations/           # Kanban (Board, Column, Card)
 │   └── dashboard/            # Gráficos
@@ -329,6 +331,51 @@ empresa. Con el destinatario fijo, el techo del abuso es mandarse correo a uno m
 > del botón es sólo visual —vive en el estado de la página—, así que **una recarga permite reenviar
 > sin límite**; el freno del lado del servidor está pendiente (§8).
 
+### 5.5 La portada: el carrusel de banners
+
+Desde el 2026-09-17 la portada **no tiene título ni párrafo de presentación**: esa franja es del
+carrusel y de nada más. **Sin banners cargados no se dibuja nada** y el catálogo queda arriba del
+todo — es deliberado, no un respaldo que falta.
+
+| Pieza | Dónde |
+|---|---|
+| Tabla | `home_banners` — lectura pública de los activos, escritura sólo de administrador |
+| Imágenes | bucket `company-assets`, carpeta `banners/` |
+| Lectura | `GET /api/public/banners`, con `force-dynamic` (§7.14) y tope de **10** |
+| Presentación | `components/public/HeroCarousel.tsx` |
+| Carga y orden | `components/admin/BannersManager.tsx`, dentro de `/dashboard/configuracion` |
+
+**El titular NO va quemado en la imagen.** El arte se entrega sin una sola letra y la aplicación
+escribe encima: `title` (60 caracteres), `subtitle` (120) y `cta_label` (30), los tres opcionales.
+Un banner sin `title` se dibuja tal cual se subió. **`alt_text` es obligatorio y es otra cosa**:
+describe la imagen para quien no la ve, y repetir ahí el titular deja a un lector de pantalla
+diciendo lo mismo dos veces sin contar qué se ve en la foto.
+
+**Con titular, el banner deja de ser un enlace entero**: lo es sólo el botón. Un `<a>` dentro de
+otro `<a>` es HTML inválido y deja a quien navega con teclado sin saber adónde va.
+
+#### Especificación de las imágenes, medida contra el código
+
+| Dato | Valor |
+|---|---|
+| Relación | **4:1** · 1600 × 400 mínimo, 2048 × 512 para alta densidad |
+| Formato y peso | WebP o JPEG, **≤ 300 KB**. *(El bucket admite 5 MB: es el tope técnico, no el sensato.)* |
+| **Zona segura vertical** | **el 13 % de arriba y el 13 % de abajo se recortan** en pantallas anchas |
+| Zona de texto | el **62 % izquierdo** lleva velo blanco; encima escribe la aplicación |
+| Zona del control | los primeros **84 px** de la izquierda los tapa la flecha |
+| Motivo principal | en el **38 % derecho**, centrado verticalmente |
+
+**Por qué se recorta.** La imagen se declara 4:1 con **tope de 260 px de alto**. Pasados los 1040 px
+de ancho de pantalla el hueco deja de ser 4:1: en el máximo del contenedor —1400 px— es **5,4:1**, y
+con `object-fit: cover` se ve la banda central, el 74 % de la altura. Es lo que impide que el banner
+empuje el catálogo hacia abajo, y por eso **nada importante puede vivir en los bordes**.
+
+**El primer banner se carga con `eager` y el resto con `lazy`**: ése define cuánto tarda en abrir la
+portada, así que conviene que sea el más liviano.
+
+> **En el celular el texto no se superpone.** Bajo 768 px baja debajo de la imagen, porque a 375 px
+> de ancho el banner mide 94 px de alto y ahí no entra un titular legible.
+
 ---
 
 ## 6. Seguridad
@@ -477,6 +524,30 @@ negados dentro del panel, que es el peor momento para descubrirlo.
 > pedir un correo, y sobre todo para **probar el circuito del cliente sin depender de Google**, que
 > exige validación por dispositivo o correo cada vez.
 
+### 6.7 Una política de RLS se SUMA: agregar una restrictiva no cierra nada
+
+`company-assets` aceptaba escritura de **cualquier usuario autenticado**. Lo encontró una sonda con
+la sesión de un cliente: 200 donde `product-images` y `client-art` respondían 400. El endurecimiento
+de buckets de la víspera los había cubierto a ellos y **se olvidó de éste**.
+
+Lo importante es cómo se resistió a la primera corrección. Se escribió una migración que agregaba
+tres políticas de administrador y borraba —`DROP POLICY IF EXISTS`— los tres nombres que esa misma
+migración inventaba. Se aplicó (`local == remote`) y **el bucket siguió abierto**:
+
+1. **Las políticas se suman.** Agregar una restrictiva no revoca nada: basta con que UNA permita.
+2. **El nombre real no estaba en ninguna migración del repositorio** — la política se había creado a
+   mano desde el panel—, así que el `DROP` no borraba nada.
+3. **Y `IF EXISTS` calla por diseño.** Las tres líneas corrieron sin error y sin efecto.
+
+La corrección que funcionó **borra por lo que la política HACE, no por cómo se llama**: recorre
+`pg_policies` buscando las de escritura sobre `storage.objects` cuya expresión mencione el bucket, y
+deja sólo las nuevas.
+
+> **La regla que queda: una migración aplicada no es un permiso revocado.** `local == remote` sólo
+> dice que el SQL corrió. **La única prueba de que un permiso se cerró es intentar usarlo y que
+> falle**, y el control que lo hace concluyente es el contraste: probar los cuatro buckets con la
+> misma sesión. Si uno responde distinto, el problema es de ese bucket y no una política global.
+
 ---
 
 ## 7. Reglas que no se rompen
@@ -576,6 +647,16 @@ entrega el servidor. Para comprobar qué está corriendo de verdad:
 ```bash
 curl -s http://localhost:3000/_next/static/chunks/app/page.js | grep -c '<lo que buscás>'
 ```
+
+**Corolario: antes de sospechar del código, contá cuántos servidores hay vivos.** El 2026-09-17 se
+diagnosticaron tres veces seguidas defectos inexistentes —un botón que «no aparecía», flechas que
+«no cambiaban»— porque había **cuatro `next dev` corriendo a la vez**. Cada intento de «reiniciar
+para limpiar la caché» levantaba uno nuevo: Next encuentra el 3000 ocupado, avisa
+`Port 3000 is in use, trying 3001` y **deja vivo al viejo**, que sigue sirviendo código de hace
+horas. Peor: los cuatro compartían el mismo `.next`, pisándose las compilaciones.
+
+El chequeo cuesta un vistazo a la terminal —que el servidor diga `Local: http://localhost:3000`— y
+la salida es `taskkill /F /IM node.exe`, `rmdir /s /q .next` y levantar uno solo.
 
 ### 7.9 Nunca pongas CSS ni JavaScript como texto dentro del JSX
 React **escapa** el texto que renderiza, y `<style>` y `<script>` son **RAWTEXT** para el
@@ -699,6 +780,8 @@ seguiría mal, pero de una forma mucho más difícil de encontrar.
 |---|---|
 | Migraciones | **39 aplicadas**; la fuga de `clients_with_stats` cerrada y el arte del cliente en privado |
 | Cotizador | **unificado**: el administrador usa el circuito público; `cotizaciones/nueva` sólo redirige |
+| Portada | carrusel de banners con titular editable; **sin banners no se dibuja nada** (§5.5) |
+| `company-assets` | **cerrado** a escritura de no administradores, comprobado por contraste (§6.7) |
 | Entrega | página propia con PDF, correo y WhatsApp (§5.4) |
 | Correo | **escrito y sin probar** — falta `RESEND_API_KEY` y `RESEND_FROM` con dominio verificado |
 | Reenvío de correo | **sin freno del lado del servidor**: recargar la página permite reenviar sin límite |
@@ -742,6 +825,8 @@ seguiría mal, pero de una forma mucho más difícil de encontrar.
 | **No hay registro: un usuario nace con Google o a mano, y es cliente por omisión** | §6.6 |
 | **Una ruta probada sólo con el administrador no está probada** | §7.13 |
 | **Una ruta con el rol de servicio declara `force-dynamic`, o el build la ejecuta** | §7.14 |
+| **La portada es el carrusel; el titular es texto, no parte de la imagen** | §5.5 |
+| **Una política de RLS se suma: agregar una restrictiva no cierra nada** | §6.7 |
 | Sin galería, sin requisitos de arte, sin validación por contenido | decisión del dueño, 2026-09-16 |
 | **CSS en la hoja de estilos, nunca como texto en el JSX** | §7.9 |
 | CSS con tokens en vez de Tailwind | §1 |
