@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ToastProvider";
-import { Image as ImageIcon, Upload, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Save } from "lucide-react";
+import { Image as ImageIcon, Upload, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Save, Edit2 } from "lucide-react";
 
 export function BannersManager() {
   const [supabase] = useState(() => createClient());
@@ -18,6 +18,11 @@ export function BannersManager() {
   const [newSubtitle, setNewSubtitle] = useState("");
   const [newCtaLabel, setNewCtaLabel] = useState("");
   const [newFile, setNewFile] = useState<File | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [edit, setEdit] = useState({
+    title: "", subtitle: "", cta_label: "", alt_text: "", link_url: "",
+  });
 
   const { data: banners = [], isLoading } = useQuery({
     queryKey: ["admin_home_banners"],
@@ -79,6 +84,45 @@ export function BannersManager() {
     } finally {
       setUploading(false);
     }
+  }
+
+  function startEdit(b: any) {
+    setEditingId(b.id);
+    setEdit({
+      title: b.title ?? "",
+      subtitle: b.subtitle ?? "",
+      cta_label: b.cta_label ?? "",
+      alt_text: b.alt_text ?? "",
+      link_url: b.link_url ?? "",
+    });
+  }
+
+  async function saveEdit(id: string) {
+    // El texto alternativo es obligatorio también al editar. La base lo respalda
+    // —es NOT NULL con control de vacío—, pero un mensaje claro acá evita que el
+    // administrador se encuentre con un error de Postgres.
+    if (!edit.alt_text.trim()) {
+      showToast("El texto alternativo es obligatorio", "error");
+      return;
+    }
+    const { error } = await supabase
+      .from("home_banners")
+      .update({
+        title: edit.title.trim() || null,
+        subtitle: edit.subtitle.trim() || null,
+        cta_label: edit.cta_label.trim() || null,
+        alt_text: edit.alt_text.trim(),
+        link_url: edit.link_url.trim() || null,
+      })
+      .eq("id", id);
+
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    setEditingId(null);
+    showToast("Banner actualizado");
+    queryClient.invalidateQueries({ queryKey: ["admin_home_banners"] });
   }
 
   async function toggleActive(id: string, current: boolean) {
@@ -258,45 +302,88 @@ export function BannersManager() {
                 style={{ width: "120px", height: "30px", objectFit: "cover", borderRadius: "4px" }}
               />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>{banner.title || banner.alt_text}</div>
-                {banner.title && <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{banner.alt_text}</div>}
-                {banner.link_url && <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Enlace: {banner.link_url}</div>}
+                {editingId === banner.id ? (
+                  <div style={{ display: "grid", gap: "0.4rem" }}>
+                    <input value={edit.title} maxLength={60}
+                      onChange={(e) => setEdit({ ...edit, title: e.target.value })}
+                      placeholder="Titular (opcional, se ve sobre el banner)" />
+                    <input value={edit.subtitle} maxLength={120}
+                      onChange={(e) => setEdit({ ...edit, subtitle: e.target.value })}
+                      placeholder="Bajada (opcional)" />
+                    <input value={edit.cta_label} maxLength={30}
+                      onChange={(e) => setEdit({ ...edit, cta_label: e.target.value })}
+                      placeholder="Texto del botón (opcional)" />
+                    <input value={edit.alt_text} required
+                      onChange={(e) => setEdit({ ...edit, alt_text: e.target.value })}
+                      placeholder="Texto alternativo (obligatorio, NO se ve)" />
+                    <input value={edit.link_url}
+                      onChange={(e) => setEdit({ ...edit, link_url: e.target.value })}
+                      placeholder="Enlace (opcional). Ej: /?categoria=exhibidores" />
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>{banner.title || banner.alt_text}</div>
+                    {banner.title && <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{banner.alt_text}</div>}
+                    {banner.link_url && <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Enlace: {banner.link_url}</div>}
+                  </>
+                )}
               </div>
               <div style={{ display: "flex", gap: "0.5rem" }}>
-                <button 
-                  onClick={() => moveBanner(banner.id, index, 'up')}
-                  disabled={index === 0}
-                  className="btn btn-secondary"
-                  title="Subir"
-                  style={{ padding: "4px" }}
-                >
-                  <ArrowUp size={16} />
-                </button>
-                <button 
-                  onClick={() => moveBanner(banner.id, index, 'down')}
-                  disabled={index === banners.length - 1}
-                  className="btn btn-secondary"
-                  title="Bajar"
-                  style={{ padding: "4px" }}
-                >
-                  <ArrowDown size={16} />
-                </button>
-                <button 
-                  onClick={() => toggleActive(banner.id, banner.is_active)}
-                  className="btn btn-secondary"
-                  title={banner.is_active ? "Desactivar" : "Activar"}
-                  style={{ padding: "4px" }}
-                >
-                  {banner.is_active ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-                <button 
-                  onClick={() => deleteBanner(banner.id, banner.image_url)}
-                  className="btn btn-secondary"
-                  title="Eliminar"
-                  style={{ padding: "4px", color: "var(--danger)" }}
-                >
-                  <Trash2 size={16} />
-                </button>
+                {editingId === banner.id ? (
+                  <>
+                    <button onClick={() => saveEdit(banner.id)} className="btn-primary" style={{ padding: "4px 8px", fontSize: "0.8rem" }}>
+                      Guardar
+                    </button>
+                    <button onClick={() => setEditingId(null)} className="btn btn-secondary" style={{ padding: "4px 8px", fontSize: "0.8rem" }}>
+                      Cancelar
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button 
+                      onClick={() => startEdit(banner)}
+                      className="btn btn-secondary"
+                      title="Editar"
+                      style={{ padding: "4px" }}
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button 
+                      onClick={() => moveBanner(banner.id, index, 'up')}
+                      disabled={index === 0}
+                      className="btn btn-secondary"
+                      title="Subir"
+                      style={{ padding: "4px" }}
+                    >
+                      <ArrowUp size={16} />
+                    </button>
+                    <button 
+                      onClick={() => moveBanner(banner.id, index, 'down')}
+                      disabled={index === banners.length - 1}
+                      className="btn btn-secondary"
+                      title="Bajar"
+                      style={{ padding: "4px" }}
+                    >
+                      <ArrowDown size={16} />
+                    </button>
+                    <button 
+                      onClick={() => toggleActive(banner.id, banner.is_active)}
+                      className="btn btn-secondary"
+                      title={banner.is_active ? "Desactivar" : "Activar"}
+                      style={{ padding: "4px" }}
+                    >
+                      {banner.is_active ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                    <button 
+                      onClick={() => deleteBanner(banner.id, banner.image_url)}
+                      className="btn btn-secondary"
+                      title="Eliminar"
+                      style={{ padding: "4px", color: "var(--danger)" }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ))}
