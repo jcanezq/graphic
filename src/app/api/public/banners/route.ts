@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const { data } = await createAdminClient()
     .from("home_banners")
-    .select("id, image_url, alt_text, link_url")
+    .select("id, image_url, alt_text, link_url, title, subtitle, cta_label")
     .eq("is_active", true)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true })
