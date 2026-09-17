@@ -3,7 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 
-interface Banner {
+/** Se exporta a propósito: la portada declaraba esta misma forma por su cuenta y
+ *  las dos se separaron cuando el banner ganó titular, bajada y botón. Un solo
+ *  tipo, importado donde haga falta, es lo que impide que vuelva a pasar. */
+export interface Banner {
   id: string;
   image_url: string;
   /** Describe la IMAGEN para quien no la ve. No es el titular. */

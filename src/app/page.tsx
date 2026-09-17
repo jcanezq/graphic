@@ -9,7 +9,7 @@ import { useToast } from "@/components/ToastProvider";
 import { ProductCard } from "@/components/public/ProductCard";
 import { QuoteItemThumb } from "@/components/public/QuoteItemThumb";
 import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
-import { HeroCarousel } from "@/components/public/HeroCarousel";
+import { HeroCarousel, type Banner } from "@/components/public/HeroCarousel";
 import { formatCurrency, normalizeText } from "@/lib/formatters";
 import type { PublicProduct } from "@/types";
 import { round2 } from "@/lib/pricing";
@@ -99,7 +99,7 @@ export default function HomePage() {
     queryFn: async () => {
       const res = await fetch("/api/public/banners");
       if (!res.ok) return { banners: [] };
-      return res.json() as Promise<{ banners: Array<{ id: string; image_url: string; alt_text: string; link_url: string | null }> }>;
+      return res.json() as Promise<{ banners: Banner[] }>;
     },
   });
   const banners = bannersData?.banners ?? [];
