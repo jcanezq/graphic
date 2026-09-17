@@ -189,6 +189,26 @@ export function PublicNavbar() {
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           {user ? (
             <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              {isAdmin && (
+                <Link
+                  href="/dashboard/configuracion"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    fontSize: "0.85rem",
+                    color: "var(--text-primary)",
+                    fontWeight: 600,
+                    textDecoration: "none",
+                    background: "var(--bg-tertiary)",
+                    padding: "0.35rem 0.75rem",
+                    borderRadius: "var(--radius-full)",
+                  }}
+                >
+                  <LayoutDashboard size={14} />
+                  <span>Panel</span>
+                </Link>
+              )}
               <div
                 style={{
                   display: "flex",
