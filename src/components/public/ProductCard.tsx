@@ -108,12 +108,12 @@ export function ProductCard({ product, onAdd, showCost }: ProductCardProps) {
           }}
         >
           <svg
-            width={44}
-            height={44}
+            width={32}
+            height={32}
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth={2.2}
+            strokeWidth={3.2}
             strokeLinecap="round"
             aria-hidden="true"
           >
