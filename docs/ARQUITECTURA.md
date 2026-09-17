@@ -602,6 +602,38 @@ en el spec. Cuando el defecto aparezca, vale además §7.8: **mirar el cuerpo qu
 antes de armar una hipótesis. Acá decía `Settings not found`, y esas dos palabras eran la causa
 entera.
 
+### 7.14 Una ruta que usa el rol de servicio declara `force-dynamic`
+
+Next adelanta trabajo al compilar. Si una ruta de API no tiene ninguna señal de que su respuesta
+dependa de la petición, **la ejecuta durante el build**, guarda el resultado y en producción sirve
+esa copia sin volver a ejecutarla.
+
+Para una ruta que va a la base con `createAdminClient()` eso falla de dos maneras, y **la segunda
+es peor que la primera**:
+
+1. **Donde no está la clave, el build revienta.** El CI no tiene `SUPABASE_SERVICE_ROLE_KEY` —ni
+   debe tenerla, es la llave maestra— así que la ejecución en tiempo de compilación muere con
+   `Error occurred prerendering page`.
+2. **Donde sí está la clave, el dato queda congelado en la compilación.** Cambiar el teléfono de la
+   empresa en Configuración no cambiaría nada hasta el próximo despliegue, y el síntoma sería un
+   número viejo sin ningún error a la vista.
+
+`/api/public/products` lo declaraba desde siempre y **nadie sabía para qué**;
+`/api/public/settings` nació sin eso y lo delató el CI (`45c1e2c`). Sin este arreglo habríamos
+corregido el número de relleno del WhatsApp para reemplazarlo por un número congelado: el botón
+seguiría mal, pero de una forma mucho más difícil de encontrar.
+
+> **El corolario es lo que más vale: un build local NO prueba que el build del CI pase.** Tu
+> máquina tiene `.env.local` con secretos que el CI no tiene, y esa diferencia es deliberada. El
+> fallo se reproduce en un comando:
+>
+> ```
+> SUPABASE_SERVICE_ROLE_KEY="" npm run build
+> ```
+>
+> Es la misma idea de §7.8 y §7.13: **probar en las condiciones equivocadas da un verde que no
+> vale.**
+
 ---
 
 ## 8. Estado y pendientes conocidos
@@ -616,6 +648,7 @@ entera.
 | Teléfono de la empresa | cargado como `888888888` — **no es un número al que WhatsApp pueda escribir**; es dato, no código |
 | Imágenes | plan completo: buckets cerrados, cero optimizador, arte privado con entrega firmada |
 | Integración continua | `ci.yml` verde con los cuatro pasos (typecheck, lint, test, build) |
+| `@emnapi/core` y `@emnapi/runtime` en `devDependencies` | **declaradas a propósito y nada las importa**: sin ellas `npm ci` falla en Linux. No las borres (`3a97960`) |
 | Protección de rama `main` | **desactivada** — el CI avisa pero no bloquea |
 | `db-types.yml` | nunca se ejecutó; le falta el secreto `SUPABASE_ACCESS_TOKEN` |
 | Pruebas | 24, en el motor de cálculo, la consistencia de precios y WhatsApp |
@@ -650,6 +683,7 @@ entera.
 | **El destinatario del correo sale de la cotización, nunca del cuerpo** | §5.4 |
 | **`company_settings` es del administrador; el membrete se lee con el rol de servicio** | §6.5 |
 | **Una ruta probada sólo con el administrador no está probada** | §7.13 |
+| **Una ruta con el rol de servicio declara `force-dynamic`, o el build la ejecuta** | §7.14 |
 | Sin galería, sin requisitos de arte, sin validación por contenido | decisión del dueño, 2026-09-16 |
 | **CSS en la hoja de estilos, nunca como texto en el JSX** | §7.9 |
 | CSS con tokens en vez de Tailwind | §1 |
