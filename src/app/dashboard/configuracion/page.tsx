@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Save, Building2, Search, Upload, Image as ImageIcon, X } from "lucide-react";
 import type { CompanySettings } from "@/types";
 import { fetchDocumentData } from "@/lib/ruc";
+import { BannersManager } from "@/components/admin/BannersManager";
 
 export default function SettingsPage() {
   const [supabase] = useState(() => createClient());
@@ -336,6 +337,8 @@ export default function SettingsPage() {
             {saving ? "Guardando..." : "Guardar Configuración"}
           </button>
         </form>
+
+        <BannersManager />
       </div>
     </div>
   );
