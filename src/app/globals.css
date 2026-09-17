@@ -1557,12 +1557,17 @@ td.primary {
 .banner-text {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 55%;
+  /* Sube de 55 a 62: el relleno nuevo se come 52 px por la izquierda, y sin
+     compensar el titular se parte en más líneas de las necesarias. */
+  width: 62%;
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 0.5rem;
-  padding: 1.25rem 1.5rem;
+  /* El relleno izquierdo TIENE que superar la flecha: está en `left: 1rem` y mide
+     44 px, o sea que ocupa hasta los 60 px. 4.75rem = 76 px deja 16 px de aire.
+     Si mañana cambia el tamaño de la flecha, este número cambia con ella. */
+  padding: 1.25rem 1.5rem 1.25rem 4.75rem;
   background: linear-gradient(
     90deg,
     rgba(255, 255, 255, 0.94) 0%,

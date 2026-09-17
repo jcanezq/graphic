@@ -163,7 +163,7 @@ export function HeroCarousel({ banners }: { banners: Banner[] }) {
               top: "50%",
               left: "1rem",
               transform: "translateY(-50%)",
-              background: "rgba(0, 0, 0, 0.65)",
+              background: "rgba(0, 0, 0, 0.78)",
               color: "white",
               border: "none",
               borderRadius: "50%",
@@ -177,7 +177,7 @@ export function HeroCarousel({ banners }: { banners: Banner[] }) {
               zIndex: 10,
             }}
           >
-            <ChevronLeft size={22} />
+            <ChevronLeft size={26} strokeWidth={2.5} />
           </button>
 
           <button
@@ -188,7 +188,7 @@ export function HeroCarousel({ banners }: { banners: Banner[] }) {
               top: "50%",
               right: "1rem",
               transform: "translateY(-50%)",
-              background: "rgba(0, 0, 0, 0.65)",
+              background: "rgba(0, 0, 0, 0.78)",
               color: "white",
               border: "none",
               borderRadius: "50%",
@@ -202,7 +202,7 @@ export function HeroCarousel({ banners }: { banners: Banner[] }) {
               zIndex: 10,
             }}
           >
-            <ChevronRight size={22} />
+            <ChevronRight size={26} strokeWidth={2.5} />
           </button>
 
           <div
