@@ -435,6 +435,37 @@ cada cliente que tocaba el botón le escribía a un número ajeno a la empresa. 
 **`GET /api/public/settings`**, que entrega los mismos cuatro campos que `/api/public/products` ya
 le daba a cualquier visitante anónimo — sin superficie nueva.
 
+### 6.6 Cómo nace un usuario, y cómo se crea uno que no sea administrador
+
+**La aplicación no tiene registro.** `signUp` no aparece en ninguna parte del código. Un usuario
+nace de dos maneras y de ninguna otra:
+
+1. **Entrando con Google.** Supabase crea la cuenta la primera vez.
+2. **A mano en Supabase**, con correo y contraseña.
+
+Ser administrador exige **dos cosas independientes**, y las dos fallan cerradas:
+
+| Capa | Autoridad | Qué decide |
+|---|---|---|
+| Interfaz | `ADMIN_EMAILS` (variable de entorno) | el enrutado: quién llega a `/dashboard` |
+| Datos | una fila en `public.user_roles` con `role='admin'` | la RLS: qué filas devuelve la base |
+
+**Ser cliente es no tener ninguna de las dos**, así que un usuario recién creado ya es cliente sin
+que haya nada que marcar. Y por eso las dos tienen que mantenerse coherentes: un correo en
+`ADMIN_EMAILS` **sin** su fila en `user_roles` produce el peor caso —atraviesa el middleware, ve el
+panel, y la base le niega cada consulta—. El comentario de la tabla lo advierte desde que se creó
+(`20260909100000_f1_role_model.sql:16-18`).
+
+Para crear un cliente: **Authentication → Users → Add user**, con **«Auto Confirm User» marcado**.
+Sin eso el ingreso falla con «Email not confirmed», y con un dominio inventado el correo de
+confirmación no puede llegar nunca. No hay que tocar `user_roles` ni `ADMIN_EMAILS`.
+
+> **El formulario de `/login` completa el dominio.** Si lo que se escribe no tiene `@`, le agrega
+> `@cotigrafic.local` (`login/page.tsx:56-58`). O sea que **el correo no tiene que ser real**: se
+> crea `juan@cotigrafic.local` y la persona entra escribiendo `juan`. Sirve para dar acceso sin
+> pedir un correo, y sobre todo para **probar el circuito del cliente sin depender de Google**, que
+> exige validación por dispositivo o correo cada vez.
+
 ---
 
 ## 7. Reglas que no se rompen
@@ -682,6 +713,7 @@ seguiría mal, pero de una forma mucho más difícil de encontrar.
 | **La confirmación es una página con URL, no un estado de pantalla** | §5.4 |
 | **El destinatario del correo sale de la cotización, nunca del cuerpo** | §5.4 |
 | **`company_settings` es del administrador; el membrete se lee con el rol de servicio** | §6.5 |
+| **No hay registro: un usuario nace con Google o a mano, y es cliente por omisión** | §6.6 |
 | **Una ruta probada sólo con el administrador no está probada** | §7.13 |
 | **Una ruta con el rol de servicio declara `force-dynamic`, o el build la ejecuta** | §7.14 |
 | Sin galería, sin requisitos de arte, sin validación por contenido | decisión del dueño, 2026-09-16 |
