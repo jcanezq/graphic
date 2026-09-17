@@ -67,8 +67,14 @@ export default function LoginPage() {
         setError("Usuario o contraseña incorrectos.");
         setLoading(false);
       } else {
-        // Redirigir al dashboard o recargar para que el middleware lo maneje
-        window.location.href = "/dashboard";
+        // Se recarga ESTA misma URL y decide el middleware (regla 3, middleware.ts:78).
+        // Antes acá había un destino fijo —/dashboard— y eso tenía dos costos: el
+        // cliente terminaba en su historial en vez del catálogo, y el `?redirect=`
+        // con el que el propio middleware manda al ingreso se perdía.
+        //
+        // `reload()` y no `href = "/login"`: reload CONSERVA la cadena de consulta,
+        // que es justamente donde viaja ese `?redirect=`.
+        window.location.reload();
       }
     } catch (err: any) {
       console.error("Network/Unexpected Error:", err);

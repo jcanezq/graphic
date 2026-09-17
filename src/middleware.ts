@@ -89,7 +89,10 @@ export async function middleware(request: NextRequest) {
     if (isAdmin) {
       url.pathname = "/dashboard";
     } else {
-      url.pathname = "/mis-cotizaciones";
+      // El catálogo, no el historial: quien acaba de entrar casi siempre viene a
+      // cotizar, no a revisar lo que ya pidió. Mismo criterio que 42-spec-LAND
+      // para el ingreso con Google.
+      url.pathname = "/";
     }
     return NextResponse.redirect(url);
   }
