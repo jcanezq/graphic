@@ -9,6 +9,7 @@ import { useToast } from "@/components/ToastProvider";
 import { ProductCard } from "@/components/public/ProductCard";
 import { QuoteItemThumb } from "@/components/public/QuoteItemThumb";
 import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
+import { HeroCarousel } from "@/components/public/HeroCarousel";
 import { formatCurrency, normalizeText } from "@/lib/formatters";
 import type { PublicProduct } from "@/types";
 import { round2 } from "@/lib/pricing";
@@ -72,6 +73,16 @@ export default function HomePage() {
   const products = data?.products || [];
   const categories = data?.categories || [];
   const settings = data?.settings;
+
+  const { data: bannersData } = useQuery({
+    queryKey: ["home_banners"],
+    queryFn: async () => {
+      const res = await fetch("/api/public/banners");
+      if (!res.ok) return { banners: [] };
+      return res.json() as Promise<{ banners: Array<{ id: string; image_url: string; alt_text: string; link_url: string | null }> }>;
+    },
+  });
+  const banners = bannersData?.banners ?? [];
 
   function addToQuote(product: PublicProduct) {
     try {
@@ -154,67 +165,11 @@ export default function HomePage() {
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg-primary)" }}>
       <PublicNavbar />
 
-      {/* Hero Section */}
-      <section
-        style={{
-          background: "linear-gradient(180deg, rgba(0, 0, 0, 0.05) 0%, rgba(248, 250, 252, 1) 100%)",
-          padding: "2rem 1.5rem 1.5rem 1.5rem",
-          borderBottom: "1px solid var(--surface-border)",
-        }}
-      >
-        <div style={{ maxWidth: "1200px", margin: "0 auto", textAlign: "center" }}>
-          <h1
-            style={{
-              fontSize: "clamp(1.75rem, 3vw, 2.25rem)",
-              fontWeight: 800,
-              color: "var(--text-primary)",
-              lineHeight: 1.18,
-              letterSpacing: "-0.03em",
-              maxWidth: "850px",
-              margin: "0 auto 1.25rem auto",
-            }}
-          >
-            Cotiza tus proyectos gráficos en línea con{" "}
-            <span style={{ color: "var(--accent)" }}>precios inmediatos</span>
-          </h1>
-
-          <p
-            style={{
-              fontSize: "1.1rem",
-              color: "var(--text-secondary)",
-              maxWidth: "680px",
-              margin: "0 auto 2rem auto",
-              lineHeight: 1.6,
-            }}
-          >
-            Selecciona de nuestro catálogo de impresión gran formato, señalética, vinilos y merchandising.
-            Configura tus cantidades y recibe atención personalizada por WhatsApp con un solo clic.
-          </p>
-
-          {quoteItems.length > 0 && (
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: "1.25rem" }}>
-              <button
-                onClick={() => router.push("/cotizar")}
-                style={{
-                  padding: "0.85rem 1.75rem",
-                  fontSize: "1rem",
-                  fontWeight: 600,
-                  background: "var(--accent)",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "var(--radius-md)",
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.6rem",
-                }}
-              >
-                Ver mi cotización ({quoteItems.length})
-              </button>
-            </div>
-          )}
-        </div>
-      </section>
+      {/* La portada es el carrusel, y nada más. El título y el párrafo que vivían
+          acá se eliminaron por pedido del dueño: esa zona es del carrusel.
+          Sin banners cargados NO se dibuja nada y el catálogo queda arriba del
+          todo — es deliberado, no un respaldo que falta. */}
+      {banners.length > 0 && <HeroCarousel banners={banners} />}
 
 
 
