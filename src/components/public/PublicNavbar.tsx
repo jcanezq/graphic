@@ -191,7 +191,7 @@ export function PublicNavbar() {
             <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
               {isAdmin && (
                 <Link
-                  href="/dashboard/configuracion"
+                  href="/dashboard"
                   style={{
                     display: "flex",
                     alignItems: "center",
