@@ -110,3 +110,19 @@ Se trasladó la rica experiencia de las miniaturas visuales al panel lateral de 
 > - **Contacto:** Muestra su teléfono, dirección, correo y RUC de forma clara.
 > - **Métricas de Venta:** Calcula automáticamente el **LTV (Monto Aprobado)** sumando todas sus cotizaciones con estado "Aceptada". También calcula su **Win Rate** (porcentaje de éxito).
 > - **Histórico:** Incluye una tabla interactiva con todas las cotizaciones creadas para este cliente, permitiendo saltar directamente a ver cualquier cotización.
+
+---
+
+## ✨ Detalles Visuales, Portada y Accesibilidad (Sep 2026)
+*(Afinando la experiencia de usuario y presentación pública)*
+
+> [!TIP]
+> **Carrusel de Banners Mejorado**
+> - Se corrigió el problema del texto superpuesto con los controles de navegación. El texto descriptivo del banner ahora respeta el espacio del botón.
+> - Se reemplazaron los chevrons predeterminados por versiones SVG dibujadas a mano, aumentando drásticamente su legibilidad y grosor, y se incrementó el tamaño del área interactiva (52px).
+
+> [!IMPORTANT]
+> **Accesos y Utilidad**
+> - Se agregó un botón de acceso directo al "Panel" en la barra de navegación pública que solo se muestra a los administradores autenticados, permitiéndoles saltar rápidamente a la gestión interna.
+> - Se redujo sutilmente (25%) el tamaño del botón de agregar al carrito en la tarjeta del producto público, engrosando y reduciendo al mismo tiempo su símbolo `+` para máxima nitidez visual.
+
