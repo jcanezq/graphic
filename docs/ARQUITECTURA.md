@@ -1,6 +1,6 @@
 # Arquitectura del Sistema CotiGrafix
 
-> **Actualizado: 2026-09-17**, verificado contra el código en `c05a2d4`. Cada afirmación de este
+> **Actualizado: 2026-09-18**, verificado contra el código en `8ed5a61`. Cada afirmación de este
 > documento se comprobó ejecutando o leyendo el archivo que se cita. **Si algo acá no coincide con
 > el código, el código manda y este documento está vencido: corregilo.**
 
@@ -75,6 +75,20 @@ src/
 ```
 
 **No existe** `components/ui/`. Los componentes genéricos viven donde se usan.
+
+### Qué documento es cuál, dentro de `docs/`
+
+Hay doce archivos ahí y varios quedaron de etapas anteriores. Sólo dos están vivos:
+
+| Archivo | Qué es | Vigencia |
+|---|---|---|
+| **`ARQUITECTURA.md`** (este) | **cómo está construido y POR QUÉ**; las reglas que no se rompen | vivo, y manda sobre los demás |
+| **`RESUMEN_CAMBIOS.md`** | bitácora narrada de qué se fue entregando, en lenguaje de producto | vivo |
+| `ANALISIS_TECNICO.md` · `ANALISIS_FUNCIONAL.md` · `implementation_plan.md` · `task.md` · `walkthrough.md` · `analysis_results.md` · `future_features.md` | material de arranque del proyecto | **histórico: no se actualizan y pueden contradecir al código** |
+
+Los dos vivos **no compiten**: uno cuenta qué se entregó y el otro por qué está hecho así. Si alguno
+de los históricos contradice a este documento, gana este; y si este contradice al código, **gana el
+código y hay que corregirlo acá**.
 
 ---
 
@@ -281,6 +295,17 @@ desapareció el botón «Guardar Cotización».
 3. Genera con «Generar Cotización» y cae en la misma página de entrega (§5.4).
 4. **El costo y el margen los ajusta después**, en la cotización guardada
    (`dashboard/cotizaciones/[id]`), que los edita por ítem **y por cada componente**.
+5. **Vuelve al panel por el enlace «Panel» de la barra pública**, que sólo se dibuja cuando
+   `/api/me` responde que la sesión es administradora (`PublicNavbar.tsx`).
+
+> **Ese enlace faltó durante un día entero y nadie lo notó al escribir el código.** Mudar al
+> administrador al circuito público se verificó comprobando que llegaba; **no que pudiera volver**.
+> Un camino de ida sin vuelta se ve completo hasta que alguien lo recorre — y mientras tanto la
+> única salida era escribir `/dashboard` a mano en la barra de direcciones.
+>
+> El enlace es **sólo interfaz**: el control de acceso lo sigue haciendo el middleware. Se condiciona
+> a `isAdmin` porque ofrecerle a un cliente una puerta que se le cierra en la cara es peor que no
+> ofrecerla.
 
 El privilegio no se adivina en el navegador: la pantalla le pregunta a `/api/me` qué es la sesión —y
 eso sólo decide **qué campos se dibujan**—, mientras **el servidor lo comprueba por su cuenta**.
@@ -781,6 +806,7 @@ seguiría mal, pero de una forma mucho más difícil de encontrar.
 | Migraciones | **39 aplicadas**; la fuga de `clients_with_stats` cerrada y el arte del cliente en privado |
 | Cotizador | **unificado**: el administrador usa el circuito público; `cotizaciones/nueva` sólo redirige |
 | Portada | carrusel de banners con titular editable; **sin banners no se dibuja nada** (§5.5) |
+| Ida y vuelta del administrador | cotiza en el circuito público y vuelve por el enlace «Panel» (§5.2) |
 | `company-assets` | **cerrado** a escritura de no administradores, comprobado por contraste (§6.7) |
 | Entrega | página propia con PDF, correo y WhatsApp (§5.4) |
 | Correo | **escrito y sin probar** — falta `RESEND_API_KEY` y `RESEND_FROM` con dominio verificado |
