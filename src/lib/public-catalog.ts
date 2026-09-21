@@ -16,6 +16,7 @@
 // ============================================================
 
 import { round2 } from '@/lib/pricing';
+import { buildComponentRowKeys } from '@/lib/component-selection';
 
 /**
  * Un subcomponente publicado al catálogo público: SOLO precio de venta.
@@ -27,6 +28,14 @@ import { round2 } from '@/lib/pricing';
  * siendo su cantidad por su precio unitario, o el documento no se puede auditar.
  */
 export interface PublicComponent {
+  /**
+   * La identidad de ESTA fila, para que el cliente pueda decir cuál destildó.
+   * No tiene `id` —el id nace al guardar la cotización— así que la clave sale
+   * del contenido. Ver `src/lib/component-selection.ts`, que la calcula tanto
+   * acá como en el servidor al reconstruir el ítem: son la MISMA función, y si
+   * dejaran de serlo el cliente apagaría una fila y el servidor otra.
+   */
+  key: string;
   label: string;
   unit: string;
   quantity: number;
@@ -77,55 +86,69 @@ export function buildPublicComponents(
   const margin = product.default_margin ?? 30;
   const precioVenta = (costo: number) => round2(costo * (1 + margin / 100));
 
-  const out: PublicComponent[] = [];
+  // ⚠ La receta se recorre ENTERA, incluidas las filas que no cobran (costo
+  // cero). Las claves se calculan sobre esa lista completa y recién DESPUÉS se
+  // descartan las que no se publican. Filtrar primero rompería el contrato con
+  // el servidor: él reconstruye la receta completa, así que una fila gratis con
+  // nombre repetido correría el desempate `#2` de un lado y no del otro, y el
+  // cliente terminaría apagando la fila de al lado.
+  const todas: Array<PublicComponent & { _cobra: boolean }> = [];
 
   for (const m of materials) {
     const uc = Number(m.unit_cost ?? 0);
-    if (!(uc > 0)) continue;
-    out.push({
+    todas.push({
+      key: '',
       label: m.name ?? 'Material',
       unit: m.unit ?? 'unidad',
       quantity: Number(m.quantity ?? 1),
-      unit_price: precioVenta(uc),
+      unit_price: precioVenta(uc > 0 ? uc : 0),
       scope: 'unit',
       category: 'material',
       source_kind: null,
+      _cobra: uc > 0,
     });
   }
 
   for (const l of labor) {
     const uc = Number(l.hourly_rate ?? 0);
-    if (!(uc > 0)) continue;
-    out.push({
+    todas.push({
+      key: '',
       label: l.work_type ?? 'Mano de Obra',
       unit: l.unit ?? 'hr',
       quantity: Number(l.hours ?? 1),
-      unit_price: precioVenta(uc),
+      unit_price: precioVenta(uc > 0 ? uc : 0),
       scope: 'unit',
       category: 'labor',
       source_kind: null,
+      _cobra: uc > 0,
     });
   }
 
   for (const ic of indirects) {
     const uc = Number(ic.unit_cost ?? 0);
-    if (!(uc > 0)) continue;
     let category = 'other';
     let source_kind: string | null = null;
     let scope = 'unit';
     if (ic.kind === 'design') { category = 'production'; source_kind = 'design'; scope = 'order'; }
     else if (ic.kind === 'production') { category = 'production'; }
     else if (ic.kind === 'transport') { source_kind = 'transport'; scope = 'order'; }
-    out.push({
+    todas.push({
+      key: '',
       label: ic.concept ?? 'Indirecto',
       unit: ic.unit ?? 'unidad',
       quantity: Number(ic.quantity ?? 1),
-      unit_price: precioVenta(uc),
+      unit_price: precioVenta(uc > 0 ? uc : 0),
       scope,
       category,
       source_kind,
+      _cobra: uc > 0,
     });
   }
 
-  return out;
+  const claves = buildComponentRowKeys(todas);
+
+  return todas
+    .map((c, i) => ({ ...c, key: claves[i] }))
+    .filter((c) => c._cobra)
+    .map(({ _cobra, ...publicable }) => publicable);
 }
