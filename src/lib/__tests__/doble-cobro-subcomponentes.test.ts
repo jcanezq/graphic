@@ -289,6 +289,22 @@ describe('SUBC — el carrito publico calcula por el mismo camino que el servido
     }
   });
 
+  it('la receta publicada y la guardada describen la MISMA fila, campo por campo', () => {
+    // No alcanza con que los totales coincidan: si el catálogo publicara «1 m
+    // lineal a S/ 6.48» y el servidor guardara «4 m lineales a S/ 1.62», el
+    // dinero cuadraría y el documento diría dos cosas distintas.
+    // (Las dos listas tienen el mismo largo porque toda fila de estos fixtures
+    // cuesta > 0; el catálogo público omite las de costo cero.)
+    for (const producto of [EXHIBIDOR, MELAMINA]) {
+      const publicadas = buildPublicComponents(
+        producto, producto.materials, producto.labor, producto.indirect_costs);
+      const guardadas: QuotationItemComponent[] =
+        (createQuotationItemFromProduct(producto, 1, 35, 0) as any)._components;
+      expect(publicadas.map((c) => [c.label, c.unit, c.quantity, c.scope, c.category, c.source_kind]))
+        .toEqual(guardadas.map((c) => [c.label, c.unit ?? 'unidad', c.quantity, c.scope, c.category, c.source_kind]));
+    }
+  });
+
   it('un componente de scope «order» tampoco pierde su cantidad', () => {
     // El scope decide si la fila escala con el ítem, no si tiene cantidad. Dos
     // horas de diseño son dos horas aunque se cobren una sola vez por pedido.

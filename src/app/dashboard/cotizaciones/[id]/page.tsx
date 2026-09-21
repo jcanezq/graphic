@@ -15,6 +15,7 @@ import {
   calcItemSubtotal,
   type QuotationItemComponent,
 } from "@/lib/calculations";
+import { componentEffectiveQty, round2 } from "@/lib/pricing";
 import { saveQuotationItems } from "@/lib/quotation-save";
 import { withComponents } from "@/lib/quotation-components";
 import { ArrowLeft, Save, FileDown, Trash2, Search, MessageCircle, GitBranch, ShieldAlert } from "lucide-react";
@@ -607,9 +608,13 @@ export default function QuotationDetailPage() {
                                         </td>
                                       </tr>
                                       {rows.map(({ c, ci }) => {
-                                        const effectiveQty = c.scope === 'unit' ? (Number(item.quantity) || 1) : 1;
-                                        const pvUnit = Math.round(c.unit_cost * (1 + c.margin_percent / 100) * 100) / 100;
-                                        const subtotal = c.is_included ? Math.round(pvUnit * c.quantity * (c.scope === 'unit' ? (Number(item.quantity) || 1) : 1) * 100) / 100 : 0;
+                                        // `effectiveQty` estaba declarada y no se usaba: la columna
+                                        // «Cant.» mostraba la cantidad de la receta y el subtotal
+                                        // repetia la aritmetica en linea. Ahora las dos salen de la
+                                        // misma funcion que el carrito y el motor del servidor.
+                                        const effectiveQty = componentEffectiveQty(c.quantity, Number(item.quantity) || 1, c.scope);
+                                        const pvUnit = round2(c.unit_cost * (1 + c.margin_percent / 100));
+                                        const subtotal = c.is_included ? round2(effectiveQty * pvUnit) : 0;
                                         return (
                                           <tr key={ci} style={{ background: c.is_included ? 'var(--bg-glass)' : 'transparent', opacity: c.is_included ? 1 : 0.5 }}>
                                             <td />

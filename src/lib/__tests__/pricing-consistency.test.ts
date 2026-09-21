@@ -18,7 +18,16 @@ const SERVICIO: any = {
 const MARGEN = 35;
 const IGV = 0.18;
 
-/** Reproduce el cálculo de /api/public/products + /cotizar (carrito). */
+/**
+ * Reproduce el cálculo de /api/public/products + /cotizar (carrito) por el
+ * camino LEGADO: base + los tres componentes de servicio, sin receta.
+ *
+ * ⚠ Sigue siendo una copia a mano, así que NO cubre el camino de la receta
+ * (`_components`): esa es la vía por la que el carrito perdió la cantidad de
+ * los subcomponentes y esta prueba no se enteró. El camino de la receta se
+ * verifica en `doble-cobro-subcomponentes.test.ts`, que llama a las funciones
+ * reales (`buildPublicComponents` + `cartLineTotal`) en vez de reescribirlas.
+ */
 function totalDelCarrito(product: any, qty: number) {
   // Simulate route.ts
   const materialCost = product.materials.reduce((acc: number, m: any) => acc + (m.quantity * m.unit_cost), 0);

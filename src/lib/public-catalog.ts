@@ -17,10 +17,19 @@
 
 import { round2 } from '@/lib/pricing';
 
-/** Un subcomponente publicado al catálogo público: SOLO precio de venta. */
+/**
+ * Un subcomponente publicado al catálogo público: SOLO precio de venta.
+ *
+ * `quantity` es la cantidad de la RECETA —4 m lineales de canto por módulo—, y
+ * viaja aparte del precio a propósito. Doblarla dentro de `unit_price` daría el
+ * mismo dinero, pero el cliente leería «1 m lineal a S/ 6.48» donde el panel
+ * dice «4 m lineales a S/ 1.62»: el subtotal de una fila tiene que seguir
+ * siendo su cantidad por su precio unitario, o el documento no se puede auditar.
+ */
 export interface PublicComponent {
   label: string;
   unit: string;
+  quantity: number;
   unit_price: number;
   scope: string;
   category: string;
@@ -76,6 +85,7 @@ export function buildPublicComponents(
     out.push({
       label: m.name ?? 'Material',
       unit: m.unit ?? 'unidad',
+      quantity: Number(m.quantity ?? 1),
       unit_price: precioVenta(uc),
       scope: 'unit',
       category: 'material',
@@ -89,6 +99,7 @@ export function buildPublicComponents(
     out.push({
       label: l.work_type ?? 'Mano de Obra',
       unit: l.unit ?? 'hr',
+      quantity: Number(l.hours ?? 1),
       unit_price: precioVenta(uc),
       scope: 'unit',
       category: 'labor',
@@ -108,6 +119,7 @@ export function buildPublicComponents(
     out.push({
       label: ic.concept ?? 'Indirecto',
       unit: ic.unit ?? 'unidad',
+      quantity: Number(ic.quantity ?? 1),
       unit_price: precioVenta(uc),
       scope,
       category,

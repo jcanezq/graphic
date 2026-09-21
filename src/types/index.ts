@@ -115,6 +115,8 @@ export interface PublicProduct {
   public_components?: Array<{
     label: string;
     unit: string;
+    /** Cantidad de la RECETA (4 m lineales de canto), no la del ítem. */
+    quantity: number;
     unit_price: number;
     scope: string;
     category: string;

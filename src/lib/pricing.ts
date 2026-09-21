@@ -68,6 +68,35 @@ const COMPONENT_META: Record<ComponentKey, { label: string; unit: string }> = {
   transport: { label: 'Transporte / Movilidad',  unit: 'viaje' },
 };
 
+/**
+ * Cantidad EFECTIVA de un subcomponente: la de la RECETA (4 m lineales de canto
+ * por módulo), escalada por la cantidad del ítem cuando su scope es 'unit'.
+ *
+ * ┌──────────────────────────────────────────────────────────┐
+ * │  ÚNICA DEFINICIÓN. El motor del servidor, el carrito     │
+ * │  público y las dos pantallas que dibujan el desglose      │
+ * │  llaman a ESTA función. Tener la aritmética copiada es    │
+ * │  exactamente cómo el catálogo público terminó publicando  │
+ * │  el costo unitario del canto y tirando sus 4 metros,      │
+ * │  mientras el servidor los conservaba al guardar.          │
+ * └──────────────────────────────────────────────────────────┘
+ *
+ * El scope decide si la fila escala con el ítem, NO si tiene cantidad: dos
+ * horas de diseño son dos horas aunque se cobren una sola vez por pedido.
+ *
+ * Una fila sin `quantity` —un carrito que quedó guardado en el navegador antes
+ * de este arreglo— vale 1, que es como se venía cobrando.
+ */
+export function componentEffectiveQty(
+  compQty: number | null | undefined,
+  itemQty: number,
+  scope: string,
+): number {
+  const q = compQty == null ? 1 : Number(compQty);
+  if (!Number.isFinite(q)) return 0;
+  return scope === 'unit' ? q * itemQty : q;
+}
+
 function makeLine(
   key: PriceLine['key'], label: string, unit: string,
   quantity: number, unitCost: number, marginPercent: number,
@@ -90,7 +119,7 @@ export function buildItemLines(item: PricedItemInput): PriceLine[] {
     const c = item[key];
     if (!c || !c.enabled) continue;
     if (!(c.unit_cost > 0)) continue;
-    const effectiveQty = c.scope === 'unit' ? c.quantity * item.quantity : c.quantity;
+    const effectiveQty = componentEffectiveQty(c.quantity, item.quantity, c.scope);
     if (!(effectiveQty > 0)) continue;
     const meta = COMPONENT_META[key];
     lines.push(makeLine(key, meta.label, meta.unit, effectiveQty, c.unit_cost, c.margin_percent));
@@ -173,7 +202,7 @@ export function buildItemLinesFromComponents(
   for (const c of components) {
     if (!c.is_included) continue;
     if (!(c.unit_cost > 0)) continue;
-    const effectiveQty = c.scope === 'unit' ? c.quantity * itemQty : c.quantity;
+    const effectiveQty = componentEffectiveQty(c.quantity, itemQty, c.scope);
     if (!(effectiveQty > 0)) continue;
     // Usamos 'base' como key genérico; el label distingue cada fila.
     lines.push(makeLine('base', c.label, c.unit || 'unidad', effectiveQty, c.unit_cost, c.margin_percent));
@@ -212,6 +241,13 @@ export function itemSubtotalFromComponents(
  * venta. El costo y el margen no salen del servidor.
  */
 export interface CartComponentInput {
+  /**
+   * Cantidad de la RECETA (4 m lineales de canto), no la del ítem. Opcional
+   * porque un carrito guardado en el navegador antes de este arreglo no la
+   * trae; ausente vale 1. El dinero definitivo igual lo recalcula el servidor
+   * desde el catálogo al guardar.
+   */
+  quantity?: number;
   unit_price: number;
   scope: string;
   is_included: boolean;
@@ -243,7 +279,9 @@ export function cartLineTotal(it: CartItemInput): number {
       if (!c.is_included) return acc;
       const p = Number(c.unit_price) || 0;
       if (!(p > 0)) return acc;
-      return acc + round2((c.scope === 'unit' ? qty : 1) * p);
+      const cantidad = componentEffectiveQty(c.quantity, qty, c.scope);
+      if (!(cantidad > 0)) return acc;
+      return acc + round2(cantidad * p);
     }, 0));
   }
 
