@@ -7,6 +7,7 @@ import {
   createQuotationItemFromProduct,
   calcQuotationTotals,
   recalcQuotationItem,
+  repriceItemFromComponents,
   type QuotationItemComponent,
 } from "@/lib/calculations";
 import { toQuotationItemRow } from "@/lib/quotation-item-row";
@@ -168,6 +169,12 @@ export async function POST(request: Request) {
         : rawComponents;
 
       (snapItem as any)._components = filteredComponents;
+
+      // El precio se vuelve a sacar DESPUÉS del filtro, que es lo único que hace
+      // que el interruptor del cliente valga dinero. Antes el subtotal salía del
+      // motor legado, que no mira los subcomponentes: destildar una fila la
+      // apagaba en pantalla y el total no se movía un centavo.
+      snapItem = repriceItemFromComponents(snapItem as any);
 
       quotationItems.push(snapItem);
     }

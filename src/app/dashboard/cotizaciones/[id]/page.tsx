@@ -10,6 +10,7 @@ import {
   calcQuotationTotals,
   createQuotationItemFromProduct,
   recalcQuotationItem,
+  repriceItemFromComponents,
   calcUnitPrice,
   calcItemSubtotal,
   type QuotationItemComponent,
@@ -584,9 +585,15 @@ export default function QuotationDetailPage() {
                                 style={{ width: 80 }}
                               />
                             </td>
-                            <td style={{ fontWeight: 600 }}>{formatCurrency(calcUnitPrice(item.unit_cost, item.margin_percent))}</td>
+                            {/* P.V. Unit y Subtotal salen del ítem ya valorizado
+                                (recalcQuotationItem / repriceItemFromComponents), no de
+                                una cuenta propia de esta pantalla. Con receta cargada,
+                                `unit_cost x margen` es el precio de una PARTE —la base
+                                sin mano de obra— y mostraba 168.75 mientras el pie de la
+                                cotización decía 195.75. */}
+                            <td style={{ fontWeight: 600 }}>{formatCurrency(Number(item.unit_price) || 0)}</td>
                             <td style={{ fontWeight: 600, color: "var(--success)" }}>
-                              {formatCurrency(calcItemSubtotal(item.quantity, calcUnitPrice(item.unit_cost, item.margin_percent)))}
+                              {formatCurrency(Number(item.subtotal) || 0)}
                             </td>
                             <td className="row-actions">
                               <button
@@ -672,7 +679,7 @@ export default function QuotationDetailPage() {
                                                       if (k !== i) return it;
                                                       const newComps = [...((it as any)._components ?? [])];
                                                       newComps[ci] = { ...newComps[ci], is_included: e.target.checked };
-                                                      return { ...it, _components: newComps };
+                                                      return repriceItemFromComponents({ ...it, _components: newComps } as any);
                                                     });
                                                     setItems(updated);
                                                   }}
@@ -691,7 +698,7 @@ export default function QuotationDetailPage() {
                                                     if (k !== i) return it;
                                                     const nc = [...((it as any)._components ?? [])];
                                                     nc[ci] = { ...nc[ci], quantity: Number(e.target.value) };
-                                                    return { ...it, _components: nc };
+                                                    return repriceItemFromComponents({ ...it, _components: nc } as any);
                                                   });
                                                   setItems(updated);
                                                 }}
@@ -708,7 +715,7 @@ export default function QuotationDetailPage() {
                                                     if (k !== i) return it;
                                                     const nc = [...((it as any)._components ?? [])];
                                                     nc[ci] = { ...nc[ci], unit_cost: Number(e.target.value) };
-                                                    return { ...it, _components: nc };
+                                                    return repriceItemFromComponents({ ...it, _components: nc } as any);
                                                   });
                                                   setItems(updated);
                                                 }}
@@ -725,7 +732,7 @@ export default function QuotationDetailPage() {
                                                     if (k !== i) return it;
                                                     const nc = [...((it as any)._components ?? [])];
                                                     nc[ci] = { ...nc[ci], margin_percent: Number(e.target.value) };
-                                                    return { ...it, _components: nc };
+                                                    return repriceItemFromComponents({ ...it, _components: nc } as any);
                                                   });
                                                   setItems(updated);
                                                 }}

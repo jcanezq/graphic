@@ -100,6 +100,14 @@ export async function GET() {
       // SUBC: subcomponentes públicos (solo precios de venta, nunca costos).
       // El cliente ve la composición del producto pero nunca los márgenes.
       // Confirmado por el dueño: «está bien que el cliente vea todos los componentes».
+      //
+      // ⚠ COSTO MANUAL: no se publica receta. Su precio NO es la suma de sus
+      // partes —el costo manual reemplaza materiales e indirectos—, así que una
+      // lista de piezas cuya suma contradice el precio haría que el carrito
+      // cobrara la receta y el servidor el costo manual. Es exactamente la
+      // divergencia C-1, entrando por la puerta de SUBC. Mismo criterio que
+      // `createQuotationItemFromProduct`: sin receta, manda la fila base.
+      const usaCostoManual = (p as any).manual_unit_cost != null && (p as any).manual_unit_cost > 0;
       const margin = (p as any).default_margin ?? 30;
       const unitPrice = (cost: number) => Math.round(cost * (1 + margin / 100) * 100) / 100;
 
@@ -110,7 +118,7 @@ export async function GET() {
       const publicComponents: PublicComp[] = [];
 
       // Materiales — iteramos rawMaterials para tener el nombre real del material.
-      for (const m of rawMaterials) {
+      for (const m of (usaCostoManual ? [] : rawMaterials)) {
         const uc = (m as any).material_ref?.manual_unit_cost ?? (m as any).unit_cost ?? 0;
         if (!(uc > 0)) continue;
         publicComponents.push({
@@ -123,7 +131,7 @@ export async function GET() {
         });
       }
       // Mano de obra
-      for (const l of pLabor) {
+      for (const l of (usaCostoManual ? [] : pLabor)) {
         const uc = (l as any).hourly_rate ?? 0;
         if (!(uc > 0)) continue;
         publicComponents.push({
@@ -136,7 +144,7 @@ export async function GET() {
         });
       }
       // Indirectos
-      for (const ic of pIndirect) {
+      for (const ic of (usaCostoManual ? [] : pIndirect)) {
         const uc = (ic as any).unit_cost ?? 0;
         if (!(uc > 0)) continue;
         const kind = (ic as any).kind;

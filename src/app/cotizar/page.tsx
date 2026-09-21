@@ -11,7 +11,7 @@ import { formatCurrency, normalizeText } from "@/lib/formatters";
 import { fetchDocumentData } from "@/lib/ruc";
 import type { PublicProduct } from "@/types";
 import { ProductThumbnail } from "@/components/public/ProductThumbnail";
-import { round2 } from "@/lib/pricing";
+import { round2, cartLineTotal, cartUnitPrice } from "@/lib/pricing";
 import {
   Calculator,
   Trash2,
@@ -349,36 +349,18 @@ export default function CotizadorPage() {
   // Calculate totals
   // Mismo modelo de filas que el servidor (src/lib/pricing.ts): el carrito
   // ya no multiplica los componentes por la cantidad si su scope es 'order'.
-  function lineTotal(it: DraftItem): number {
-    const qty = Math.max(1, Number(it.quantity) || 1);
-    const base = round2(qty * (Number(it.base_unit_price) || 0));
+  // El precio de una linea lo decide el motor canonico (src/lib/pricing.ts) y
+  // nadie mas. La copia que vivia aca sumaba la fila base MAS los
+  // subcomponentes, y como los subcomponentes SON el producto lo cobraba dos
+  // veces: 364.50 donde el panel de administracion decia 195.75.
+  const lineTotal = (it: DraftItem) => cartLineTotal(it as any);
 
-    // Si el ítem tiene subcomponentes públicos (SUBC), calcular desde ellos.
-    const comps = it._components;
-    if (comps && comps.length > 0) {
-      const compTotal = comps.reduce((acc, c) => {
-        if (!c.is_included) return acc;
-        const p = Number(c.unit_price) || 0;
-        if (!(p > 0)) return acc;
-        return acc + round2((c.scope === 'unit' ? qty : 1) * p);
-      }, 0);
-      return round2(base + compTotal);
-    }
-
-    // Legado: usar labor_price / design_price / transport_price
-    const comp = (price: number | undefined, enabled: boolean | undefined, scope: string | undefined) => {
-      if (enabled === false) return 0;
-      const p = Number(price) || 0;
-      if (!(p > 0)) return 0;
-      return round2((scope === 'unit' ? qty : 1) * p);
-    };
-    return round2(
-      base
-      + comp(it.labor_price, it.has_labor, it.labor_scope)
-      + comp(it.design_price, it.has_design, it.design_scope)
-      + comp(it.transport_price, it.has_transport, it.transport_scope)
-    );
-  }
+  // El P.V. Unit del encabezado sale de la MISMA funcion evaluada a cantidad 1.
+  // Antes mostraba `base_unit_price`, que es el precio de una PARTE del producto
+  // (el producto sin la mano de obra): decia 168.75 mientras el desglose de
+  // abajo sumaba otra cosa. Calculados por el mismo camino, ya no pueden
+  // discrepar.
+  const lineUnitPrice = (it: DraftItem) => cartUnitPrice(it as any);
 
   const subtotal = round2(items.reduce((acc, it) => acc + lineTotal(it), 0));
   const igv = round2(subtotal * igvRate);
@@ -622,7 +604,7 @@ export default function CotizadorPage() {
                               <div style={{ width: "90px", textAlign: "right" }}>
                                 <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", display: "block", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>P.V. Unit</span>
                                 <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--text-secondary)" }}>
-                                  {formatCurrency(item.base_unit_price)}
+                                  {formatCurrency(lineUnitPrice(item))}
                                 </span>
                               </div>
 
