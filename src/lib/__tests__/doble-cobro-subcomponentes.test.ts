@@ -18,7 +18,9 @@ import { describe, it, expect } from 'vitest';
 import {
   buildItemLinesFromComponents, itemSubtotalFromComponents, cartLineTotal, cartUnitPrice,
   type QuotationItemComponent,
+  round2,
 } from '@/lib/pricing';
+import { buildPublicComponents } from '@/lib/public-catalog';
 import {
   buildCatalogPricing, createQuotationItemFromProduct, buildQuotationItemLines,
   repriceItemFromComponents, calcQuotationTotals,
@@ -44,6 +46,33 @@ const EXHIBIDOR: any = {
     { concept: 'Impresion grafica',   kind: 'production', unit: 'm2',     quantity: 1, unit_cost: 15, cost: 15 },
     { concept: 'Instalacion/entrega', kind: 'other',      unit: 'global', quantity: 1, unit_cost: 25, cost: 25 },
   ],
+};
+
+/**
+ * Modulo de melamina del catalogo real. Margen 35 %. ES EL CASO QUE DESTAPO
+ * EL DEFECTO, y esta aca por lo que tiene de distinto: una cantidad que NO es 1.
+ *
+ *   Tablero melamine 18mm   m2         1 x 140.00 = 140.00
+ *   Cantos / tapacantos     m lineal   4 x   1.20 =   4.80   <- los 4 m lineales
+ *   Herrajes                juego      1 x  40.00 =  40.00
+ *                                             costo  184.80 -> P. Venta 249.48
+ *
+ * El invariante de arriba corria SOLO contra EXHIBIDOR, donde las seis
+ * cantidades valen 1. Un defecto que pierde la cantidad es invisible contra un
+ * fixture donde la cantidad no hace nada: la prueba pasaba multiplicando por 1
+ * un numero que el codigo nunca multiplicaba.
+ */
+const MELAMINA: any = {
+  id: 'p-mel', code: 'PRD-2026-0921', name: 'Modulo de melamina',
+  type: 'Producto', unit: 'unidad', description: '', manual_unit_cost: null,
+  default_margin: 35, is_active: true, category_id: null, image_url: null,
+  materials: [
+    { name: 'Tablero melamine 18mm', quantity: 1, unit_cost: 140,  unit: 'm2',       material_id: null },
+    { name: 'Cantos / tapacantos',   quantity: 4, unit_cost: 1.20, unit: 'm lineal', material_id: null },
+    { name: 'Herrajes',              quantity: 1, unit_cost: 40,   unit: 'juego',    material_id: null },
+  ],
+  labor: [],
+  indirect_costs: [],
 };
 
 /** El número que muestra el panel de administración (CostSummarySection). */
@@ -78,9 +107,13 @@ describe('SUBC — la receta ES el producto, no un extra', () => {
   // ---- EL INVARIANTE QUE FALTABA ----
   // Dos pantallas, dos caminos de cálculo, nadie los cruzaba.
   it('INVARIANTE: subtotal de la cotizacion a cantidad 1 === Precio Venta del panel', () => {
-    const item = createQuotationItemFromProduct(EXHIBIDOR, 1, 35, 0);
-    expect(item.subtotal).toBe(precioVentaDelPanel(EXHIBIDOR));
-    expect(sumaDeFilas(item)).toBe(precioVentaDelPanel(EXHIBIDOR));
+    // Corre sobre los DOS fixtures: uno con todas las cantidades en 1 y otro con
+    // los 4 m lineales de canto. El primero solo no prueba nada sobre cantidades.
+    for (const producto of [EXHIBIDOR, MELAMINA]) {
+      const item = createQuotationItemFromProduct(producto, 1, 35, 0);
+      expect(item.subtotal).toBe(precioVentaDelPanel(producto));
+      expect(sumaDeFilas(item)).toBe(precioVentaDelPanel(producto));
+    }
   });
 
   it('el documento cuadra consigo mismo: el subtotal guardado === suma de sus filas', () => {
@@ -154,51 +187,138 @@ describe('SUBC — la receta ES el producto, no un extra', () => {
 
 describe('SUBC — el carrito publico calcula por el mismo camino que el servidor', () => {
 
-  /** El ítem del carrito tal como lo arma /api/public/products + page.tsx. */
-  function itemDeCarrito(qty: number) {
-    const pricing = buildCatalogPricing(EXHIBIDOR, EXHIBIDOR.materials, EXHIBIDOR.labor, EXHIBIDOR.indirect_costs);
-    const pv = (c: number) => Math.round(c * 1.35 * 100) / 100;
+  /**
+   * El ítem del carrito tal como lo arma /api/public/products + page.tsx.
+   *
+   * ⚠ LA RECETA SALE DE `buildPublicComponents`, la MISMA función que publica el
+   * servidor. Antes esta lista estaba escrita a mano, con seis precios a dedo, y
+   * por eso el test no se enteró de que el catálogo publicaba los componentes
+   * sin su cantidad: la copia a mano tampoco la tenía, así que las dos estaban
+   * de acuerdo en el error.
+   */
+  function itemDeCarrito(product: any, qty: number) {
+    const pricing = buildCatalogPricing(product, product.materials, product.labor, product.indirect_costs);
     return {
       quantity: qty,
       base_unit_price: pricing.baseUnitPrice,
       labor_price: pricing.laborPrice, has_labor: true, labor_scope: 'unit',
       design_price: pricing.designPrice, has_design: true, design_scope: 'order',
       transport_price: pricing.transportPrice, has_transport: true, transport_scope: 'order',
-      _components: [
-        { label: 'Acrilico',            unit_price: pv(35), scope: 'unit', is_included: true },
-        { label: 'Vinil',               unit_price: pv(30), scope: 'unit', is_included: true },
-        { label: 'Ensamblaje',          unit_price: pv(20), scope: 'unit', is_included: true },
-        { label: 'Corte y router',      unit_price: pv(20), scope: 'unit', is_included: true },
-        { label: 'Impresion grafica',   unit_price: pv(15), scope: 'unit', is_included: true },
-        { label: 'Instalacion/entrega', unit_price: pv(25), scope: 'unit', is_included: true },
-      ],
+      _components: buildPublicComponents(product, product.materials, product.labor, product.indirect_costs)
+        .map((c) => ({ ...c, is_included: true })),
     };
   }
 
+  /** Un solo subcomponente del catálogo, en un carrito de una unidad. */
+  function soloEsteComponente(product: any, label: string, qty: number = 1) {
+    const c = buildPublicComponents(product, product.materials, product.labor, product.indirect_costs)
+      .find((x) => x.label === label);
+    if (!c) throw new Error(`El catálogo público no publica «${label}»`);
+    return { quantity: qty, _components: [{ ...c, is_included: true }] };
+  }
+
   it('el carrito muestra 195.75, no 364.50', () => {
-    expect(cartLineTotal(itemDeCarrito(1) as any)).toBe(195.75);
+    expect(cartLineTotal(itemDeCarrito(EXHIBIDOR, 1) as any)).toBe(195.75);
   });
 
   it('el P.V. Unit del encabezado es el precio del producto entero, no el de la base', () => {
     // Antes mostraba 168.75 (base sin mano de obra) mientras el desglose sumaba otra cosa.
-    expect(cartUnitPrice(itemDeCarrito(1) as any)).toBe(195.75);
-    expect(cartUnitPrice(itemDeCarrito(9) as any)).toBe(195.75);
+    expect(cartUnitPrice(itemDeCarrito(EXHIBIDOR, 1) as any)).toBe(195.75);
+    expect(cartUnitPrice(itemDeCarrito(EXHIBIDOR, 9) as any)).toBe(195.75);
   });
 
   it('el encabezado y el desglose no pueden discrepar: a cantidad 1 son el mismo numero', () => {
-    const it1 = itemDeCarrito(1) as any;
+    const it1 = itemDeCarrito(EXHIBIDOR, 1) as any;
     expect(cartUnitPrice(it1)).toBe(cartLineTotal(it1));
   });
 
   it('carrito y servidor dan el mismo subtotal (C-1 no vuelve por la puerta de SUBC)', () => {
     for (const qty of [1, 3, 10]) {
       const servidor = createQuotationItemFromProduct(EXHIBIDOR, qty, 35, 0);
-      expect(cartLineTotal(itemDeCarrito(qty) as any)).toBe(servidor.subtotal);
+      expect(cartLineTotal(itemDeCarrito(EXHIBIDOR, qty) as any)).toBe(servidor.subtotal);
     }
   });
 
   it('el carrito sin receta cae al camino legado y no cambia de precio', () => {
-    const legado: any = { ...itemDeCarrito(3), _components: [] };
+    const legado: any = { ...itemDeCarrito(EXHIBIDOR, 3), _components: [] };
     expect(cartLineTotal(legado)).toBe(195.75 + 2 * 168.75 + 2 * 27);
+  });
+
+  // ============================================================
+  // LA CANTIDAD DE LA RECETA — el caso de los 4 m lineales de canto
+  //
+  // El costo de un componente se calcula con su SUBTOTAL (cantidad x costo
+  // unitario), no con su costo unitario. El catálogo público publicaba el costo
+  // unitario y tiraba la cantidad, así que el carrito cobraba UN metro de canto
+  // donde la receta dice CUATRO. El servidor, al guardar, sí copia la cantidad
+  // (`createQuotationItemFromProduct` hace `quantity: m.quantity`): el cliente
+  // aceptaba un número y se le facturaba otro.
+  // ============================================================
+
+  it('el catalogo publica los 4 m lineales de canto, no 1', () => {
+    const comps = buildPublicComponents(MELAMINA, MELAMINA.materials, MELAMINA.labor, MELAMINA.indirect_costs);
+    const cantos = comps.find((c) => c.label === 'Cantos / tapacantos')!;
+    expect(cantos.quantity).toBe(4);
+    expect(cantos.unit).toBe('m lineal');
+    expect(cantos.unit_price).toBe(1.62);   // 1.20 x 1.35, el precio de UN metro
+  });
+
+  it('la linea de cantos vale 6.48 (4 x 1.20 x 1.35), no 1.62', () => {
+    expect(cartLineTotal(soloEsteComponente(MELAMINA, 'Cantos / tapacantos') as any)).toBe(6.48);
+  });
+
+  it('la cantidad de la receta escala con la del item: 3 modulos son 12 m lineales', () => {
+    expect(cartLineTotal(soloEsteComponente(MELAMINA, 'Cantos / tapacantos', 3) as any)).toBe(19.44);
+  });
+
+  it('INVARIANTE: a cantidad 1 el carrito muestra el Precio Venta del panel', () => {
+    for (const producto of [EXHIBIDOR, MELAMINA]) {
+      expect(cartUnitPrice(itemDeCarrito(producto, 1) as any)).toBe(precioVentaDelPanel(producto));
+    }
+  });
+
+  it('INVARIANTE: lo que ve el cliente en el carrito === lo que guarda el servidor', () => {
+    // Esta es la que importa: el carrito decía 244.62 y la cotización guardada
+    // 249.48. La diferencia son exactamente los 3 m lineales de canto que el
+    // catálogo no publicaba.
+    for (const producto of [EXHIBIDOR, MELAMINA]) {
+      for (const qty of [1, 3, 10]) {
+        const servidor = createQuotationItemFromProduct(producto, qty, 35, 0);
+        expect(cartLineTotal(itemDeCarrito(producto, qty) as any)).toBe(servidor.subtotal);
+      }
+    }
+  });
+
+  it('la receta publicada y la guardada describen la MISMA fila, campo por campo', () => {
+    // No alcanza con que los totales coincidan: si el catálogo publicara «1 m
+    // lineal a S/ 6.48» y el servidor guardara «4 m lineales a S/ 1.62», el
+    // dinero cuadraría y el documento diría dos cosas distintas.
+    // (Las dos listas tienen el mismo largo porque toda fila de estos fixtures
+    // cuesta > 0; el catálogo público omite las de costo cero.)
+    for (const producto of [EXHIBIDOR, MELAMINA]) {
+      const publicadas = buildPublicComponents(
+        producto, producto.materials, producto.labor, producto.indirect_costs);
+      const guardadas: QuotationItemComponent[] =
+        (createQuotationItemFromProduct(producto, 1, 35, 0) as any)._components;
+      expect(publicadas.map((c) => [c.label, c.unit, c.quantity, c.scope, c.category, c.source_kind]))
+        .toEqual(guardadas.map((c) => [c.label, c.unit ?? 'unidad', c.quantity, c.scope, c.category, c.source_kind]));
+    }
+  });
+
+  it('un componente de scope «order» tampoco pierde su cantidad', () => {
+    // El scope decide si la fila escala con el ítem, no si tiene cantidad. Dos
+    // horas de diseño son dos horas aunque se cobren una sola vez por pedido.
+    const conDiseno: any = {
+      ...MELAMINA,
+      indirect_costs: [
+        { concept: 'Diseno grafico', kind: 'design', unit: 'hr', quantity: 2, unit_cost: 30, cost: 60 },
+      ],
+    };
+    const diseno = soloEsteComponente(conDiseno, 'Diseno grafico', 5) as any;
+    expect(diseno._components[0].scope).toBe('order');
+    // 2 hr x 30 x 1.35 = 81.00, y no se multiplica por los 5 modulos.
+    expect(cartLineTotal(diseno)).toBe(81);
+    expect(cartLineTotal(itemDeCarrito(conDiseno, 5) as any))
+      .toBe(createQuotationItemFromProduct(conDiseno, 5, 35, 0).subtotal);
   });
 });

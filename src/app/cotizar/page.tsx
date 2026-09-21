@@ -11,7 +11,7 @@ import { formatCurrency, normalizeText } from "@/lib/formatters";
 import { fetchDocumentData } from "@/lib/ruc";
 import type { PublicProduct } from "@/types";
 import { ProductThumbnail } from "@/components/public/ProductThumbnail";
-import { round2, cartLineTotal, cartUnitPrice } from "@/lib/pricing";
+import { round2, cartLineTotal, cartUnitPrice, componentEffectiveQty } from "@/lib/pricing";
 import {
   Calculator,
   Trash2,
@@ -60,6 +60,8 @@ interface DraftItem {
   _components?: Array<{
     label: string;
     unit: string;
+    /** Cantidad de la RECETA. Ausente en borradores guardados antes del arreglo. */
+    quantity?: number;
     unit_price: number;
     scope: string;
     category: string;
@@ -717,7 +719,10 @@ export default function CotizadorPage() {
                                       </div>
                                       {rows.map(({ c, i: ci }) => {
                                         const qty = Math.max(1, item.quantity);
-                                        const effectiveQty = c.scope === 'unit' ? qty : 1;
+                                        // La cantidad de la receta cuenta: 4 m lineales de canto
+                                        // son 4, y con 3 modulos son 12. El precio de la fila es
+                                        // cantidad x precio unitario, igual que en el panel.
+                                        const effectiveQty = round2(componentEffectiveQty(c.quantity, qty, c.scope));
                                         const subtotal = c.is_included ? round2(effectiveQty * c.unit_price) : 0;
                                         return (
                                           <div key={ci} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', opacity: c.is_included ? 1 : 0.5, transition: 'opacity 0.2s' }}>

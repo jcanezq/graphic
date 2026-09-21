@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { buildCatalogPricing } from "@/lib/calculations";
 import { COMPONENT_SCOPE_DEFAULTS } from "@/lib/pricing";
+import { buildPublicComponents } from "@/lib/public-catalog";
 import type { PublicProduct } from "@/types";
 
 // PÚBLICO DELIBERADO: este endpoint sirve el catálogo a visitantes sin sesión.
@@ -73,13 +74,14 @@ export async function GET() {
 
     // 3. Compute public product representations — strict omission of internal costs & margins
     const publicProducts: PublicProduct[] = allProducts.map((p) => {
-      // rawMaterials: datos crudos con nombre y unidad del material referenciado.
-      // Solo se usan para construir los public_components; el nombre de proveedor
-      // nunca llega a los tres campos del precio (pMaterials usa name: "").
-      const rawMaterials = materialsData.filter((m: any) => m.product_id === p.id);
-
-      const pMaterials = rawMaterials.map((m: any) => ({
-          name: "",
+      // Materiales normalizados: el material referenciado manda sobre la fila
+      // (nombre, unidad y costo). `buildCatalogPricing` sólo lee quantity y
+      // unit_cost, así que el nombre del proveedor no toca ningún precio.
+      const pMaterials = materialsData
+        .filter((m: any) => m.product_id === p.id)
+        .map((m: any) => ({
+          name: m.material_ref?.name ?? m.name,
+          unit: m.material_ref?.unit ?? m.unit,
           quantity: m.quantity,
           unit_cost: m.material_ref?.manual_unit_cost ?? m.unit_cost,
         }));
@@ -100,69 +102,8 @@ export async function GET() {
       // SUBC: subcomponentes públicos (solo precios de venta, nunca costos).
       // El cliente ve la composición del producto pero nunca los márgenes.
       // Confirmado por el dueño: «está bien que el cliente vea todos los componentes».
-      //
-      // ⚠ COSTO MANUAL: no se publica receta. Su precio NO es la suma de sus
-      // partes —el costo manual reemplaza materiales e indirectos—, así que una
-      // lista de piezas cuya suma contradice el precio haría que el carrito
-      // cobrara la receta y el servidor el costo manual. Es exactamente la
-      // divergencia C-1, entrando por la puerta de SUBC. Mismo criterio que
-      // `createQuotationItemFromProduct`: sin receta, manda la fila base.
-      const usaCostoManual = (p as any).manual_unit_cost != null && (p as any).manual_unit_cost > 0;
-      const margin = (p as any).default_margin ?? 30;
-      const unitPrice = (cost: number) => Math.round(cost * (1 + margin / 100) * 100) / 100;
-
-      type PublicComp = {
-        label: string; unit: string; unit_price: number; scope: string;
-        category: string; source_kind: string | null;
-      };
-      const publicComponents: PublicComp[] = [];
-
-      // Materiales — iteramos rawMaterials para tener el nombre real del material.
-      for (const m of (usaCostoManual ? [] : rawMaterials)) {
-        const uc = (m as any).material_ref?.manual_unit_cost ?? (m as any).unit_cost ?? 0;
-        if (!(uc > 0)) continue;
-        publicComponents.push({
-          label: (m as any).material_ref?.name ?? (m as any).name ?? 'Material',
-          unit: (m as any).material_ref?.unit ?? (m as any).unit ?? 'unidad',
-          unit_price: unitPrice(uc),
-          scope: 'unit',
-          category: 'material',
-          source_kind: null,
-        });
-      }
-      // Mano de obra
-      for (const l of (usaCostoManual ? [] : pLabor)) {
-        const uc = (l as any).hourly_rate ?? 0;
-        if (!(uc > 0)) continue;
-        publicComponents.push({
-          label: (l as any).work_type ?? 'Mano de Obra',
-          unit: (l as any).unit ?? 'hr',
-          unit_price: unitPrice(uc),
-          scope: 'unit',
-          category: 'labor',
-          source_kind: null,
-        });
-      }
-      // Indirectos
-      for (const ic of (usaCostoManual ? [] : pIndirect)) {
-        const uc = (ic as any).unit_cost ?? 0;
-        if (!(uc > 0)) continue;
-        const kind = (ic as any).kind;
-        let cat = 'other';
-        let sk: string | null = null;
-        let sc = 'unit';
-        if (kind === 'design') { cat = 'production'; sk = 'design'; sc = 'order'; }
-        else if (kind === 'production') { cat = 'production'; }
-        else if (kind === 'transport') { sk = 'transport'; sc = 'order'; }
-        publicComponents.push({
-          label: (ic as any).concept ?? 'Indirecto',
-          unit: (ic as any).unit ?? 'unidad',
-          unit_price: unitPrice(uc),
-          scope: sc,
-          category: cat,
-          source_kind: sk,
-        });
-      }
+      // El mapeo vive en src/lib/public-catalog.ts, que es donde lo alcanza una prueba.
+      const publicComponents = buildPublicComponents(p as any, pMaterials, pLabor, pIndirect);
 
       return {
         id: p.id,
