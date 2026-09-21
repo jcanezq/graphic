@@ -1045,10 +1045,22 @@ export default function CotizadorPage() {
                     boxShadow: "var(--shadow-md)",
                   }}
                 >
-                  {/* 1. Total at the top */}
+                  {/* 1. Total at the top.
+                      El total SIEMPRE llevó el IGV dentro y la pantalla no lo
+                      decía: el cliente leía «Total preliminar» y no tenía cómo
+                      saber si el impuesto estaba adentro o venía después. La
+                      cuenta estaba bien; lo que faltaba era anunciarla. */}
                   <div style={{ marginBottom: "1rem" }}>
-                    <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600 }}>
-                      Total preliminar
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                      <span>Subtotal</span>
+                      <span>{formatCurrency(subtotal)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", color: "var(--text-secondary)", marginBottom: "0.5rem" }}>
+                      <span>IGV ({(igvRate * 100).toFixed(0)}%)</span>
+                      <span>{formatCurrency(igv)}</span>
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600, borderTop: "1px solid var(--surface-border)", paddingTop: "0.5rem" }}>
+                      Total preliminar <span style={{ fontWeight: 500, color: "var(--text-muted)" }}>(IGV incluido)</span>
                     </div>
                     <div style={{ fontSize: "24px", fontWeight: 800, color: "var(--price)" }}>
                       {formatCurrency(total)}
