@@ -12,7 +12,7 @@ import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
 import { HeroCarousel, type Banner } from "@/components/public/HeroCarousel";
 import { formatCurrency, normalizeText } from "@/lib/formatters";
 import type { PublicProduct } from "@/types";
-import { round2 } from "@/lib/pricing";
+import { round2, cartLineTotal } from "@/lib/pricing";
 import {
   Calculator,
   Search,
@@ -161,22 +161,11 @@ export default function HomePage() {
     showToast("Ítem eliminado");
   }
 
-  function lineTotal(it: any): number {
-    const qty = Math.max(1, Number(it.quantity) || 1);
-    const base = round2(qty * (Number(it.base_unit_price) || 0));
-    const comp = (price: number | undefined, enabled: boolean | undefined, scope: string | undefined) => {
-      if (enabled === false) return 0;
-      const p = Number(price) || 0;
-      if (!(p > 0)) return 0;
-      return round2((scope === 'unit' ? qty : 1) * p);
-    };
-    return round2(
-      base
-      + comp(it.labor_price, it.has_labor, it.labor_scope)
-      + comp(it.design_price, it.has_design, it.design_scope)
-      + comp(it.transport_price, it.has_transport, it.transport_scope)
-    );
-  }
+  // El total de una linea lo decide el motor canonico (src/lib/pricing.ts), no
+  // esta pantalla. Tener aca una copia de la aritmetica es lo que dejo al inicio
+  // sin rama de `_components` mientras /cotizar si la tenia: dos carritos con
+  // precios distintos para el mismo producto.
+  const lineTotal = cartLineTotal;
 
   const subtotal = round2(quoteItems.reduce((acc, it) => acc + lineTotal(it), 0));
   const igv = round2(subtotal * (settings?.igv_rate ?? 0.18));
@@ -282,10 +271,19 @@ export default function HomePage() {
                   boxShadow: "var(--shadow-md)",
                 }}
               >
-                {/* 1. Total at the top */}
+                {/* 1. Total at the top. El total siempre llevo el IGV adentro y
+                    la pantalla no lo decia. La cuenta estaba bien; faltaba anunciarla. */}
                 <div style={{ marginBottom: "1rem" }}>
-                  <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600 }}>
-                    Total preliminar
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(subtotal)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", color: "var(--text-secondary)", marginBottom: "0.5rem" }}>
+                    <span>IGV ({((settings?.igv_rate ?? 0.18) * 100).toFixed(0)}%)</span>
+                    <span>{formatCurrency(igv)}</span>
+                  </div>
+                  <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600, borderTop: "1px solid var(--surface-border)", paddingTop: "0.5rem" }}>
+                    Total preliminar <span style={{ fontWeight: 500, color: "var(--text-muted)" }}>(IGV incluido)</span>
                   </div>
                   <div style={{ fontSize: "24px", fontWeight: 800, color: "var(--price)" }}>
                     {formatCurrency(total)}
@@ -365,7 +363,7 @@ export default function HomePage() {
           }}
         >
           <div>
-            <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 600 }}>Total preliminar</div>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 600 }}>Total preliminar (IGV incluido)</div>
             <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--price)" }}>{formatCurrency(total)}</div>
           </div>
           <button

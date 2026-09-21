@@ -65,6 +65,22 @@ export function IndirectCostsSection({ control, register, watch, name, title, bu
                         placeholder="Transporte"
                       />
                     </td>
+                    {/* La casilla va INMEDIATAMENTE después del concepto, que es
+                        donde está su rótulo. Antes se emitía como 6.ª celda
+                        mientras el encabezado la declaraba 2.ª: todo el cuerpo de
+                        estas dos tablas aparecía corrido una columna, y la casilla
+                        que decide si una fila es DISEÑO o TRANSPORTE se mostraba
+                        bajo el rótulo SUBTOTAL. Nadie la marcaba sabiendo qué hacía,
+                        y por eso designCost y transportCost valían cero. */}
+                    {componentLabel && (
+                      <td style={{ textAlign: "center" }}>
+                        <input
+                          type="checkbox"
+                          {...register(`${name}.${i}.is_component` as const)}
+                          title={`Marcar como ${componentLabel}: el cliente podrá quitarlo de su cotización`}
+                        />
+                      </td>
+                    )}
                     <td>
                       <select
                         {...register(`${name}.${i}.unit` as const)}
@@ -98,15 +114,6 @@ export function IndirectCostsSection({ control, register, watch, name, title, bu
                     <td style={{ color: "var(--text-primary)", fontWeight: 500, textAlign: "right", paddingRight: 10 }}>
                       {formatCurrency(qty * uCost)}
                     </td>
-                    {componentLabel && (
-                      <td style={{ textAlign: "center" }}>
-                        <input
-                          type="checkbox"
-                          {...register(`${name}.${i}.is_component` as const)}
-                          title={`Marcar como ${componentLabel}: el cliente podrá quitarlo de su cotización`}
-                        />
-                      </td>
-                    )}
                     <td className="row-actions">
                       <button
                         type="button"

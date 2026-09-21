@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/guards";
 import { generatePDF } from "@/lib/pdf-export";
+import { withComponents } from "@/lib/quotation-components";
 
 const paramsSchema = z.object({ id: z.string().uuid() });
 
@@ -76,7 +77,10 @@ export async function POST(
       return NextResponse.json({ error: "Falta la configuración de la empresa." }, { status: 500 });
     }
 
-    const pdf = await generatePDF(quotation, settings);
+    // Mismo motivo que en /api/pdf/[id]: sin la receta el adjunto imprime por
+    // el motor legado y no dice lo mismo que la pantalla (SUBC-T4).
+    const items = await withComponents(supabase, (quotation as any).items ?? []);
+    const pdf = await generatePDF({ ...quotation, items } as any, settings);
 
     const resend = new Resend(apiKey);
     const { error: sendError } = await resend.emails.send({

@@ -10,11 +10,13 @@ import {
   calcQuotationTotals,
   createQuotationItemFromProduct,
   recalcQuotationItem,
+  repriceItemFromComponents,
   calcUnitPrice,
   calcItemSubtotal,
   type QuotationItemComponent,
 } from "@/lib/calculations";
-import { toQuotationItemRow } from "@/lib/quotation-item-row";
+import { saveQuotationItems } from "@/lib/quotation-save";
+import { withComponents } from "@/lib/quotation-components";
 import { ArrowLeft, Save, FileDown, Trash2, Search, MessageCircle, GitBranch, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
@@ -76,41 +78,9 @@ export default function QuotationDetailPage() {
 
       const fetchedItems = (itemsRes.data || []) as QuotationItem[];
 
-      // SUBC: cargar subcomponentes de cada ítem.
-      // Si la tabla todavía no existe (Supabase sin la migración aplicada),
-      // la query falla en silencio y las cotizaciones viejas se muestran igual.
-      let componentsMap: Record<string, QuotationItemComponent[]> = {};
-      if (fetchedItems.length > 0) {
-        const itemIds = fetchedItems.map((i) => i.id).filter(Boolean);
-        const { data: compsData } = await supabase
-          .from("quotation_item_components")
-          .select("*")
-          .in("quotation_item_id", itemIds)
-          .order("sort_order");
-        if (compsData) {
-          for (const c of compsData as any[]) {
-            if (!componentsMap[c.quotation_item_id]) componentsMap[c.quotation_item_id] = [];
-            componentsMap[c.quotation_item_id].push({
-              id: c.id,
-              sort_order: c.sort_order,
-              category: c.category,
-              source_kind: c.source_kind ?? null,
-              label: c.label,
-              unit: c.unit ?? null,
-              quantity: Number(c.quantity),
-              unit_cost: Number(c.unit_cost),
-              margin_percent: Number(c.margin_percent),
-              scope: c.scope,
-              is_included: c.is_included,
-            });
-          }
-        }
-      }
-
-      const itemsWithComponents = fetchedItems.map((item) => ({
-        ...item,
-        _components: componentsMap[item.id!] ?? [],
-      }));
+      // SUBC: cargar la receta de cada ítem. Si la tabla todavía no existe
+      // (base sin la migración), vuelven con receta vacía y se imprime legado.
+      const itemsWithComponents = await withComponents(supabase, fetchedItems);
 
       return {
         quotation: quotRes.data as Quotation | null,
@@ -275,34 +245,9 @@ export default function QuotationDetailPage() {
 
       if (error) throw new Error(error.message);
 
-      const itemsPayload = items.map((item, idx) => toQuotationItemRow(item, idx));
-
-      const { error: rpcError } = await supabase.rpc("replace_quotation_items", {
-        p_quotation_id: quotationId,
-        p_items: itemsPayload,
-      });
-
-      if (rpcError) {
-        console.warn("RPC replace_quotation_items not available, using fallback:", rpcError);
-        const { error: deleteError } = await supabase
-          .from("quotation_items")
-          .delete()
-          .eq("quotation_id", quotationId);
-
-        if (deleteError) {
-          throw new Error("Error al actualizar ítems: " + deleteError.message);
-        }
-
-        if (items.length > 0) {
-          const { error: insertError } = await supabase.from("quotation_items").insert(
-            itemsPayload.map((item) => ({ ...item, quotation_id: quotationId }))
-          );
-
-          if (insertError) {
-            throw new Error("Error crítico: los ítems no se pudieron guardar. Revisa la cotización.");
-          }
-        }
-      }
+      // El guardado de ítems vive en src/lib/quotation-save.ts: acá adentro no
+      // había manera de ejercitar el ciclo abrir -> guardar con una prueba.
+      await saveQuotationItems(supabase, quotationId, items);
     },
     onSuccess: () => {
       showToast("Cotización actualizada");
@@ -584,9 +529,15 @@ export default function QuotationDetailPage() {
                                 style={{ width: 80 }}
                               />
                             </td>
-                            <td style={{ fontWeight: 600 }}>{formatCurrency(calcUnitPrice(item.unit_cost, item.margin_percent))}</td>
+                            {/* P.V. Unit y Subtotal salen del ítem ya valorizado
+                                (recalcQuotationItem / repriceItemFromComponents), no de
+                                una cuenta propia de esta pantalla. Con receta cargada,
+                                `unit_cost x margen` es el precio de una PARTE —la base
+                                sin mano de obra— y mostraba 168.75 mientras el pie de la
+                                cotización decía 195.75. */}
+                            <td style={{ fontWeight: 600 }}>{formatCurrency(Number(item.unit_price) || 0)}</td>
                             <td style={{ fontWeight: 600, color: "var(--success)" }}>
-                              {formatCurrency(calcItemSubtotal(item.quantity, calcUnitPrice(item.unit_cost, item.margin_percent)))}
+                              {formatCurrency(Number(item.subtotal) || 0)}
                             </td>
                             <td className="row-actions">
                               <button
@@ -672,7 +623,7 @@ export default function QuotationDetailPage() {
                                                       if (k !== i) return it;
                                                       const newComps = [...((it as any)._components ?? [])];
                                                       newComps[ci] = { ...newComps[ci], is_included: e.target.checked };
-                                                      return { ...it, _components: newComps };
+                                                      return repriceItemFromComponents({ ...it, _components: newComps } as any);
                                                     });
                                                     setItems(updated);
                                                   }}
@@ -691,7 +642,7 @@ export default function QuotationDetailPage() {
                                                     if (k !== i) return it;
                                                     const nc = [...((it as any)._components ?? [])];
                                                     nc[ci] = { ...nc[ci], quantity: Number(e.target.value) };
-                                                    return { ...it, _components: nc };
+                                                    return repriceItemFromComponents({ ...it, _components: nc } as any);
                                                   });
                                                   setItems(updated);
                                                 }}
@@ -708,7 +659,7 @@ export default function QuotationDetailPage() {
                                                     if (k !== i) return it;
                                                     const nc = [...((it as any)._components ?? [])];
                                                     nc[ci] = { ...nc[ci], unit_cost: Number(e.target.value) };
-                                                    return { ...it, _components: nc };
+                                                    return repriceItemFromComponents({ ...it, _components: nc } as any);
                                                   });
                                                   setItems(updated);
                                                 }}
@@ -725,7 +676,7 @@ export default function QuotationDetailPage() {
                                                     if (k !== i) return it;
                                                     const nc = [...((it as any)._components ?? [])];
                                                     nc[ci] = { ...nc[ci], margin_percent: Number(e.target.value) };
-                                                    return { ...it, _components: nc };
+                                                    return repriceItemFromComponents({ ...it, _components: nc } as any);
                                                   });
                                                   setItems(updated);
                                                 }}

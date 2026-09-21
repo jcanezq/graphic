@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, formatDate, getStatusLabel, getStatusColor, sanitizeSearch } from "@/lib/formatters";
 import { Search, Plus, FileText, Eye, Edit2, Trash2, Copy, Download, LayoutGrid, List, GitBranch, MessageCircle, Globe, ShieldAlert, Filter, Calendar, Package } from "lucide-react";
 import Link from "next/link";
-import { toQuotationItemRow } from "@/lib/quotation-item-row";
+import { saveQuotationItems } from "@/lib/quotation-save";
+import { withComponents } from "@/lib/quotation-components";
 import { useToast } from "@/components/ToastProvider";
 
 import dynamic from "next/dynamic";
@@ -190,7 +191,11 @@ export default function QuotationsPage() {
 
   const duplicateMutation = useMutation({
     mutationFn: async (q: Quotation) => {
-      const { data: items } = await supabase.from("quotation_items").select("*").eq("quotation_id", q.id);
+      // Con `order` y con la receta: duplicar es CREAR una cotización nueva, y
+      // una cotización nueva sin receta nace corrompida (SUBC-T3).
+      const { data: items } = await supabase
+        .from("quotation_items").select("*").eq("quotation_id", q.id).order("sort_order");
+      const itemsConReceta = await withComponents(supabase, (items as any[]) || []);
 
       let number: string | null = null;
       const { data: rpcNumber, error: rpcError } = await supabase.rpc("generate_quotation_number");
@@ -223,14 +228,15 @@ export default function QuotationsPage() {
 
       if (error) throw error;
 
-      if (newQuot && items?.length) {
-        const { error: itemsError } = await supabase.from("quotation_items").insert(
-          items.map((item: any, idx: number) => toQuotationItemRow(item, item.sort_order ?? idx, newQuot.id))
-        );
-
-        if (itemsError) {
+      if (newQuot && itemsConReceta.length) {
+        // El MISMO camino que el panel: escribe ítems y receta en una sola
+        // transacción y recalcula la cabecera. Copiar a mano era justamente lo
+        // que dejaba la copia sin desglose.
+        try {
+          await saveQuotationItems(supabase, newQuot.id, itemsConReceta as any);
+        } catch (e) {
           await supabase.from("quotations").delete().eq("id", newQuot.id);
-          throw itemsError;
+          throw e;
         }
       }
     },
@@ -245,7 +251,11 @@ export default function QuotationsPage() {
 
   const createRevisionMutation = useMutation({
     mutationFn: async (q: Quotation) => {
-      const { data: items } = await supabase.from("quotation_items").select("*").eq("quotation_id", q.id);
+      // Con `order` y con la receta: una revisión es una cotización NUEVA, y
+      // una cotización nueva sin receta nace corrompida (SUBC-T3).
+      const { data: items } = await supabase
+        .from("quotation_items").select("*").eq("quotation_id", q.id).order("sort_order");
+      const itemsConReceta = await withComponents(supabase, (items as any[]) || []);
       const parentId = q.parent_id || q.id;
 
       const { data: existingRevisions } = await supabase
@@ -296,14 +306,15 @@ export default function QuotationsPage() {
 
       if (error) throw error;
 
-      if (newQuot && items?.length) {
-        const { error: itemsError } = await supabase.from("quotation_items").insert(
-          items.map((item: any, idx: number) => toQuotationItemRow(item, item.sort_order ?? idx, newQuot.id))
-        );
-
-        if (itemsError) {
+      if (newQuot && itemsConReceta.length) {
+        // El MISMO camino que el panel: escribe ítems y receta en una sola
+        // transacción y recalcula la cabecera. Copiar a mano era justamente lo
+        // que dejaba la copia sin desglose.
+        try {
+          await saveQuotationItems(supabase, newQuot.id, itemsConReceta as any);
+        } catch (e) {
           await supabase.from("quotations").delete().eq("id", newQuot.id);
-          throw itemsError;
+          throw e;
         }
       }
       return { nextRevision, revisionNumber };
@@ -343,7 +354,9 @@ export default function QuotationsPage() {
   async function handleExportExcel(q: Quotation) {
     if (!settings) return;
     const { data: items } = await supabase.from("quotation_items").select("*").eq("quotation_id", q.id).order("sort_order");
-    const quotWithItems = { ...q, items: (items as any) || [] };
+    // Con la receta: sin ella el Excel se arma por el motor legado y no dice lo
+    // mismo que la pantalla ni que el PDF (SUBC-T4).
+    const quotWithItems = { ...q, items: (await withComponents(supabase, (items as any) || [])) as any };
     const { generateExcel } = await import("@/lib/excel-export");
     generateExcel(quotWithItems, settings);
     showToast("Excel generado");
