@@ -37,13 +37,32 @@ export const clientQuotationItemSchema = z.object({
     .optional()
     .nullable(),
   /**
-   * SUBC — IDs de los subcomponentes que el cliente quiere INCLUIR.
-   * El servidor acepta SÓLO esta lista de UUIDs (§7.12 ARQUITECTURA.md):
-   * nunca acepta unit_cost, margin_percent ni quantity del navegador.
-   * Todos los demás campos se reconstruyen desde el catálogo en el servidor.
+   * SUBC — Qué filas de la receta quiere el cliente, y cuáles no.
+   *
+   * Es la lista COMPLETA de subcomponentes que él vio, cada uno con su clave y
+   * su interruptor. Va completa a propósito: sin las filas apagadas el servidor
+   * no puede distinguir «esto lo destildó» de «esto apareció después y él nunca
+   * lo vio», que es la diferencia entre no cobrarlo y cobrarlo avisando.
+   *
+   * REEMPLAZA a `included_component_ids`, que pedía UUIDs de
+   * `quotation_item_components` — filas que en ese momento TODAVÍA NO EXISTEN,
+   * porque el servidor acaba de reconstruir la receta del catálogo. Aquella
+   * lista no podía coincidir con nada y el filtro caía siempre en «incluir
+   * todo»: el cliente destildaba y se le cobraba igual. La clave de contenido
+   * la calcula `src/lib/component-selection.ts`, la misma función que usa el
+   * catálogo público al publicarla.
+   *
+   * §7.12: acá NO entra un solo precio. `key` dice CUÁL fila es, `included` si
+   * la quiere; el costo, el margen y la cantidad salen del catálogo, en el
+   * servidor. Cualquier otro campo que mande el navegador lo descarta zod.
    */
-  included_component_ids: z
-    .array(z.string().uuid())
+  component_selection: z
+    .array(
+      z.object({
+        key: z.string().trim().min(1).max(300),
+        included: z.boolean(),
+      }),
+    )
     .max(200, "Demasiados subcomponentes.")
     .optional()
     .nullable(),
@@ -73,6 +92,16 @@ export const clientQuotationSchema = z.object({
   /** Días de vigencia. Sólo lo respeta el servidor cuando quien pide es
    *  administrador; para el resto vale 15. Ver 43-spec-UNIF. */
   validity_days: z.number().int().min(1).max(365).optional(),
+  /**
+   * El total que el cliente vio en pantalla y aceptó al enviar, con IGV.
+   *
+   * ⚠ NO PARTICIPA DEL PRECIO, y esto no es un detalle de implementación: es la
+   * regla §7.12. El servidor recalcula todo desde el catálogo y este número
+   * solamente se COMPARA con el resultado, para poder avisarle al cliente
+   * cuando difiere. Si alguna vez aparece en una suma o en un producto, el
+   * cliente pasa a fijar su propio total y la regla dejó de valer.
+   */
+  accepted_total: z.number().finite().nonnegative().max(1e12).optional().nullable(),
   items: z
     .array(clientQuotationItemSchema)
     .min(1, "Debes incluir al menos un producto o servicio.")
