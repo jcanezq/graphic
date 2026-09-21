@@ -73,9 +73,12 @@ export async function GET() {
 
     // 3. Compute public product representations — strict omission of internal costs & margins
     const publicProducts: PublicProduct[] = allProducts.map((p) => {
-      const pMaterials = materialsData
-        .filter((m: any) => m.product_id === p.id)
-        .map((m: any) => ({
+      // rawMaterials: datos crudos con nombre y unidad del material referenciado.
+      // Solo se usan para construir los public_components; el nombre de proveedor
+      // nunca llega a los tres campos del precio (pMaterials usa name: "").
+      const rawMaterials = materialsData.filter((m: any) => m.product_id === p.id);
+
+      const pMaterials = rawMaterials.map((m: any) => ({
           name: "",
           quantity: m.quantity,
           unit_cost: m.material_ref?.manual_unit_cost ?? m.unit_cost,
@@ -106,9 +109,9 @@ export async function GET() {
       };
       const publicComponents: PublicComp[] = [];
 
-      // Materiales
-      for (const m of pMaterials) {
-        const uc = (m as any).unit_cost ?? 0;
+      // Materiales — iteramos rawMaterials para tener el nombre real del material.
+      for (const m of rawMaterials) {
+        const uc = (m as any).material_ref?.manual_unit_cost ?? (m as any).unit_cost ?? 0;
         if (!(uc > 0)) continue;
         publicComponents.push({
           label: (m as any).material_ref?.name ?? (m as any).name ?? 'Material',
