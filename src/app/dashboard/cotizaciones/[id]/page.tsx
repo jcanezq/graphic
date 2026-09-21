@@ -16,6 +16,7 @@ import {
   type QuotationItemComponent,
 } from "@/lib/calculations";
 import { saveQuotationItems } from "@/lib/quotation-save";
+import { withComponents } from "@/lib/quotation-components";
 import { ArrowLeft, Save, FileDown, Trash2, Search, MessageCircle, GitBranch, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
@@ -77,41 +78,9 @@ export default function QuotationDetailPage() {
 
       const fetchedItems = (itemsRes.data || []) as QuotationItem[];
 
-      // SUBC: cargar subcomponentes de cada ítem.
-      // Si la tabla todavía no existe (Supabase sin la migración aplicada),
-      // la query falla en silencio y las cotizaciones viejas se muestran igual.
-      let componentsMap: Record<string, QuotationItemComponent[]> = {};
-      if (fetchedItems.length > 0) {
-        const itemIds = fetchedItems.map((i) => i.id).filter(Boolean);
-        const { data: compsData } = await supabase
-          .from("quotation_item_components")
-          .select("*")
-          .in("quotation_item_id", itemIds)
-          .order("sort_order");
-        if (compsData) {
-          for (const c of compsData as any[]) {
-            if (!componentsMap[c.quotation_item_id]) componentsMap[c.quotation_item_id] = [];
-            componentsMap[c.quotation_item_id].push({
-              id: c.id,
-              sort_order: c.sort_order,
-              category: c.category,
-              source_kind: c.source_kind ?? null,
-              label: c.label,
-              unit: c.unit ?? null,
-              quantity: Number(c.quantity),
-              unit_cost: Number(c.unit_cost),
-              margin_percent: Number(c.margin_percent),
-              scope: c.scope,
-              is_included: c.is_included,
-            });
-          }
-        }
-      }
-
-      const itemsWithComponents = fetchedItems.map((item) => ({
-        ...item,
-        _components: componentsMap[item.id!] ?? [],
-      }));
+      // SUBC: cargar la receta de cada ítem. Si la tabla todavía no existe
+      // (base sin la migración), vuelven con receta vacía y se imprime legado.
+      const itemsWithComponents = await withComponents(supabase, fetchedItems);
 
       return {
         quotation: quotRes.data as Quotation | null,

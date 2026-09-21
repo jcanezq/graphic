@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/guards";
 import { generatePDF } from "@/lib/pdf-export";
+import { withComponents } from "@/lib/quotation-components";
 
 const paramsSchema = z.object({ id: z.string().uuid() });
 
@@ -63,8 +64,13 @@ export async function GET(
       return NextResponse.json({ error: "Settings not found" }, { status: 404 });
     }
 
+    // La receta NO viene en `quotation_items`: vive en `quotation_item_components`
+    // y es la que decide el desglose. Sin ella el documento se imprime por el
+    // motor legado y un subcomponente destildado vuelve a cobrarse (SUBC-T4).
+    const items = await withComponents(supabase, (quotation as any).items ?? []);
+
     // Generate PDF (returns ArrayBuffer)
-    const pdfBuffer = await generatePDF(quotation, settings);
+    const pdfBuffer = await generatePDF({ ...quotation, items } as any, settings);
 
     // Return the PDF as a Blob/Response
     return new NextResponse(pdfBuffer, {

@@ -7,6 +7,7 @@ import { formatCurrency, formatDate, getStatusLabel, getStatusColor, sanitizeSea
 import { Search, Plus, FileText, Eye, Edit2, Trash2, Copy, Download, LayoutGrid, List, GitBranch, MessageCircle, Globe, ShieldAlert, Filter, Calendar, Package } from "lucide-react";
 import Link from "next/link";
 import { toQuotationItemRow } from "@/lib/quotation-item-row";
+import { withComponents } from "@/lib/quotation-components";
 import { useToast } from "@/components/ToastProvider";
 
 import dynamic from "next/dynamic";
@@ -343,7 +344,9 @@ export default function QuotationsPage() {
   async function handleExportExcel(q: Quotation) {
     if (!settings) return;
     const { data: items } = await supabase.from("quotation_items").select("*").eq("quotation_id", q.id).order("sort_order");
-    const quotWithItems = { ...q, items: (items as any) || [] };
+    // Con la receta: sin ella el Excel se arma por el motor legado y no dice lo
+    // mismo que la pantalla ni que el PDF (SUBC-T4).
+    const quotWithItems = { ...q, items: (await withComponents(supabase, (items as any) || [])) as any };
     const { generateExcel } = await import("@/lib/excel-export");
     generateExcel(quotWithItems, settings);
     showToast("Excel generado");
