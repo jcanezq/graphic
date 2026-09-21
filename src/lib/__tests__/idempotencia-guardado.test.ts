@@ -338,3 +338,50 @@ describe('SUBC-T3 — abrir y guardar sin cambiar nada', () => {
     expect(desglose(despues[0])).toEqual(desgloseAntes);
   });
 });
+
+describe('SUBC-T3 — duplicar y revisar tampoco pueden nacer sin receta', () => {
+
+  // Duplicar una cotización y crear una revisión CREAN UNA COTIZACIÓN NUEVA:
+  // copiaban los ítems con `toQuotationItemRow` —que no sabe de recetas— y se
+  // quedaban con el subtotal de la madre. O sea, nacían corrompidas: el mismo
+  // defecto de SUBC-T3, pero sin que nadie hubiera abierto y guardado nada.
+  const listado = 'src/app/dashboard/cotizaciones/page.tsx';
+
+  /** El cuerpo de una de las dos mutaciones que copian una cotización. */
+  function cuerpoDe(mutacion: string): string {
+    const fuente = readFileSync(join(process.cwd(), listado), 'utf8');
+    const desde = fuente.indexOf(`const ${mutacion} = useMutation(`);
+    expect(desde, `no se encontró ${mutacion} en el listado`).toBeGreaterThan(-1);
+    const inicio = desde + `const ${mutacion} = useMutation(`.length;
+    // El cuerpo termina donde empieza lo siguiente: otra mutación o la primera
+    // función suelta del componente.
+    const siguienteFuncion = /\n {2}async function /g;
+    siguienteFuncion.lastIndex = inicio;
+    const cortes = [fuente.indexOf('useMutation(', inicio), siguienteFuncion.exec(fuente)?.index ?? -1]
+      .filter((x) => x > 0);
+    return fuente.slice(desde, cortes.length ? Math.min(...cortes) : undefined);
+  }
+
+  it.each(['duplicateMutation', 'createRevisionMutation'])(
+    '%s carga la receta y copia por el camino de guardado probado',
+    (mutacion) => {
+      const cuerpo = cuerpoDe(mutacion);
+      expect(cuerpo).toContain('withComponents');
+      expect(cuerpo).toContain('saveQuotationItems');
+    },
+  );
+
+  it('la copia llega a la cotización nueva con su receta y su desglose', async () => {
+    const db = nuevaBase();
+    sembrarCotizacion(db, 'q-madre', [createQuotationItemFromProduct(EXHIBIDOR, 2, 35, 0)]);
+    const madre = abrirEnElPanel(db, 'q-madre');
+
+    await saveQuotationItems(supabaseFalso(db) as any, 'q-hija', madre);
+    const hija = abrirEnElPanel(db, 'q-hija');
+
+    expect(hija[0]._components).toHaveLength(6);
+    expect(desglose(hija[0])).toEqual(desglose(madre[0]));
+    // La madre no se toca.
+    expect(abrirEnElPanel(db, 'q-madre')[0]._components).toHaveLength(6);
+  });
+});
