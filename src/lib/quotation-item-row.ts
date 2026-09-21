@@ -5,7 +5,7 @@
 // ============================================================
 
 import type { QuotationItem } from '@/types';
-import { LEGACY_SCOPE } from '@/lib/pricing';
+import { LEGACY_SCOPE, type QuotationItemComponent } from '@/lib/pricing';
 
 const scopeOf = (v: unknown): string => (v === 'unit' ? 'unit' : LEGACY_SCOPE);
 
@@ -57,4 +57,54 @@ export function toQuotationItemRow(item: QuotationItem, sortOrder: number, quota
     transport_margin_percent: item.transport_margin_percent ?? item.margin_percent,
     transport_scope: scopeOf(item.transport_scope),
   };
+}
+
+/** Una fila lista para insertar en `quotation_item_components`. */
+export function toQuotationItemComponentRow(
+  c: QuotationItemComponent,
+  sortOrder: number,
+  quotationItemId?: string,
+) {
+  return {
+    ...(quotationItemId ? { quotation_item_id: quotationItemId } : {}),
+    sort_order: c.sort_order ?? sortOrder,
+    category: c.category,
+    source_kind: c.source_kind ?? null,
+    label: c.label,
+    unit: c.unit ?? null,
+    quantity: c.quantity,
+    unit_cost: c.unit_cost,
+    margin_percent: c.margin_percent,
+    scope: c.scope,
+    is_included: c.is_included,
+  };
+}
+
+/** La receta de un ítem, lista para persistir. Vacía si el ítem no tiene. */
+export function toQuotationItemComponentRows(
+  item: QuotationItem & { _components?: QuotationItemComponent[] },
+  quotationItemId?: string,
+) {
+  return (item._components ?? []).map((c, j) => toQuotationItemComponentRow(c, j, quotationItemId));
+}
+
+/**
+ * El payload de `replace_quotation_items`: cada ítem con SU receta adentro.
+ *
+ * La receta viaja anidada y no en una llamada aparte porque el RPC borra los
+ * ítems, y `quotation_item_components` cuelga de ellos ON DELETE CASCADE: si la
+ * receta se escribiera en un segundo viaje, entre uno y otro existiría una
+ * cotización con ítems y sin receta. Adentro de la función es una transacción,
+ * y esa ventana no existe.
+ *
+ * `components` NO es una columna de `quotation_items`: la función la lee aparte
+ * y el respaldo del panel la saca de la fila antes de insertar.
+ */
+export function toReplaceItemsPayload(
+  items: Array<QuotationItem & { _components?: QuotationItemComponent[] }>,
+) {
+  return items.map((item, idx) => ({
+    ...toQuotationItemRow(item, idx),
+    components: toQuotationItemComponentRows(item),
+  }));
 }
