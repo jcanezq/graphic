@@ -5,11 +5,11 @@
 import type { Product, ProductMaterial, ProductLabor, ProductIndirectCost, QuotationItem } from '@/types';
 
 import {
-  buildItemLines, itemSubtotal, quotationTotals,
+  buildItemLines, buildItemLinesFromComponents, itemSubtotal, quotationTotals,
   COMPONENT_SCOPE_DEFAULTS, LEGACY_SCOPE,
-  type PricedItemInput, type Scope, type PriceLine,
+  type PricedItemInput, type Scope, type PriceLine, type QuotationItemComponent,
 } from '@/lib/pricing';
-export type { PriceLine } from '@/lib/pricing';
+export type { PriceLine, QuotationItemComponent } from '@/lib/pricing';
 
 /**
  * Calculate total material cost for a product.
@@ -267,6 +267,72 @@ export function createQuotationItemFromProduct(
   const totalSubtotal = itemSubtotal(priced);
   const baseUnitPrice = buildItemLines(priced)[0].unit_price;
 
+  // ---- SUBC: construir la lista de subcomponentes -------------------------
+  // Se copia el detalle del catálogo; si no hay receta, la lista queda vacía.
+  // Mapeo según la tabla del spec §SUBC-T3.
+  const components: QuotationItemComponent[] = [];
+  let sortIdx = 0;
+
+  for (const m of (product.materials || [])) {
+    components.push({
+      sort_order: sortIdx++,
+      category: 'material',
+      source_kind: null,
+      label: m.name,
+      unit: m.unit || null,
+      quantity: m.quantity,
+      unit_cost: round2(m.unit_cost),
+      margin_percent: margin,
+      scope: 'unit',
+      is_included: true,
+    });
+  }
+
+  for (const l of (product.labor || [])) {
+    components.push({
+      sort_order: sortIdx++,
+      category: 'labor',
+      source_kind: null,
+      label: l.work_type,
+      unit: l.unit || null,
+      quantity: l.hours,
+      unit_cost: round2(l.hourly_rate),
+      margin_percent: margin,
+      scope: 'unit',
+      is_included: true,
+    });
+  }
+
+  for (const ic of (product.indirect_costs || [])) {
+    const kind = ic.kind;
+    let category: QuotationItemComponent['category'];
+    let source_kind: QuotationItemComponent['source_kind'] = null;
+    let scope: QuotationItemComponent['scope'];
+    if (kind === 'design') {
+      category = 'production'; source_kind = 'design'; scope = 'order';
+    } else if (kind === 'production') {
+      category = 'production'; scope = 'unit';
+    } else if (kind === 'transport') {
+      category = 'other'; source_kind = 'transport'; scope = 'order';
+    } else {
+      // kind === 'other' o null
+      category = 'other'; scope = 'unit';
+    }
+    components.push({
+      sort_order: sortIdx++,
+      category,
+      source_kind,
+      label: ic.concept,
+      unit: ic.unit || null,
+      quantity: Number(ic.quantity ?? 1),
+      unit_cost: round2(Number(ic.unit_cost ?? ic.cost ?? 0)),
+      margin_percent: margin,
+      scope,
+      is_included: true,
+    });
+  }
+  // -------------------------------------------------------------------------
+
   return {
     item_type: product.type,
     has_labor: true,
@@ -306,7 +372,10 @@ export function createQuotationItemFromProduct(
     transport_scope: COMPONENT_SCOPE_DEFAULTS.transport,
     unit_price: baseUnitPrice,
     subtotal: totalSubtotal,
-  };
+    // Lista de subcomponentes para persistir en quotation_item_components.
+    // No es una columna real de quotation_items: sólo viaja en memoria.
+    _components: components,
+  } as QuotationItem & { _components: QuotationItemComponent[] };
 }
 
 /**
@@ -378,7 +447,22 @@ export function toPricedItem(item: QuotationItem): PricedItemInput {
   };
 }
 
-/** Filas cobrables de un ítem ya persistido. Lo que imprimen PDF y Excel. */
-export function buildQuotationItemLines(item: QuotationItem): PriceLine[] {
+/** Filas cobrables de un ítem ya persistido. Lo que imprimen PDF y Excel.
+ * Si el ítem trae _components (cargados de quotation_item_components), usa el
+ * motor dinámico. Si no (cotización vieja, o ítem sin receta), usa el legado.
+ * La compatibilidad hacia atrás es obligatoria: cotizaciones viejas no se tocan.
+ */
+export function buildQuotationItemLines(item: QuotationItem & { _components?: QuotationItemComponent[] }): PriceLine[] {
+  const comps = (item as any)._components as QuotationItemComponent[] | undefined;
+  if (comps && comps.length > 0) {
+    return buildItemLinesFromComponents(
+      Number(item.quantity) || 0,
+      Number(item.unit_cost) || 0,
+      Number(item.margin_percent) || 0,
+      item.unit,
+      comps,
+    );
+  }
+  // Legado: columnas has_labor / has_design / has_transport
   return buildItemLines(toPricedItem(item));
 }

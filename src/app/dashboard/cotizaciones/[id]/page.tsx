@@ -12,6 +12,7 @@ import {
   recalcQuotationItem,
   calcUnitPrice,
   calcItemSubtotal,
+  type QuotationItemComponent,
 } from "@/lib/calculations";
 import { toQuotationItemRow } from "@/lib/quotation-item-row";
 import { ArrowLeft, Save, FileDown, Trash2, Search, MessageCircle, GitBranch, ShieldAlert } from "lucide-react";
@@ -73,9 +74,47 @@ export default function QuotationDetailPage() {
         revList = (revData || []).filter(r => r.id !== quotationId);
       }
 
+      const fetchedItems = (itemsRes.data || []) as QuotationItem[];
+
+      // SUBC: cargar subcomponentes de cada ítem.
+      // Si la tabla todavía no existe (Supabase sin la migración aplicada),
+      // la query falla en silencio y las cotizaciones viejas se muestran igual.
+      let componentsMap: Record<string, QuotationItemComponent[]> = {};
+      if (fetchedItems.length > 0) {
+        const itemIds = fetchedItems.map((i) => i.id).filter(Boolean);
+        const { data: compsData } = await supabase
+          .from("quotation_item_components")
+          .select("*")
+          .in("quotation_item_id", itemIds)
+          .order("sort_order");
+        if (compsData) {
+          for (const c of compsData as any[]) {
+            if (!componentsMap[c.quotation_item_id]) componentsMap[c.quotation_item_id] = [];
+            componentsMap[c.quotation_item_id].push({
+              id: c.id,
+              sort_order: c.sort_order,
+              category: c.category,
+              source_kind: c.source_kind ?? null,
+              label: c.label,
+              unit: c.unit ?? null,
+              quantity: Number(c.quantity),
+              unit_cost: Number(c.unit_cost),
+              margin_percent: Number(c.margin_percent),
+              scope: c.scope,
+              is_included: c.is_included,
+            });
+          }
+        }
+      }
+
+      const itemsWithComponents = fetchedItems.map((item) => ({
+        ...item,
+        _components: componentsMap[item.id!] ?? [],
+      }));
+
       return {
         quotation: quotRes.data as Quotation | null,
-        items: (itemsRes.data || []) as QuotationItem[],
+        items: itemsWithComponents as (QuotationItem & { _components: QuotationItemComponent[] })[],
         settings: (settingsRes.data || null) as CompanySettings | null,
         revisions: revList
       };
@@ -561,107 +600,216 @@ export default function QuotationDetailPage() {
                             </td>
                           </tr>
                           
-                          {(item.labor_unit_cost ?? item.labor_cost ?? 0) > 0 && (
-                            <tr style={{ background: item.has_labor ? 'var(--bg-glass)' : 'transparent', opacity: item.has_labor ? 1 : 0.5 }}>
-                              <td></td>
-                              <td>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal', paddingLeft: 12 }}>
-                                  <input 
-                                    type="checkbox" 
-                                    checked={item.has_labor ?? true} 
-                                    onChange={(e) => updateItem(i, { has_labor: e.target.checked })}
-                                    style={{ width: 'auto', margin: 0 }}
-                                  /> 
-                                  Mano de Obra
-                                </label>
-                              </td>
-                              <td style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>hr</td>
-                              <td>
-                                <input type="number" step="0.01" min={0} value={item.labor_quantity ?? 1} onChange={(e) => updateItem(i, { labor_quantity: Number(e.target.value) })} style={{ width: 70 }} disabled={!item.has_labor} />
-                              </td>
-                              <td>
-                                <input type="number" step="0.01" min={0} value={item.labor_unit_cost ?? 0} onChange={(e) => updateItem(i, { labor_unit_cost: Number(e.target.value) })} style={{ width: 100 }} disabled={!item.has_labor} />
-                              </td>
-                              <td>
-                                <input type="number" step="1" min={0} value={item.labor_margin_percent ?? item.margin_percent} onChange={(e) => updateItem(i, { labor_margin_percent: Number(e.target.value) })} style={{ width: 80 }} disabled={!item.has_labor} />
-                              </td>
-                              <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                                {formatCurrency(calcUnitPrice(item.labor_unit_cost ?? 0, item.labor_margin_percent ?? item.margin_percent))}
-                              </td>
-                              <td style={{ fontSize: "0.8rem", color: item.has_labor ? "var(--success)" : "var(--text-muted)" }}>
-                                {formatCurrency(calcItemSubtotal(item.labor_quantity ?? 1, calcUnitPrice(item.labor_unit_cost ?? 0, item.labor_margin_percent ?? item.margin_percent)))}
-                              </td>
-                              <td></td>
-                            </tr>
-                          )}
-                          
-                          {(item.design_unit_cost ?? item.design_cost ?? 0) > 0 && (
-                            <tr style={{ background: item.has_design ? 'var(--bg-glass)' : 'transparent', opacity: item.has_design ? 1 : 0.5 }}>
-                              <td></td>
-                              <td>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal', paddingLeft: 12 }}>
-                                  <input 
-                                    type="checkbox" 
-                                    checked={item.has_design ?? true} 
-                                    onChange={(e) => updateItem(i, { has_design: e.target.checked })}
-                                    style={{ width: 'auto', margin: 0 }}
-                                  /> 
-                                  Diseño Gráfico
-                                </label>
-                              </td>
-                              <td style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>hr</td>
-                              <td>
-                                <input type="number" step="0.01" min={0} value={item.design_quantity ?? 1} onChange={(e) => updateItem(i, { design_quantity: Number(e.target.value) })} style={{ width: 70 }} disabled={!item.has_design} />
-                              </td>
-                              <td>
-                                <input type="number" step="0.01" min={0} value={item.design_unit_cost ?? 0} onChange={(e) => updateItem(i, { design_unit_cost: Number(e.target.value) })} style={{ width: 100 }} disabled={!item.has_design} />
-                              </td>
-                              <td>
-                                <input type="number" step="1" min={0} value={item.design_margin_percent ?? item.margin_percent} onChange={(e) => updateItem(i, { design_margin_percent: Number(e.target.value) })} style={{ width: 80 }} disabled={!item.has_design} />
-                              </td>
-                              <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                                {formatCurrency(calcUnitPrice(item.design_unit_cost ?? 0, item.design_margin_percent ?? item.margin_percent))}
-                              </td>
-                              <td style={{ fontSize: "0.8rem", color: item.has_design ? "var(--success)" : "var(--text-muted)" }}>
-                                {formatCurrency(calcItemSubtotal(item.design_quantity ?? 1, calcUnitPrice(item.design_unit_cost ?? 0, item.design_margin_percent ?? item.margin_percent)))}
-                              </td>
-                              <td></td>
-                            </tr>
-                          )}
+                          {/* Descripción del ítem. Va al inicio: antes de los componentes. */}
+                          <tr>
+                            <td />
+                            <td colSpan={8} style={{ paddingTop: "0.25rem", paddingBottom: "0.5rem" }}>
+                              <textarea
+                                value={item.notes ?? ""}
+                                onChange={(e) => updateItemNotes(i, e.target.value)}
+                                placeholder="Descripción (opcional)"
+                                rows={2}
+                                style={{ width: "100%", fontSize: "0.78rem", resize: "vertical" }}
+                              />
+                            </td>
+                          </tr>
 
-                          {(item.transport_unit_cost ?? item.transport_cost ?? 0) > 0 && (
-                            <tr style={{ background: item.has_transport ? 'var(--bg-glass)' : 'transparent', opacity: item.has_transport ? 1 : 0.5 }}>
-                              <td></td>
-                              <td>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal', paddingLeft: 12 }}>
-                                  <input 
-                                    type="checkbox" 
-                                    checked={item.has_transport ?? true} 
-                                    onChange={(e) => updateItem(i, { has_transport: e.target.checked })}
-                                    style={{ width: 'auto', margin: 0 }}
-                                  /> 
-                                  Transporte / Movilidad
-                                </label>
-                              </td>
-                              <td style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>viaje</td>
-                              <td>
-                                <input type="number" step="0.01" min={0} value={item.transport_quantity ?? 1} onChange={(e) => updateItem(i, { transport_quantity: Number(e.target.value) })} style={{ width: 70 }} disabled={!item.has_transport} />
-                              </td>
-                              <td>
-                                <input type="number" step="0.01" min={0} value={item.transport_unit_cost ?? 0} onChange={(e) => updateItem(i, { transport_unit_cost: Number(e.target.value) })} style={{ width: 100 }} disabled={!item.has_transport} />
-                              </td>
-                              <td>
-                                <input type="number" step="1" min={0} value={item.transport_margin_percent ?? item.margin_percent} onChange={(e) => updateItem(i, { transport_margin_percent: Number(e.target.value) })} style={{ width: 80 }} disabled={!item.has_transport} />
-                              </td>
-                              <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                                {formatCurrency(calcUnitPrice(item.transport_unit_cost ?? 0, item.transport_margin_percent ?? item.margin_percent))}
-                              </td>
-                              <td style={{ fontSize: "0.8rem", color: item.has_transport ? "var(--success)" : "var(--text-muted)" }}>
-                                {formatCurrency(calcItemSubtotal(item.transport_quantity ?? 1, calcUnitPrice(item.transport_unit_cost ?? 0, item.transport_margin_percent ?? item.margin_percent)))}
-                              </td>
-                              <td></td>
-                            </tr>
-                          )}
+                          {/* SUBC: subcomponentes agrupados por categor\u00eda.
+                              Si el \u00edtem trae _components (cotizaciones nuevas), se usan.
+                              Si no (cotizaciones viejas o sin receta), se muestran las
+                              tres filas legacy de labor/design/transport. */}
+                          {(() => {
+                            const comps: QuotationItemComponent[] = (item as any)._components ?? [];
+                            if (comps.length > 0) {
+                              const CATEGORY_LABELS: Record<string, string> = {
+                                material: 'MATERIALES', labor: 'MANO DE OBRA',
+                                production: 'PRODUCCI\u00d3N', other: 'OTROS',
+                              };
+                              const CATEGORY_ORDER = ['material', 'labor', 'production', 'other'];
+                              const byCategory = CATEGORY_ORDER
+                                .map((cat) => ({ cat, rows: comps.map((c, ci) => ({ c, ci })).filter(({ c }) => c.category === cat) }))
+                                .filter(({ rows }) => rows.length > 0);
+
+                              return (
+                                <>
+                                  {/* Fila de encabezado de subcomponentes */}
+                                  <tr style={{ background: 'var(--bg-secondary)' }}>
+                                    <td />
+                                    <td style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: 16, paddingTop: 6 }}>
+                                      Subcomponentes
+                                    </td>
+                                    <td style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Unidad</td>
+                                    <td style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Cant.</td>
+                                    <td style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Costo U.</td>
+                                    <td style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Margen %</td>
+                                    <td style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>P.V. Unit</td>
+                                    <td style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Subtotal</td>
+                                    <td />
+                                  </tr>
+                                  {byCategory.map(({ cat, rows }) => (
+                                    <React.Fragment key={cat}>
+                                      {/* Header de categor\u00eda */}
+                                      <tr>
+                                        <td />
+                                        <td colSpan={8} style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.1em', paddingLeft: 16, paddingTop: 8, paddingBottom: 2 }}>
+                                          — {CATEGORY_LABELS[cat] ?? cat}
+                                        </td>
+                                      </tr>
+                                      {rows.map(({ c, ci }) => {
+                                        const effectiveQty = c.scope === 'unit' ? (Number(item.quantity) || 1) : 1;
+                                        const pvUnit = Math.round(c.unit_cost * (1 + c.margin_percent / 100) * 100) / 100;
+                                        const subtotal = c.is_included ? Math.round(pvUnit * c.quantity * (c.scope === 'unit' ? (Number(item.quantity) || 1) : 1) * 100) / 100 : 0;
+                                        return (
+                                          <tr key={ci} style={{ background: c.is_included ? 'var(--bg-glass)' : 'transparent', opacity: c.is_included ? 1 : 0.5 }}>
+                                            <td />
+                                            <td>
+                                              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal', paddingLeft: 12 }}>
+                                                <input
+                                                  type="checkbox"
+                                                  checked={c.is_included}
+                                                  onChange={(e) => {
+                                                    const updated = items.map((it, k) => {
+                                                      if (k !== i) return it;
+                                                      const newComps = [...((it as any)._components ?? [])];
+                                                      newComps[ci] = { ...newComps[ci], is_included: e.target.checked };
+                                                      return { ...it, _components: newComps };
+                                                    });
+                                                    setItems(updated);
+                                                  }}
+                                                  style={{ width: 'auto', margin: 0 }}
+                                                />
+                                                {c.label}
+                                              </label>
+                                            </td>
+                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.unit ?? '—'}</td>
+                                            <td>
+                                              <input
+                                                type="number" step="0.01" min={0}
+                                                value={c.quantity}
+                                                onChange={(e) => {
+                                                  const updated = items.map((it, k) => {
+                                                    if (k !== i) return it;
+                                                    const nc = [...((it as any)._components ?? [])];
+                                                    nc[ci] = { ...nc[ci], quantity: Number(e.target.value) };
+                                                    return { ...it, _components: nc };
+                                                  });
+                                                  setItems(updated);
+                                                }}
+                                                style={{ width: 70 }}
+                                                disabled={!c.is_included}
+                                              />
+                                            </td>
+                                            <td>
+                                              <input
+                                                type="number" step="0.01" min={0}
+                                                value={c.unit_cost}
+                                                onChange={(e) => {
+                                                  const updated = items.map((it, k) => {
+                                                    if (k !== i) return it;
+                                                    const nc = [...((it as any)._components ?? [])];
+                                                    nc[ci] = { ...nc[ci], unit_cost: Number(e.target.value) };
+                                                    return { ...it, _components: nc };
+                                                  });
+                                                  setItems(updated);
+                                                }}
+                                                style={{ width: 100 }}
+                                                disabled={!c.is_included}
+                                              />
+                                            </td>
+                                            <td>
+                                              <input
+                                                type="number" step="1" min={0}
+                                                value={c.margin_percent}
+                                                onChange={(e) => {
+                                                  const updated = items.map((it, k) => {
+                                                    if (k !== i) return it;
+                                                    const nc = [...((it as any)._components ?? [])];
+                                                    nc[ci] = { ...nc[ci], margin_percent: Number(e.target.value) };
+                                                    return { ...it, _components: nc };
+                                                  });
+                                                  setItems(updated);
+                                                }}
+                                                style={{ width: 80 }}
+                                                disabled={!c.is_included}
+                                              />
+                                            </td>
+                                            <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                              {formatCurrency(pvUnit)}
+                                            </td>
+                                            <td style={{ fontSize: '0.8rem', color: c.is_included ? 'var(--success)' : 'var(--text-muted)' }}>
+                                              {formatCurrency(subtotal)}
+                                            </td>
+                                            <td />
+                                          </tr>
+                                        );
+                                      })}
+                                    </React.Fragment>
+                                  ))}
+                                </>
+                              );
+                            }
+
+                            // LEGADO: sin subcomponentes, mostrar las tres filas fijas.
+                            return (
+                              <>
+                                {(item.labor_unit_cost ?? item.labor_cost ?? 0) > 0 && (
+                                  <tr style={{ background: item.has_labor ? 'var(--bg-glass)' : 'transparent', opacity: item.has_labor ? 1 : 0.5 }}>
+                                    <td></td>
+                                    <td>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal', paddingLeft: 12 }}>
+                                        <input type="checkbox" checked={item.has_labor ?? true} onChange={(e) => updateItem(i, { has_labor: e.target.checked })} style={{ width: 'auto', margin: 0 }} />
+                                        Mano de Obra
+                                      </label>
+                                    </td>
+                                    <td style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>hr</td>
+                                    <td><input type="number" step="0.01" min={0} value={item.labor_quantity ?? 1} onChange={(e) => updateItem(i, { labor_quantity: Number(e.target.value) })} style={{ width: 70 }} disabled={!item.has_labor} /></td>
+                                    <td><input type="number" step="0.01" min={0} value={item.labor_unit_cost ?? 0} onChange={(e) => updateItem(i, { labor_unit_cost: Number(e.target.value) })} style={{ width: 100 }} disabled={!item.has_labor} /></td>
+                                    <td><input type="number" step="1" min={0} value={item.labor_margin_percent ?? item.margin_percent} onChange={(e) => updateItem(i, { labor_margin_percent: Number(e.target.value) })} style={{ width: 80 }} disabled={!item.has_labor} /></td>
+                                    <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{formatCurrency(calcUnitPrice(item.labor_unit_cost ?? 0, item.labor_margin_percent ?? item.margin_percent))}</td>
+                                    <td style={{ fontSize: "0.8rem", color: item.has_labor ? "var(--success)" : "var(--text-muted)" }}>{formatCurrency(calcItemSubtotal(item.labor_quantity ?? 1, calcUnitPrice(item.labor_unit_cost ?? 0, item.labor_margin_percent ?? item.margin_percent)))}</td>
+                                    <td></td>
+                                  </tr>
+                                )}
+                                {(item.design_unit_cost ?? item.design_cost ?? 0) > 0 && (
+                                  <tr style={{ background: item.has_design ? 'var(--bg-glass)' : 'transparent', opacity: item.has_design ? 1 : 0.5 }}>
+                                    <td></td>
+                                    <td>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal', paddingLeft: 12 }}>
+                                        <input type="checkbox" checked={item.has_design ?? true} onChange={(e) => updateItem(i, { has_design: e.target.checked })} style={{ width: 'auto', margin: 0 }} />
+                                        Dise\u00f1o Gr\u00e1fico
+                                      </label>
+                                    </td>
+                                    <td style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>hr</td>
+                                    <td><input type="number" step="0.01" min={0} value={item.design_quantity ?? 1} onChange={(e) => updateItem(i, { design_quantity: Number(e.target.value) })} style={{ width: 70 }} disabled={!item.has_design} /></td>
+                                    <td><input type="number" step="0.01" min={0} value={item.design_unit_cost ?? 0} onChange={(e) => updateItem(i, { design_unit_cost: Number(e.target.value) })} style={{ width: 100 }} disabled={!item.has_design} /></td>
+                                    <td><input type="number" step="1" min={0} value={item.design_margin_percent ?? item.margin_percent} onChange={(e) => updateItem(i, { design_margin_percent: Number(e.target.value) })} style={{ width: 80 }} disabled={!item.has_design} /></td>
+                                    <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{formatCurrency(calcUnitPrice(item.design_unit_cost ?? 0, item.design_margin_percent ?? item.margin_percent))}</td>
+                                    <td style={{ fontSize: "0.8rem", color: item.has_design ? "var(--success)" : "var(--text-muted)" }}>{formatCurrency(calcItemSubtotal(item.design_quantity ?? 1, calcUnitPrice(item.design_unit_cost ?? 0, item.design_margin_percent ?? item.margin_percent)))}</td>
+                                    <td></td>
+                                  </tr>
+                                )}
+                                {(item.transport_unit_cost ?? item.transport_cost ?? 0) > 0 && (
+                                  <tr style={{ background: item.has_transport ? 'var(--bg-glass)' : 'transparent', opacity: item.has_transport ? 1 : 0.5 }}>
+                                    <td></td>
+                                    <td>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', textTransform: 'none', margin: 0, fontWeight: 500, letterSpacing: 'normal', paddingLeft: 12 }}>
+                                        <input type="checkbox" checked={item.has_transport ?? true} onChange={(e) => updateItem(i, { has_transport: e.target.checked })} style={{ width: 'auto', margin: 0 }} />
+                                        Transporte / Movilidad
+                                      </label>
+                                    </td>
+                                    <td style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>viaje</td>
+                                    <td><input type="number" step="0.01" min={0} value={item.transport_quantity ?? 1} onChange={(e) => updateItem(i, { transport_quantity: Number(e.target.value) })} style={{ width: 70 }} disabled={!item.has_transport} /></td>
+                                    <td><input type="number" step="0.01" min={0} value={item.transport_unit_cost ?? 0} onChange={(e) => updateItem(i, { transport_unit_cost: Number(e.target.value) })} style={{ width: 100 }} disabled={!item.has_transport} /></td>
+                                    <td><input type="number" step="1" min={0} value={item.transport_margin_percent ?? item.margin_percent} onChange={(e) => updateItem(i, { transport_margin_percent: Number(e.target.value) })} style={{ width: 80 }} disabled={!item.has_transport} /></td>
+                                    <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{formatCurrency(calcUnitPrice(item.transport_unit_cost ?? 0, item.transport_margin_percent ?? item.margin_percent))}</td>
+                                    <td style={{ fontSize: "0.8rem", color: item.has_transport ? "var(--success)" : "var(--text-muted)" }}>{formatCurrency(calcItemSubtotal(item.transport_quantity ?? 1, calcUnitPrice(item.transport_unit_cost ?? 0, item.transport_margin_percent ?? item.margin_percent)))}</td>
+                                    <td></td>
+                                  </tr>
+                                )}
+                              </>
+                            );
+                          })()}
+
                           {/* Arte del cliente: fila propia, después de los componentes */}
                           {(item.has_design === false && (item.design_cost || 0) > 0) && (
                             <tr>
@@ -699,19 +847,7 @@ export default function QuotationDetailPage() {
                               </td>
                             </tr>
                           )}
-                          {/* Observación de la línea */}
-                          <tr>
-                            <td />
-                            <td colSpan={8} style={{ paddingTop: 0, paddingBottom: "0.75rem" }}>
-                              <textarea
-                                value={item.notes ?? ""}
-                                onChange={(e) => updateItemNotes(i, e.target.value)}
-                                placeholder="Observaciones de este ítem (opcional)"
-                                rows={2}
-                                style={{ width: "100%", fontSize: "0.78rem", resize: "vertical" }}
-                              />
-                            </td>
-                          </tr>
+                          {/* El textarea de descripción ya está al inicio: ver arriba. */}
                         </React.Fragment>
                       ))}
                     </tbody>

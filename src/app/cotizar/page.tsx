@@ -52,6 +52,20 @@ interface DraftItem {
   notes?: string | null;
   /** Ruta del arte en el bucket privado `client-art`. NO es una URL. */
   client_design_url?: string | null;
+  /**
+   * SUBC — Subcomponentes con precios de venta para mostrar al cliente.
+   * Se cargan del catálogo público al agregar el producto al carrito.
+   * No viajan al servidor como costos: se mandan solo los ids incluidos.
+   */
+  _components?: Array<{
+    label: string;
+    unit: string;
+    unit_price: number;
+    scope: string;
+    category: string;
+    source_kind: string | null;
+    is_included: boolean;
+  }>;
 }
 
 export default function CotizadorPage() {
@@ -276,10 +290,16 @@ export default function CotizadorPage() {
     if (option === 'design') item.has_design = value;
     if (option === 'transport') item.has_transport = value;
     
-    // El precio ya NO se muta acá: lineTotal() lo deriva de los flags.
-    // Mutarlo era lo que permitía que un carrito viejo congelara como base
-    // un precio ya descontado y no se pudiera recuperar.
-    
+    persistItems(updated);
+  }
+
+  // SUBC: toggle de un subcomponente individual.
+  function handleToggleComponent(itemIndex: number, compIndex: number, value: boolean) {
+    const updated = [...items];
+    const comps = updated[itemIndex]._components;
+    if (!comps) return;
+    comps[compIndex] = { ...comps[compIndex], is_included: value };
+    updated[itemIndex] = { ...updated[itemIndex], _components: [...comps] };
     persistItems(updated);
   }
 
@@ -332,6 +352,20 @@ export default function CotizadorPage() {
   function lineTotal(it: DraftItem): number {
     const qty = Math.max(1, Number(it.quantity) || 1);
     const base = round2(qty * (Number(it.base_unit_price) || 0));
+
+    // Si el ítem tiene subcomponentes públicos (SUBC), calcular desde ellos.
+    const comps = it._components;
+    if (comps && comps.length > 0) {
+      const compTotal = comps.reduce((acc, c) => {
+        if (!c.is_included) return acc;
+        const p = Number(c.unit_price) || 0;
+        if (!(p > 0)) return acc;
+        return acc + round2((c.scope === 'unit' ? qty : 1) * p);
+      }, 0);
+      return round2(base + compTotal);
+    }
+
+    // Legado: usar labor_price / design_price / transport_price
     const comp = (price: number | undefined, enabled: boolean | undefined, scope: string | undefined) => {
       if (enabled === false) return 0;
       const p = Number(price) || 0;
@@ -630,115 +664,186 @@ export default function CotizadorPage() {
                           </div>
 
 
-                          {/* Components Rows */}
-                          {((item.labor_price ?? 0) > 0 || (item.design_price ?? 0) > 0 || (item.transport_price ?? 0) > 0) && (
-                            <div style={{ 
-                              marginLeft: "1rem", 
-                              padding: "0.75rem 1rem", 
-                              background: "var(--bg-primary)", 
-                              borderRadius: "var(--radius-md)", 
-                              border: "1px solid var(--surface-divider)",
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "0.65rem"
-                            }}>
-                              {/* Component Header */}
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", paddingBottom: "0.4rem", borderBottom: "1px solid var(--surface-divider)", fontSize: "0.7rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>
-                                <div style={{ flex: 1, minWidth: "180px" }}>Componente Opcional</div>
-                                <div style={{ width: "90px", textAlign: "right" }}>P.V. Unit</div>
-                                <div style={{ width: "90px", textAlign: "center" }}>Cant.</div>
-                                <div style={{ minWidth: "90px", textAlign: "right" }}>Subtotal</div>
-                                <div style={{ width: "32px" }}></div>
+                          {/* Descripción del ítem. Va al inicio: antes de los componentes. */}
+                          <div style={{ padding: "0 1.25rem 0.75rem", marginLeft: "1rem" }}>
+                            <textarea
+                              value={item.notes ?? ""}
+                              onChange={(e) => handleNotesChange(idx, e.target.value)}
+                              placeholder="Descripción (opcional)"
+                              rows={2}
+                              style={{
+                                width: "100%",
+                                fontSize: "0.8rem",
+                                padding: "0.5rem 0.65rem",
+                                border: "1px solid var(--surface-border)",
+                                borderRadius: "var(--radius-sm)",
+                                background: "var(--bg-primary)",
+                                color: "var(--text-primary)",
+                                resize: "vertical",
+                              }}
+                            />
+                          </div>
+
+                          {/* Components Rows — SUBC: por categoría */}
+                          {(() => {
+                            const comps = item._components;
+                            // NUEVO: tiene subcomponentes del catálogo
+                            if (comps && comps.length > 0) {
+                              const CATEGORY_LABELS: Record<string, string> = {
+                                material: 'MATERIALES',
+                                labor: 'MANO DE OBRA',
+                                production: 'PRODUCCIÓN',
+                                other: 'OTROS',
+                              };
+                              const CATEGORY_ORDER = ['material', 'labor', 'production', 'other'];
+                              const byCategory = CATEGORY_ORDER
+                                .map((cat) => ({
+                                  cat,
+                                  rows: comps
+                                    .map((c, i) => ({ c, i }))
+                                    .filter(({ c }) => c.category === cat),
+                                }))
+                                .filter(({ rows }) => rows.length > 0);
+
+                              if (byCategory.length === 0) return null;
+
+                              return (
+                                <div style={{
+                                  marginLeft: '1rem',
+                                  padding: '0.75rem 1rem',
+                                  background: 'var(--bg-primary)',
+                                  borderRadius: 'var(--radius-md)',
+                                  border: '1px solid var(--surface-divider)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '0.5rem',
+                                }}>
+                                  {/* Header columnas */}
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', paddingBottom: '0.4rem', borderBottom: '1px solid var(--surface-divider)', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                                    <div style={{ flex: 1, minWidth: 180 }}>Componente</div>
+                                    <div style={{ width: 90, textAlign: 'right' }}>P.V. Unit</div>
+                                    <div style={{ width: 90, textAlign: 'center' }}>Cant.</div>
+                                    <div style={{ minWidth: 90, textAlign: 'right' }}>Subtotal</div>
+                                    <div style={{ width: 32 }} />
+                                  </div>
+
+                                  {byCategory.map(({ cat, rows }) => (
+                                    <div key={cat}>
+                                      {/* Header de categoría */}
+                                      <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem', marginTop: '0.2rem' }}>
+                                        {CATEGORY_LABELS[cat] ?? cat}
+                                      </div>
+                                      {rows.map(({ c, i: ci }) => {
+                                        const qty = Math.max(1, item.quantity);
+                                        const effectiveQty = c.scope === 'unit' ? qty : 1;
+                                        const subtotal = c.is_included ? round2(effectiveQty * c.unit_price) : 0;
+                                        return (
+                                          <div key={ci} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', opacity: c.is_included ? 1 : 0.5, transition: 'opacity 0.2s' }}>
+                                            <div style={{ flex: 1, minWidth: 180 }}>
+                                              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-primary)', margin: 0, fontWeight: 500 }}>
+                                                <input
+                                                  type="checkbox"
+                                                  checked={c.is_included}
+                                                  onChange={(e) => handleToggleComponent(idx, ci, e.target.checked)}
+                                                  style={{ width: 'auto', margin: 0 }}
+                                                />
+                                                {c.label}
+                                              </label>
+                                            </div>
+                                            <div style={{ width: 90, textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                              {formatCurrency(c.unit_price)}
+                                            </div>
+                                            <div style={{ width: 90, textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                              {effectiveQty} {c.unit}
+                                            </div>
+                                            <div style={{ minWidth: 90, textAlign: 'right', fontSize: '0.9rem', fontWeight: 600, color: c.is_included ? 'var(--success)' : 'var(--text-muted)' }}>
+                                              {formatCurrency(subtotal)}
+                                            </div>
+                                            <div style={{ width: 32 }} />
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }
+
+                            // LEGADO: mostrar los tres toggles clásicos
+                            if (!((item.labor_price ?? 0) > 0 || (item.design_price ?? 0) > 0 || (item.transport_price ?? 0) > 0)) return null;
+                            return (
+                              <div style={{
+                                marginLeft: '1rem',
+                                padding: '0.75rem 1rem',
+                                background: 'var(--bg-primary)',
+                                borderRadius: 'var(--radius-md)',
+                                border: '1px solid var(--surface-divider)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '0.65rem',
+                              }}>
+                                {/* Header */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', paddingBottom: '0.4rem', borderBottom: '1px solid var(--surface-divider)', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                                  <div style={{ flex: 1, minWidth: '180px' }}>Componente Opcional</div>
+                                  <div style={{ width: '90px', textAlign: 'right' }}>P.V. Unit</div>
+                                  <div style={{ width: '90px', textAlign: 'center' }}>Cant.</div>
+                                  <div style={{ minWidth: '90px', textAlign: 'right' }}>Subtotal</div>
+                                  <div style={{ width: '32px' }} />
+                                </div>
+                                {item.labor_price !== undefined && item.labor_price > 0 && (
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', opacity: item.has_labor ? 1 : 0.5, transition: 'opacity 0.2s' }}>
+                                    <div style={{ flex: 1, minWidth: '180px' }}>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-primary)', margin: 0, fontWeight: 500 }}>
+                                        <input type="checkbox" checked={item.has_labor ?? true} onChange={(e) => handleToggleServiceOption(idx, 'labor', e.target.checked)} style={{ width: 'auto', margin: 0 }} /> Mano de Obra
+                                      </label>
+                                    </div>
+                                    <div style={{ width: '90px', textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{formatCurrency(item.labor_price)}</div>
+                                    <div style={{ width: '90px', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{item.labor_scope === 'unit' ? Math.max(1, item.quantity) : 1} hr</div>
+                                    <div style={{ minWidth: '90px', textAlign: 'right', fontSize: '0.9rem', fontWeight: 600, color: item.has_labor ? 'var(--success)' : 'var(--text-muted)' }}>{formatCurrency(item.has_labor ? round2((item.labor_scope === 'unit' ? Math.max(1, item.quantity) : 1) * (item.labor_price ?? 0)) : 0)}</div>
+                                    <div style={{ width: '32px' }} />
+                                  </div>
+                                )}
+                                {item.design_price !== undefined && item.design_price > 0 && (
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', opacity: item.has_design ? 1 : 0.5, transition: 'opacity 0.2s' }}>
+                                    <div style={{ flex: 1, minWidth: '180px' }}>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-primary)', margin: 0, fontWeight: 500 }}>
+                                        <input type="checkbox" checked={item.has_design ?? true} onChange={(e) => handleToggleServiceOption(idx, 'design', e.target.checked)} style={{ width: 'auto', margin: 0 }} /> Diseño Gráfico
+                                      </label>
+                                    </div>
+                                    <div style={{ width: '90px', textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{formatCurrency(item.design_price)}</div>
+                                    <div style={{ width: '90px', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{item.design_scope === 'unit' ? Math.max(1, item.quantity) : 1} hr</div>
+                                    <div style={{ minWidth: '90px', textAlign: 'right', fontSize: '0.9rem', fontWeight: 600, color: item.has_design ? 'var(--success)' : 'var(--text-muted)' }}>{formatCurrency(item.has_design ? round2((item.design_scope === 'unit' ? Math.max(1, item.quantity) : 1) * (item.design_price ?? 0)) : 0)}</div>
+                                    <div style={{ width: '32px' }} />
+                                  </div>
+                                )}
+                                {item.transport_price !== undefined && item.transport_price > 0 && (
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', opacity: item.has_transport ? 1 : 0.5, transition: 'opacity 0.2s' }}>
+                                    <div style={{ flex: 1, minWidth: '180px' }}>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-primary)', margin: 0, fontWeight: 500 }}>
+                                        <input type="checkbox" checked={item.has_transport ?? true} onChange={(e) => handleToggleServiceOption(idx, 'transport', e.target.checked)} style={{ width: 'auto', margin: 0 }} /> Transporte / Movilidad
+                                      </label>
+                                    </div>
+                                    <div style={{ width: '90px', textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{formatCurrency(item.transport_price)}</div>
+                                    <div style={{ width: '90px', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{item.transport_scope === 'unit' ? Math.max(1, item.quantity) : 1} viaje</div>
+                                    <div style={{ minWidth: '90px', textAlign: 'right', fontSize: '0.9rem', fontWeight: 600, color: item.has_transport ? 'var(--success)' : 'var(--text-muted)' }}>{formatCurrency(item.has_transport ? round2((item.transport_scope === 'unit' ? Math.max(1, item.quantity) : 1) * (item.transport_price ?? 0)) : 0)}</div>
+                                    <div style={{ width: '32px' }} />
+                                  </div>
+                                )}
                               </div>
+                            );
+                          })()}
 
-                              {/* Labor Row */}
-                              {item.labor_price !== undefined && item.labor_price > 0 && (
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", opacity: item.has_labor ? 1 : 0.5, transition: "opacity 0.2s" }}>
-                                  <div style={{ flex: 1, minWidth: "180px" }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-primary)', margin: 0, fontWeight: 500 }}>
-                                      <input 
-                                        type="checkbox" 
-                                        checked={item.has_labor ?? true} 
-                                        onChange={(e) => handleToggleServiceOption(idx, 'labor', e.target.checked)}
-                                        style={{ width: 'auto', margin: 0 }}
-                                      /> 
-                                      Mano de Obra
-                                    </label>
-                                  </div>
-                                  <div style={{ width: "90px", textAlign: "right", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                                    {formatCurrency(item.labor_price)}
-                                  </div>
-                                  <div style={{ width: "90px", textAlign: "center", fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                                    {item.labor_scope === 'unit' ? Math.max(1, item.quantity) : 1} hr
-                                  </div>
-                                  <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.9rem", fontWeight: 600, color: item.has_labor ? "var(--success)" : "var(--text-muted)" }}>
-                                    {formatCurrency(item.has_labor ? round2((item.labor_scope === 'unit' ? Math.max(1, item.quantity) : 1) * (item.labor_price ?? 0)) : 0)}
-                                  </div>
-                                  <div style={{ width: "32px" }}></div>
-                                </div>
-                              )}
-                              
-                              {/* Design Row */}
-                              {item.design_price !== undefined && item.design_price > 0 && (
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", opacity: item.has_design ? 1 : 0.5, transition: "opacity 0.2s" }}>
-                                  <div style={{ flex: 1, minWidth: "180px" }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-primary)', margin: 0, fontWeight: 500 }}>
-                                      <input 
-                                        type="checkbox" 
-                                        checked={item.has_design ?? true} 
-                                        onChange={(e) => handleToggleServiceOption(idx, 'design', e.target.checked)}
-                                        style={{ width: 'auto', margin: 0 }}
-                                      /> 
-                                      Diseño Gráfico
-                                    </label>
-                                  </div>
-                                  <div style={{ width: "90px", textAlign: "right", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                                    {formatCurrency(item.design_price)}
-                                  </div>
-                                  <div style={{ width: "90px", textAlign: "center", fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                                    {item.design_scope === 'unit' ? Math.max(1, item.quantity) : 1} hr
-                                  </div>
-                                  <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.9rem", fontWeight: 600, color: item.has_design ? "var(--success)" : "var(--text-muted)" }}>
-                                    {formatCurrency(item.has_design ? round2((item.design_scope === 'unit' ? Math.max(1, item.quantity) : 1) * (item.design_price ?? 0)) : 0)}
-                                  </div>
-                                  <div style={{ width: "32px" }}></div>
-                                </div>
-                              )}
-
-                              {/* Transport Row */}
-                              {item.transport_price !== undefined && item.transport_price > 0 && (
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", opacity: item.has_transport ? 1 : 0.5, transition: "opacity 0.2s" }}>
-                                  <div style={{ flex: 1, minWidth: "180px" }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-primary)', margin: 0, fontWeight: 500 }}>
-                                      <input 
-                                        type="checkbox" 
-                                        checked={item.has_transport ?? true} 
-                                        onChange={(e) => handleToggleServiceOption(idx, 'transport', e.target.checked)}
-                                        style={{ width: 'auto', margin: 0 }}
-                                      /> 
-                                      Transporte / Movilidad
-                                    </label>
-                                  </div>
-                                  <div style={{ width: "90px", textAlign: "right", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                                    {formatCurrency(item.transport_price)}
-                                  </div>
-                                  <div style={{ width: "90px", textAlign: "center", fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                                    {item.transport_scope === 'unit' ? Math.max(1, item.quantity) : 1} viaje
-                                  </div>
-                                  <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.9rem", fontWeight: 600, color: item.has_transport ? "var(--success)" : "var(--text-muted)" }}>
-                                    {formatCurrency(item.has_transport ? round2((item.transport_scope === 'unit' ? Math.max(1, item.quantity) : 1) * (item.transport_price ?? 0)) : 0)}
-                                  </div>
-                                  <div style={{ width: "32px" }}></div>
-                                </div>
-                              )}
-
-                            </div>
-                          )}
-
-                          {/* Arte del cliente. Fuera del panel de componentes: el orden
-                              del ítem es componentes → arte → observación, igual que en
-                              las dos pantallas del administrador. */}
-                          {item.has_design === false && (
+                          {/* Arte del cliente: aparece cuando no hay diseño incluido.
+                              SUBC: si tiene subcomponentes, se activa cuando ninguno
+                              con source_kind='design' está incluido.
+                              Legado: cuando has_design === false. */}
+                          {(() => {
+                            const comps = item._components;
+                            const needsArt = comps && comps.length > 0
+                              ? comps.every((c) => c.source_kind !== 'design' || !c.is_included)
+                              : item.has_design === false;
+                            if (!needsArt) return null;
+                            return (
                             <div style={{ margin: "0 1.25rem 0.5rem", marginLeft: "1rem", padding: 8, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--surface-divider)' }}>
                               <span style={{ fontSize: '0.75rem', display: 'block', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 6 }}>
                                 Como desmarcaste Diseño Gráfico, adjuntá acá tu archivo final.
@@ -780,27 +885,10 @@ export default function CotizadorPage() {
                                 />
                               )}
                             </div>
-                          )}
+                            );
+                          })()}
 
-                          {/* Observación de la línea. Va última: cierra el ítem. */}
-                          <div style={{ padding: "0 1.25rem 0.75rem", marginLeft: "1rem" }}>
-                            <textarea
-                              value={item.notes ?? ""}
-                              onChange={(e) => handleNotesChange(idx, e.target.value)}
-                              placeholder="Observaciones de este ítem (opcional)"
-                              rows={2}
-                              style={{
-                                width: "100%",
-                                fontSize: "0.8rem",
-                                padding: "0.5rem 0.65rem",
-                                border: "1px solid var(--surface-border)",
-                                borderRadius: "var(--radius-sm)",
-                                background: "var(--bg-primary)",
-                                color: "var(--text-primary)",
-                                resize: "vertical",
-                              }}
-                            />
-                          </div>
+                          {/* El textarea de descripción ya está al inicio: ver arriba. */}
                         </div>
                       ))}
                     </div>

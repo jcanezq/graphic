@@ -111,7 +111,7 @@ export default function HomePage() {
       // lista. Dos unidades del mismo artículo pueden diferir en color o acabado,
       // y esa diferencia se escribe en la observación de cada línea (24-spec-OBS).
       // El administrador ya se comporta así (nueva/page.tsx:176).
-      items.push({
+    items.push({
         row_key: `row-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         product_id: product.id,
         product_name: product.name,
@@ -133,6 +133,12 @@ export default function HomePage() {
         material_price: product.material_price,
         other_price: product.other_price,
         image_url: product.image_url ?? null,
+        // SUBC: subcomponentes públicos para mostrar al cliente.
+        // Todos incluidos por defecto; el cliente puede desmarcar.
+        _components: (product.public_components ?? []).map((c) => ({
+          ...c,
+          is_included: true,
+        })),
       });
       persistQuote(items);
       showToast(`"${product.name}" añadido a tu cotizador`);

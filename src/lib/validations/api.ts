@@ -36,7 +36,19 @@ export const clientQuotationItemSchema = z.object({
     )
     .optional()
     .nullable(),
+  /**
+   * SUBC — IDs de los subcomponentes que el cliente quiere INCLUIR.
+   * El servidor acepta SÓLO esta lista de UUIDs (§7.12 ARQUITECTURA.md):
+   * nunca acepta unit_cost, margin_percent ni quantity del navegador.
+   * Todos los demás campos se reconstruyen desde el catálogo en el servidor.
+   */
+  included_component_ids: z
+    .array(z.string().uuid())
+    .max(200, "Demasiados subcomponentes.")
+    .optional()
+    .nullable(),
 });
+
 
 export const clientQuotationSchema = z.object({
   client_name: z.string().trim().min(1, "El nombre o razón social es obligatorio.").max(200),

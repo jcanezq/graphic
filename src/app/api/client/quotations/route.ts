@@ -7,6 +7,7 @@ import {
   createQuotationItemFromProduct,
   calcQuotationTotals,
   recalcQuotationItem,
+  type QuotationItemComponent,
 } from "@/lib/calculations";
 import { toQuotationItemRow } from "@/lib/quotation-item-row";
 import { generateClientToAdminWhatsAppUrl } from "@/lib/whatsapp";
@@ -139,11 +140,34 @@ export async function POST(request: Request) {
       snapItem.client_design_url =
         rutaArte && rutaArte.split("/")[0] === auth.user.id ? rutaArte : null;
 
+      // Los included_component_ids restringen cuáles subcomponentes se incluyen.
+      // El servidor reconstruye TODOS los subcomponentes desde el catálogo y
+      // luego aplica el filtro: sólo los ids listados quedan is_included=true.
+      // Un id que no exista en los _components del producto se ignora en silencio.
+      const includedIds = raw.included_component_ids ?? null;
+
       // La observación también se asigna DESPUÉS del recálculo: `notes` no está
       // en la lista de overrides de recalcQuotationItem y se descartaría en
       // silencio. Acá no hace falta comprobar propiedad: es texto del propio
       // cliente sobre su propia línea, ya acotado por el esquema.
       snapItem.notes = raw.notes ?? null;
+
+      // Aplicar el filtro de subcomponentes incluidos.
+      // La regla §7.12: el servidor ignora cualquier costo/margen del cuerpo.
+      const rawComponents: QuotationItemComponent[] = (snapItem as any)._components ?? [];
+      const filteredComponents: QuotationItemComponent[] = includedIds !== null
+        ? rawComponents.map((c) => ({
+            ...c,
+            is_included: c.id !== undefined
+              // Si la fila ya tiene id (cargada de DB): comprobar si está en la lista.
+              ? (includedIds as string[]).includes(c.id!)
+              // Para filas nuevas (recién creadas), se incluyen todas por defecto
+              // a menos que included_component_ids venga explícitamente vacío.
+              : true,
+          }))
+        : rawComponents;
+
+      (snapItem as any)._components = filteredComponents;
 
       quotationItems.push(snapItem);
     }
@@ -267,6 +291,57 @@ export async function POST(request: Request) {
         itemsError,
         "No se pudo guardar el detalle de la cotización. Intenta nuevamente."
       );
+    }
+
+    // 9. Insertar subcomponentes (quotation_item_components)
+    //    Los IDs reales de los ítems son necesarios para la FK.
+    const { data: insertedItems } = await adminClient
+      .from("quotation_items")
+      .select("id, sort_order")
+      .eq("quotation_id", quotation.id)
+      .order("sort_order");
+
+    if (insertedItems && insertedItems.length > 0) {
+      const allComponents: object[] = [];
+      for (let idx = 0; idx < quotationItems.length; idx++) {
+        const itemId = insertedItems[idx]?.id;
+        if (!itemId) continue;
+        const comps: QuotationItemComponent[] = (quotationItems[idx] as any)._components ?? [];
+        for (let j = 0; j < comps.length; j++) {
+          const c = comps[j];
+          allComponents.push({
+            quotation_item_id: itemId,
+            sort_order: j,
+            category: c.category,
+            source_kind: c.source_kind ?? null,
+            label: c.label,
+            unit: c.unit ?? null,
+            quantity: c.quantity,
+            unit_cost: c.unit_cost,
+            margin_percent: c.margin_percent,
+            scope: c.scope,
+            is_included: c.is_included,
+          });
+        }
+      }
+
+      if (allComponents.length > 0) {
+        const { error: compError } = await adminClient
+          .from("quotation_item_components")
+          .insert(allComponents);
+
+        if (compError) {
+          // Revertir cotización entera: sin subcomponentes la pantalla
+          // mostrará legado (que funciona), pero la promesa de fotocopia
+          // del catálogo no se cumpliría. Es preferible reintentar.
+          await adminClient.from("quotations").delete().eq("id", quotation.id);
+          return serverError(
+            "client/quotations:components",
+            compError,
+            "No se pudieron guardar los subcomponentes. Intenta nuevamente."
+          );
+        }
+      }
     }
 
     // 9. Generate WhatsApp confirmation URL

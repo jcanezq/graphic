@@ -53,11 +53,11 @@ export async function GET() {
     const [matRes, labRes, indRes] = await Promise.all([
       supabase
         .from("product_materials")
-        .select("product_id, quantity, unit_cost, material_ref:products!product_materials_material_id_fkey(manual_unit_cost)")
+        .select("product_id, name, quantity, unit_cost, material_ref:products!product_materials_material_id_fkey(manual_unit_cost, name, unit)")
         .in("product_id", productIds),
       supabase
         .from("product_labor")
-        .select("product_id, hours, hourly_rate")
+        .select("product_id, work_type, hours, hourly_rate, unit")
         .in("product_id", productIds),
       supabase
         .from("product_indirect_costs")
@@ -94,6 +94,65 @@ export async function GET() {
         pIndirect
       );
 
+      // SUBC: subcomponentes públicos (solo precios de venta, nunca costos).
+      // El cliente ve la composición del producto pero nunca los márgenes.
+      // Confirmado por el dueño: «está bien que el cliente vea todos los componentes».
+      const margin = (p as any).default_margin ?? 30;
+      const unitPrice = (cost: number) => Math.round(cost * (1 + margin / 100) * 100) / 100;
+
+      type PublicComp = {
+        label: string; unit: string; unit_price: number; scope: string;
+        category: string; source_kind: string | null;
+      };
+      const publicComponents: PublicComp[] = [];
+
+      // Materiales
+      for (const m of pMaterials) {
+        const uc = (m as any).unit_cost ?? 0;
+        if (!(uc > 0)) continue;
+        publicComponents.push({
+          label: (m as any).material_ref?.name ?? (m as any).name ?? 'Material',
+          unit: (m as any).material_ref?.unit ?? (m as any).unit ?? 'unidad',
+          unit_price: unitPrice(uc),
+          scope: 'unit',
+          category: 'material',
+          source_kind: null,
+        });
+      }
+      // Mano de obra
+      for (const l of pLabor) {
+        const uc = (l as any).hourly_rate ?? 0;
+        if (!(uc > 0)) continue;
+        publicComponents.push({
+          label: (l as any).work_type ?? 'Mano de Obra',
+          unit: (l as any).unit ?? 'hr',
+          unit_price: unitPrice(uc),
+          scope: 'unit',
+          category: 'labor',
+          source_kind: null,
+        });
+      }
+      // Indirectos
+      for (const ic of pIndirect) {
+        const uc = (ic as any).unit_cost ?? 0;
+        if (!(uc > 0)) continue;
+        const kind = (ic as any).kind;
+        let cat = 'other';
+        let sk: string | null = null;
+        let sc = 'unit';
+        if (kind === 'design') { cat = 'production'; sk = 'design'; sc = 'order'; }
+        else if (kind === 'production') { cat = 'production'; }
+        else if (kind === 'transport') { sk = 'transport'; sc = 'order'; }
+        publicComponents.push({
+          label: (ic as any).concept ?? 'Indirecto',
+          unit: (ic as any).unit ?? 'unidad',
+          unit_price: unitPrice(uc),
+          scope: sc,
+          category: cat,
+          source_kind: sk,
+        });
+      }
+
       return {
         id: p.id,
         code: p.code,
@@ -114,6 +173,8 @@ export async function GET() {
         labor_scope: COMPONENT_SCOPE_DEFAULTS.labor,
         design_scope: COMPONENT_SCOPE_DEFAULTS.design,
         transport_scope: COMPONENT_SCOPE_DEFAULTS.transport,
+        /** SUBC: subcomponentes públicos (solo precios de venta). */
+        public_components: publicComponents,
       };
     });
 

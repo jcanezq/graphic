@@ -107,6 +107,19 @@ export interface PublicProduct {
   labor_scope?: string;
   design_scope?: string;
   transport_scope?: string;
+  /**
+   * SUBC — Subcomponentes públicos de este producto.
+   * Solo precios de venta (unit_price): nunca costos ni márgenes.
+   * El cliente puede ver la composición; el dueño lo confirmó explícitamente.
+   */
+  public_components?: Array<{
+    label: string;
+    unit: string;
+    unit_price: number;
+    scope: string;
+    category: string;
+    source_kind: string | null;
+  }>;
 }
 
 export interface ClientQuotationRequest {
