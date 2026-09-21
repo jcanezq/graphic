@@ -15,7 +15,7 @@ import {
   calcItemSubtotal,
   type QuotationItemComponent,
 } from "@/lib/calculations";
-import { toQuotationItemRow } from "@/lib/quotation-item-row";
+import { saveQuotationItems } from "@/lib/quotation-save";
 import { ArrowLeft, Save, FileDown, Trash2, Search, MessageCircle, GitBranch, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
@@ -276,34 +276,9 @@ export default function QuotationDetailPage() {
 
       if (error) throw new Error(error.message);
 
-      const itemsPayload = items.map((item, idx) => toQuotationItemRow(item, idx));
-
-      const { error: rpcError } = await supabase.rpc("replace_quotation_items", {
-        p_quotation_id: quotationId,
-        p_items: itemsPayload,
-      });
-
-      if (rpcError) {
-        console.warn("RPC replace_quotation_items not available, using fallback:", rpcError);
-        const { error: deleteError } = await supabase
-          .from("quotation_items")
-          .delete()
-          .eq("quotation_id", quotationId);
-
-        if (deleteError) {
-          throw new Error("Error al actualizar ítems: " + deleteError.message);
-        }
-
-        if (items.length > 0) {
-          const { error: insertError } = await supabase.from("quotation_items").insert(
-            itemsPayload.map((item) => ({ ...item, quotation_id: quotationId }))
-          );
-
-          if (insertError) {
-            throw new Error("Error crítico: los ítems no se pudieron guardar. Revisa la cotización.");
-          }
-        }
-      }
+      // El guardado de ítems vive en src/lib/quotation-save.ts: acá adentro no
+      // había manera de ejercitar el ciclo abrir -> guardar con una prueba.
+      await saveQuotationItems(supabase, quotationId, items);
     },
     onSuccess: () => {
       showToast("Cotización actualizada");
