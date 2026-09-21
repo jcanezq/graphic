@@ -5,8 +5,8 @@
 import type { Product, ProductMaterial, ProductLabor, ProductIndirectCost, QuotationItem } from '@/types';
 
 import {
-  buildItemLines, buildItemLinesFromComponents, itemSubtotal, quotationTotals,
-  COMPONENT_SCOPE_DEFAULTS, LEGACY_SCOPE,
+  buildItemLines, buildItemLinesFromComponents, itemSubtotal, itemSubtotalFromComponents,
+  quotationTotals, COMPONENT_SCOPE_DEFAULTS, LEGACY_SCOPE,
   type PricedItemInput, type Scope, type PriceLine, type QuotationItemComponent,
 } from '@/lib/pricing';
 export type { PriceLine, QuotationItemComponent } from '@/lib/pricing';
@@ -209,7 +209,7 @@ export function recalcQuotationItem(
   // así toda fila impresa cumple cantidad x P.U. = subtotal (M-1).
   const baseUnitPrice = buildItemLines(priced)[0].unit_price;
 
-  return {
+  const next = {
     ...item,
     quantity,
     margin_percent: marginPercent,
@@ -229,6 +229,10 @@ export function recalcQuotationItem(
     unit_price: baseUnitPrice,
     subtotal: totalSubtotal,
   };
+
+  // Si el ítem tiene receta, ELLA manda: las columnas legadas se siguen
+  // guardando como dato de costeo, pero el precio sale de los subcomponentes.
+  return repriceItemFromComponents(next as any);
 }
 
 /**
@@ -270,10 +274,19 @@ export function createQuotationItemFromProduct(
   // ---- SUBC: construir la lista de subcomponentes -------------------------
   // Se copia el detalle del catálogo; si no hay receta, la lista queda vacía.
   // Mapeo según la tabla del spec §SUBC-T3.
+  //
+  // COSTO MANUAL: un producto con `manual_unit_cost` declara que su precio NO
+  // es la suma de sus partes — el costo manual REEMPLAZA materiales e
+  // indirectos (ver `calcUnitCost` y `buildCatalogPricing`). Publicarle una
+  // receta cobrable sería contradecir su propio precio: la receta pasaría a
+  // mandar y el ítem dejaría de coincidir con el Precio Venta del panel. Por
+  // eso se queda sin receta y lo cotiza el motor legado, con la fila base
+  // llevando el costo manual y la mano de obra / diseño / transporte encima.
+  const usaCostoManual = product.manual_unit_cost != null && product.manual_unit_cost > 0;
   const components: QuotationItemComponent[] = [];
   let sortIdx = 0;
 
-  for (const m of (product.materials || [])) {
+  for (const m of (usaCostoManual ? [] : product.materials || [])) {
     components.push({
       sort_order: sortIdx++,
       category: 'material',
@@ -288,7 +301,7 @@ export function createQuotationItemFromProduct(
     });
   }
 
-  for (const l of (product.labor || [])) {
+  for (const l of (usaCostoManual ? [] : product.labor || [])) {
     components.push({
       sort_order: sortIdx++,
       category: 'labor',
@@ -303,7 +316,7 @@ export function createQuotationItemFromProduct(
     });
   }
 
-  for (const ic of (product.indirect_costs || [])) {
+  for (const ic of (usaCostoManual ? [] : product.indirect_costs || [])) {
     const kind = ic.kind;
     let category: QuotationItemComponent['category'];
     let source_kind: QuotationItemComponent['source_kind'] = null;
@@ -333,7 +346,7 @@ export function createQuotationItemFromProduct(
   }
   // -------------------------------------------------------------------------
 
-  return {
+  const nuevo = {
     item_type: product.type,
     has_labor: true,
     has_design: true,
@@ -376,6 +389,9 @@ export function createQuotationItemFromProduct(
     // No es una columna real de quotation_items: sólo viaja en memoria.
     _components: components,
   } as QuotationItem & { _components: QuotationItemComponent[] };
+
+  // Con receta, el precio del ítem son sus subcomponentes (no la base + ellos).
+  return repriceItemFromComponents(nuevo);
 }
 
 /**
@@ -465,4 +481,33 @@ export function buildQuotationItemLines(item: QuotationItem & { _components?: Qu
   }
   // Legado: columnas has_labor / has_design / has_transport
   return buildItemLines(toPricedItem(item));
+}
+
+/**
+ * Vuelve a poner el precio del ítem a partir de SU receta, y es la única vía
+ * para que el interruptor `is_included` signifique algo en el dinero.
+ *
+ * Antes no existía: el subtotal salía del motor legado (has_labor /
+ * has_design / has_transport), que no mira los subcomponentes. Destildar una
+ * fila en el carrito o en el panel apagaba la fila en pantalla y el total no se
+ * movía ni un centavo. Ahora el subtotal guardado y las filas impresas salen de
+ * la misma función, así que no pueden contar cosas distintas.
+ *
+ * Sin receta devuelve el ítem intacto: esa es la ruta legada y no se toca.
+ */
+export function repriceItemFromComponents<
+  T extends QuotationItem & { _components?: QuotationItemComponent[] },
+>(item: T): T {
+  const comps = item._components;
+  if (!comps || comps.length === 0) return item;
+
+  const unitCost = Number(item.unit_cost) || 0;
+  const margin = Number(item.margin_percent) || 0;
+  return {
+    ...item,
+    // P.V. unitario = lo que cuesta UNA unidad con lo que quedó tildado.
+    // Es el mismo número que muestra «Precio Venta» en el panel.
+    unit_price: itemSubtotalFromComponents(1, unitCost, margin, item.unit, comps),
+    subtotal: itemSubtotalFromComponents(Number(item.quantity) || 0, unitCost, margin, item.unit, comps),
+  };
 }

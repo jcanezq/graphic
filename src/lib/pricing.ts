@@ -140,7 +140,20 @@ export interface QuotationItemComponent {
 /**
  * Devuelve las filas cobrables de un ítem usando su lista de subcomponentes.
  * ⚠ La fórmula es markup: precio = costo × (1 + margen/100). NO CAMBIAR.
- * La fila base (el producto mismo) siempre está presente.
+ *
+ * ┌──────────────────────────────────────────────────────────┐
+ * │  LA RECETA ES EL PRODUCTO, NO UN EXTRA.                  │
+ * │  Si el ítem trae subcomponentes, ELLOS son el producto:  │
+ * │  la fila `base` NO se emite, porque sumarla cobraría el  │
+ * │  mismo producto dos veces (defecto SRV-2026-0507: 364.50 │
+ * │  donde el panel de administración decía 195.75).         │
+ * │  La base sólo sobrevive cuando NO hay receta — ahí sí    │
+ * │  representa el producto entero.                          │
+ * └──────────────────────────────────────────────────────────┘
+ *
+ * Costo manual: quien arma el ítem NO le pone receta (ver
+ * `createQuotationItemFromProduct`), justamente porque su precio no es la suma
+ * de sus partes. Le toca esta rama de acá abajo, con la base mandando.
  */
 export function buildItemLinesFromComponents(
   itemQty: number,
@@ -149,17 +162,29 @@ export function buildItemLinesFromComponents(
   itemUnit: string | undefined,
   components: QuotationItemComponent[],
 ): PriceLine[] {
-  const lines: PriceLine[] = [
-    makeLine('base', 'base', itemUnit || 'unidad', itemQty, itemUnitCost, itemMargin),
-  ];
+  const unit = itemUnit || 'unidad';
+
+  // Sin receta: la fila base ES el producto.
+  if (components.length === 0) {
+    return [makeLine('base', 'base', unit, itemQty, itemUnitCost, itemMargin)];
+  }
+
+  const lines: PriceLine[] = [];
   for (const c of components) {
     if (!c.is_included) continue;
     if (!(c.unit_cost > 0)) continue;
     const effectiveQty = c.scope === 'unit' ? c.quantity * itemQty : c.quantity;
     if (!(effectiveQty > 0)) continue;
     // Usamos 'base' como key genérico; el label distingue cada fila.
-    const line = makeLine('base', c.label, c.unit || 'unidad', effectiveQty, c.unit_cost, c.margin_percent);
-    lines.push(line);
+    lines.push(makeLine('base', c.label, c.unit || 'unidad', effectiveQty, c.unit_cost, c.margin_percent));
+  }
+
+  // Receta con TODO destildado: el ítem no cobra nada. Se emite una sola fila a
+  // cero para que el ítem no desaparezca del documento sin avisar, pero la base
+  // NO reaparece con su precio: un ítem vacío que cobrara igual sería el mismo
+  // defecto al revés.
+  if (lines.length === 0) {
+    return [makeLine('base', 'base', unit, itemQty, 0, itemMargin)];
   }
   return lines;
 }
@@ -176,4 +201,75 @@ export function itemSubtotalFromComponents(
     buildItemLinesFromComponents(itemQty, itemUnitCost, itemMargin, itemUnit, components)
       .reduce((s, l) => s + l.subtotal, 0),
   );
+}
+
+// ============================================================
+// CARRITO PÚBLICO — el cliente ve precios de venta, nunca costos
+// ============================================================
+
+/**
+ * Un subcomponente tal como lo publica /api/public/products: SOLO precio de
+ * venta. El costo y el margen no salen del servidor.
+ */
+export interface CartComponentInput {
+  unit_price: number;
+  scope: string;
+  is_included: boolean;
+}
+
+/** Un ítem del carrito público (home y /cotizar comparten esta forma). */
+export interface CartItemInput {
+  quantity: number;
+  base_unit_price?: number;
+  unit_price?: number;
+  _components?: CartComponentInput[] | null;
+  labor_price?: number;      has_labor?: boolean;      labor_scope?: string;
+  design_price?: number;     has_design?: boolean;     design_scope?: string;
+  transport_price?: number;  has_transport?: boolean;  transport_scope?: string;
+}
+
+/**
+ * Total de una línea del carrito. Es la contraparte pública EXACTA de
+ * `buildItemLinesFromComponents`: si el ítem trae receta, la receta ES el
+ * producto y la base no se suma. Home y /cotizar la usan las dos, y el
+ * encabezado P.V. Unit sale de acá también, así que no pueden discrepar.
+ */
+export function cartLineTotal(it: CartItemInput): number {
+  const qty = Math.max(1, Number(it.quantity) || 1);
+  const comps = it._components;
+
+  if (comps && comps.length > 0) {
+    return round2(comps.reduce((acc, c) => {
+      if (!c.is_included) return acc;
+      const p = Number(c.unit_price) || 0;
+      if (!(p > 0)) return acc;
+      return acc + round2((c.scope === 'unit' ? qty : 1) * p);
+    }, 0));
+  }
+
+  // Legado: sin receta, la base es el producto y los tres componentes se suman.
+  const base = round2(qty * (Number(it.base_unit_price) || 0));
+  const comp = (price: number | undefined, enabled: boolean | undefined, scope: string | undefined) => {
+    if (enabled === false) return 0;
+    const p = Number(price) || 0;
+    if (!(p > 0)) return 0;
+    return round2((scope === 'unit' ? qty : 1) * p);
+  };
+  return round2(
+    base
+    + comp(it.labor_price, it.has_labor, it.labor_scope)
+    + comp(it.design_price, it.has_design, it.design_scope)
+    + comp(it.transport_price, it.has_transport, it.transport_scope),
+  );
+}
+
+/**
+ * Precio unitario que se muestra en el encabezado del ítem: lo que cuesta UNA
+ * unidad con lo que el cliente dejó tildado. Es la MISMA función que el
+ * subtotal, evaluada a cantidad 1, para que el número de arriba y la suma del
+ * desglose no puedan contarse distinto. Antes acá iba `base_unit_price`, que es
+ * el precio de una PARTE (el producto sin mano de obra): 168.75 contra 195.75.
+ */
+export function cartUnitPrice(it: CartItemInput): number {
+  return cartLineTotal({ ...it, quantity: 1 });
 }

@@ -103,16 +103,38 @@ describe('Calculations Library', () => {
   });
 
   describe('contrato de unit_price tras la FASE 2', () => {
-    it('unit_price es el precio de la fila base, no el promedio ponderado', () => {
-      const item = createQuotationItemFromProduct({
+    // CAMBIO 2026-09-21 (doble cobro SUBC): antes esta prueba exigía
+    // `unit_price === 13.50`, el precio de la fila BASE — o sea el material
+    // solo, sin la mano de obra. Ese es el mismo defecto que en pantalla se veía
+    // como «P.V. UNIT 168.75»: la columna decía ser el precio unitario del
+    // producto y era el de una parte. Con receta ya no hay fila base, así que
+    // `unit_price` pasa a ser lo que cuesta UNA unidad completa, que es
+    // exactamente el «Precio Venta» del panel de administración.
+    // El subtotal no se mueve: 121.50 antes y después.
+    it('unit_price es el precio de UNA unidad completa, no el de una parte', () => {
+      const producto = {
         id: 'p', code: 'C', name: 'N', type: 'Servicio', unit: 'm²', description: '',
         manual_unit_cost: null, default_margin: 35,
         materials: [{ name: 'M', quantity: 1, unit_cost: 10, unit: 'm2', material_id: null }],
         labor: [{ work_type: 'L', hours: 1, hourly_rate: 20 }],
         indirect_costs: [],
+      } as any;
+      const item = createQuotationItemFromProduct(producto, 3, 35, 0);
+      const panel = buildCatalogPricing(producto, producto.materials, producto.labor, producto.indirect_costs);
+
+      expect(item.unit_price).toBe(40.50);   // 13.50 material + 27.00 mano de obra
+      expect(item.unit_price).toBe(panel.unitPrice);
+      expect(item.subtotal).toBe(121.50);    // 40.50 + 81.00 (los dos con scope 'unit')
+    });
+
+    it('sin receta, unit_price sigue siendo el precio de la fila base', () => {
+      const item = createQuotationItemFromProduct({
+        id: 'p', code: 'C', name: 'N', type: 'Producto', unit: 'unidad', description: '',
+        manual_unit_cost: 10, default_margin: 35,
+        materials: [], labor: [], indirect_costs: [],
       } as any, 3, 35, 0);
-      expect(item.unit_price).toBe(13.50);   // base: 10 * 1.35
-      expect(item.subtotal).toBe(121.50);    // 40.50 base + 81.00 labor (scope 'unit')
+      expect(item.unit_price).toBe(13.50);
+      expect(item.subtotal).toBe(40.50);
     });
   });
 
