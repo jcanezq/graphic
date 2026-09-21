@@ -10,7 +10,7 @@ import {
   repriceItemFromComponents,
   type QuotationItemComponent,
 } from "@/lib/calculations";
-import { toQuotationItemRow } from "@/lib/quotation-item-row";
+import { toQuotationItemRow, toQuotationItemComponentRows } from "@/lib/quotation-item-row";
 import { generateClientToAdminWhatsAppUrl } from "@/lib/whatsapp";
 import type { Product } from "@/types";
 
@@ -309,28 +309,13 @@ export async function POST(request: Request) {
       .order("sort_order");
 
     if (insertedItems && insertedItems.length > 0) {
-      const allComponents: object[] = [];
-      for (let idx = 0; idx < quotationItems.length; idx++) {
+      // El mapeo de la receta es el MISMO que usan el panel y el RPC: una
+      // columna nueva se agrega en `quotation-item-row.ts` y en ningún otro
+      // lado. Esta copia a mano era la tercera.
+      const allComponents = quotationItems.flatMap((item, idx) => {
         const itemId = insertedItems[idx]?.id;
-        if (!itemId) continue;
-        const comps: QuotationItemComponent[] = (quotationItems[idx] as any)._components ?? [];
-        for (let j = 0; j < comps.length; j++) {
-          const c = comps[j];
-          allComponents.push({
-            quotation_item_id: itemId,
-            sort_order: j,
-            category: c.category,
-            source_kind: c.source_kind ?? null,
-            label: c.label,
-            unit: c.unit ?? null,
-            quantity: c.quantity,
-            unit_cost: c.unit_cost,
-            margin_percent: c.margin_percent,
-            scope: c.scope,
-            is_included: c.is_included,
-          });
-        }
-      }
+        return itemId ? toQuotationItemComponentRows(item as any, itemId) : [];
+      });
 
       if (allComponents.length > 0) {
         const { error: compError } = await adminClient
