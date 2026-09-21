@@ -797,6 +797,51 @@ seguiría mal, pero de una forma mucho más difícil de encontrar.
 > Es la misma idea de §7.8 y §7.13: **probar en las condiciones equivocadas da un verde que no
 > vale.**
 
+### 7.15 Una fila que todavía no existe no se identifica por su `id`
+
+El cliente destildaba un subcomponente en `/cotizar`, veía bajar el total, aceptaba — **y la
+cotización guardada se lo cobraba igual**. La cuarta aparición del mismo defecto: el cliente
+acepta un número y se le factura otro.
+
+La causa de fondo es §7.12 llevada a su consecuencia. El servidor **reconstruye la receta entera
+desde el catálogo** en cada pedido, así que en el momento de decidir qué se cobra, esas filas
+**no tienen `id`**: el id de `quotation_item_components` nace recién al insertarlas, después de
+guardar. El filtro que había comparaba contra ese id inexistente
+(`c.id !== undefined ? incluidos.includes(c.id) : true`) y por lo tanto caía **siempre** en el
+`true`. No filtraba nada, y no fallaba: se cobraba todo, en silencio. Para peor, `/cotizar` ni
+siquiera mandaba qué filas había apagado, así que había dos causas encadenadas y arreglar una
+sola no habría movido un centavo.
+
+**La identidad es una clave de contenido, `categoría:source_kind:etiqueta`**, y la calcula una
+sola función (`src/lib/component-selection.ts`) que llaman los dos lados: el catálogo público al
+publicarla y el servidor al reconstruir el ítem. **`sort_order` no sirve para esto**: numera, no
+identifica. Si alguien agrega un material a la receta entre que el cliente carga la página y
+envía, las posiciones de abajo se corren y el cliente termina excluyendo la fila equivocada —
+con el agravante de que el total le cerraría de casualidad si las dos filas valieran parecido.
+Ni el costo ni la cantidad entran en la clave, a propósito: subir el precio del canto no lo
+convierte en otro canto.
+
+**Colisión**: dos filas de la misma receta con la misma categoría y etiqueta —dos «Vinil» de
+proveedores distintos— comparten clave base, y la segunda aparición lleva `#2`. O sea que el
+desempate es posicional, pero **sólo entre las filas que colisionan**. Es una degradación acotada
+y declarada: si entre la carga y el envío se agrega o se borra una de las homónimas, los sufijos
+se corren entre ellas, el dinero cambia y **sale el aviso**. La alternativa —tratar la clave como
+grupo y apagar todas las homónimas— se descartó: destildar un «Vinil» apagaría los dos.
+
+**El cliente manda la lista COMPLETA de filas que vio, cada una con su interruptor**, no sólo las
+incluidas. Sin las apagadas el servidor no puede distinguir «esto lo destildó» de «esto apareció
+después y él nunca lo vio», que es exactamente la diferencia entre no cobrarlo y cobrarlo
+avisando.
+
+> **Nunca se le factura callado al cliente un monto distinto del que aceptó.** Si el catálogo
+> cambió, **el servidor recalcula con el catálogo vigente** —la cotización queda con el precio
+> real, no con el viejo— **y la respuesta lo dice** (`price_notice`), con un cartel que corta el
+> paso a la confirmación. Cobrarlo en silencio quedó descartado expresamente por el dueño.
+
+El total que el cliente aceptó viaja en `accepted_total` **y sólo se compara**. No participa de
+ninguna operación aritmética, y esa es la línea que no se cruza: si alguna vez entra en una suma
+o en un producto, el cliente pasa a fijar su propio precio y §7.12 dejó de valer.
+
 ---
 
 ## 8. Estado y pendientes conocidos
@@ -844,6 +889,8 @@ seguiría mal, pero de una forma mucho más difícil de encontrar.
 | **`client_design_url` guarda una ruta, no una URL** | §3 · §6.4 |
 | **El cliente adjunta su arte, sólo con sesión** | §5.1 |
 | **Lo que el cliente manda se asigna DESPUÉS de reconstruir el ítem** | §7.12 |
+| **Una fila sin `id` se identifica por contenido, no por posición** | §7.15 |
+| **Si el precio cambió, se cobra el real y se avisa; nunca en silencio** | §7.15 |
 | **Un solo cotizador: el administrador recorre el circuito del cliente** | §5.2 |
 | **La confirmación es una página con URL, no un estado de pantalla** | §5.4 |
 | **El destinatario del correo sale de la cotización, nunca del cuerpo** | §5.4 |
