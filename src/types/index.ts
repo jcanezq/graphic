@@ -113,6 +113,12 @@ export interface PublicProduct {
    * El cliente puede ver la composición; el dueño lo confirmó explícitamente.
    */
   public_components?: Array<{
+    /**
+     * Identidad de la fila, para que el cliente pueda decir cuál destildó.
+     * La calcula `src/lib/component-selection.ts` y el servidor la recalcula
+     * igual: no es un dato decorativo, es el contrato del interruptor.
+     */
+    key: string;
     label: string;
     unit: string;
     /** Cantidad de la RECETA (4 m lineales de canto), no la del ítem. */

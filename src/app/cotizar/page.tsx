@@ -12,6 +12,7 @@ import { fetchDocumentData } from "@/lib/ruc";
 import type { PublicProduct } from "@/types";
 import { ProductThumbnail } from "@/components/public/ProductThumbnail";
 import { round2, cartLineTotal, cartUnitPrice, componentEffectiveQty } from "@/lib/pricing";
+import { toClientComponentSelection, type PriceNotice } from "@/lib/component-selection";
 import {
   Calculator,
   Trash2,
@@ -58,6 +59,9 @@ interface DraftItem {
    * No viajan al servidor como costos: se mandan solo los ids incluidos.
    */
   _components?: Array<{
+    /** Identidad de la fila. Ausente en borradores guardados antes del arreglo:
+     *  `toClientComponentSelection` la recalcula del contenido. */
+    key?: string;
     label: string;
     unit: string;
     /** Cantidad de la RECETA. Ausente en borradores guardados antes del arreglo. */
@@ -128,6 +132,30 @@ export default function CotizadorPage() {
   // Submission & Auth Modal state
   const [submitting, setSubmitting] = useState(false);
   const [showGoogleModal, setShowGoogleModal] = useState(false);
+
+  /**
+   * El aviso de que el precio guardado no es el que el cliente aceptó.
+   *
+   * `etiquetas` se arma ANTES de limpiar el carrito: el servidor devuelve las
+   * claves de las filas que desaparecieron del catálogo —él ya no tiene su
+   * nombre— y el nombre legible sólo lo sabe este lado, que es el que las vio.
+   */
+  const [priceNotice, setPriceNotice] = useState<{
+    aviso: PriceNotice;
+    etiquetas: Record<string, string>;
+    quotationId: string;
+  } | null>(null);
+
+  /** Clave -> etiqueta, para poder nombrar en castellano lo que cambió. */
+  function mapaDeEtiquetas(lista: DraftItem[]): Record<string, string> {
+    const mapa: Record<string, string> = {};
+    for (const it of lista) {
+      const comps = it._components ?? [];
+      const claves = toClientComponentSelection(comps);
+      comps.forEach((c, i) => { mapa[claves[i].key] = c.label; });
+    }
+    return mapa;
+  }
 
   // Load catalog for settings
   const { data: catalogData } = useQuery({
@@ -429,6 +457,11 @@ export default function CotizadorPage() {
           client_address: clientAddress.trim() || null,
           notes: notes.trim() || null,
           validity_days: validityDays,
+          // El total que el cliente está aceptando en ESTE momento. Viaja SÓLO
+          // para que el servidor pueda avisarle si el precio real no coincide
+          // (§7.12): no participa de ningún cálculo, allá se recalcula todo
+          // desde el catálogo. Ver `accepted_total` en validations/api.ts.
+          accepted_total: total,
           items: items.map((it) => ({
             product_id: it.product_id,
             quantity: it.quantity,
@@ -437,6 +470,12 @@ export default function CotizadorPage() {
             has_transport: it.has_transport ?? true,
             client_design_url: it.client_design_url ?? null,
             notes: it.notes ?? null,
+            // QUÉ FILAS quiere, nunca cuánto valen. Va la lista COMPLETA de lo
+            // que vio, con su interruptor: sin las apagadas el servidor no
+            // puede distinguir «esto lo destildó» de «esto apareció después».
+            component_selection: it._components
+              ? toClientComponentSelection(it._components)
+              : null,
           })),
         }),
       });
@@ -447,9 +486,22 @@ export default function CotizadorPage() {
       }
 
       // Success!
+      // El carrito se limpia ANTES del aviso: la cotización ya está guardada y
+      // dejarlo vivo haría que una recarga la duplique.
+      const etiquetas = mapaDeEtiquetas(items);
       localStorage.removeItem("cotigrafic_quote_items");
       localStorage.removeItem("cotigrafic_quote_form");
       window.dispatchEvent(new Event("cotigrafic_cart_updated"));
+
+      // EL AVISO. Si el catálogo cambió entre que armó el carrito y envió, la
+      // cotización quedó con el precio REAL — y eso hay que decírselo, no
+      // deslizarlo. El cartel corta el paso: la navegación a la confirmación
+      // espera a que lo cierre. Un monto distinto sin aviso es exactamente el
+      // defecto que esto cierra.
+      if (data.price_notice) {
+        setPriceNotice({ aviso: data.price_notice, etiquetas, quotationId: data.quotationId });
+        return;
+      }
 
       showToast("¡Cotización generada exitosamente!");
 
@@ -1237,6 +1289,144 @@ export default function CotizadorPage() {
               style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}
             >
               Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* AVISO DE CAMBIO DE PRECIO — la otra mitad del trato.
+          El servidor recalcula del catálogo vigente, así que la cotización
+          quedó con el precio REAL. Lo que no puede pasar es que el cliente se
+          entere por la factura: este cartel corta el paso a la confirmación y
+          nombra QUÉ cambió. Sin él, esto sería el mismo defecto que se está
+          cerrando, con otra cara. */}
+      {priceNotice && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.6)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 110,
+            padding: "1rem",
+          }}
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="aviso-precio-titulo"
+        >
+          <div
+            style={{
+              background: "var(--bg-secondary)",
+              borderRadius: "var(--radius-xl)",
+              border: "1px solid var(--surface-border)",
+              maxWidth: "520px",
+              width: "100%",
+              padding: "2rem",
+              boxShadow: "var(--shadow-lg)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: "50%",
+                  background: "var(--accent-light)",
+                  color: "var(--price)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <ShieldAlert size={22} />
+              </div>
+              <h3
+                id="aviso-precio-titulo"
+                style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--text-primary)", margin: 0 }}
+              >
+                El precio cambió desde que armaste tu cotización
+              </h3>
+            </div>
+
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: 1.55, marginBottom: "1rem" }}>
+              El catálogo se actualizó mientras armabas tu pedido. Tu cotización quedó
+              guardada con los precios vigentes, y queremos que lo sepas antes de
+              continuar: no te cobramos un monto distinto sin decírtelo.
+            </p>
+
+            {priceNotice.aviso.accepted_total !== null && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "1rem",
+                  padding: "0.85rem 1rem",
+                  background: "var(--bg-primary)",
+                  border: "1px solid var(--surface-divider)",
+                  borderRadius: "var(--radius-md)",
+                  marginBottom: "1rem",
+                  fontSize: "0.9rem",
+                }}
+              >
+                <div>
+                  <div style={{ color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Lo que viste
+                  </div>
+                  <div style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
+                    {formatCurrency(priceNotice.aviso.accepted_total)}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Lo que se guardó
+                  </div>
+                  <div style={{ fontWeight: 800, color: "var(--price)" }}>
+                    {formatCurrency(priceNotice.aviso.total)}
+                    {priceNotice.aviso.difference !== null && (
+                      <span style={{ fontSize: "0.8rem", fontWeight: 600, marginLeft: "0.35rem" }}>
+                        ({priceNotice.aviso.difference > 0 ? "+" : ""}
+                        {formatCurrency(priceNotice.aviso.difference)})
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {priceNotice.aviso.changes.length > 0 && (
+              <ul style={{ margin: "0 0 1.5rem 0", paddingLeft: "1.1rem", color: "var(--text-secondary)", fontSize: "0.88rem", lineHeight: 1.6 }}>
+                {priceNotice.aviso.changes.map((cambio, i) => (
+                  <li key={i} style={{ marginBottom: "0.4rem" }}>
+                    <strong style={{ color: "var(--text-primary)" }}>{cambio.item}</strong>
+                    {cambio.added.length > 0 && (
+                      <> — se agregó al presupuesto: {cambio.added.join(", ")}</>
+                    )}
+                    {cambio.missing.length > 0 && (
+                      <>
+                        {cambio.added.length > 0 ? "; " : " — "}
+                        ya no está en el catálogo:{" "}
+                        {cambio.missing.map((k) => priceNotice.etiquetas[k] ?? k).join(", ")}
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <button
+              onClick={() => {
+                const id = priceNotice.quotationId;
+                setPriceNotice(null);
+                router.push(`/mis-cotizaciones/${id}`);
+              }}
+              className="btn btn-primary"
+              style={{ width: "100%", padding: "0.85rem 1.25rem", fontWeight: 700 }}
+            >
+              Entendido, ver mi cotización
             </button>
           </div>
         </div>

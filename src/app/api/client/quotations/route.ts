@@ -7,9 +7,12 @@ import {
   createQuotationItemFromProduct,
   calcQuotationTotals,
   recalcQuotationItem,
-  repriceItemFromComponents,
-  type QuotationItemComponent,
 } from "@/lib/calculations";
+import {
+  applyClientComponentSelection,
+  buildPriceNotice,
+  type CatalogChange,
+} from "@/lib/component-selection";
 import { toQuotationItemRow, toQuotationItemComponentRows } from "@/lib/quotation-item-row";
 import { generateClientToAdminWhatsAppUrl } from "@/lib/whatsapp";
 import type { Product } from "@/types";
@@ -48,6 +51,10 @@ export async function POST(request: Request) {
       validity_days,
       notes,
       items: rawItems,
+      // SÓLO para comparar. No entra en ningún cálculo — ver §7.12 y el
+      // comentario del esquema. Si alguna vez aparece en una operación
+      // aritmética de este archivo, el cliente pasa a fijar su propio precio.
+      accepted_total: acceptedTotal,
     } = parsed.data;
 
     const adminClient = createAdminClient();
@@ -114,6 +121,8 @@ export async function POST(request: Request) {
 
     // 3. Build snapshot items
     const quotationItems: any[] = [];
+    /** Lo que difiere de lo que el cliente vio, línea por línea. Alimenta el aviso. */
+    const cambiosDeCatalogo: CatalogChange[] = [];
     for (let i = 0; i < rawItems.length; i++) {
       const raw = rawItems[i];
       const prod = productMap.get(raw.product_id);
@@ -141,40 +150,41 @@ export async function POST(request: Request) {
       snapItem.client_design_url =
         rutaArte && rutaArte.split("/")[0] === auth.user.id ? rutaArte : null;
 
-      // Los included_component_ids restringen cuáles subcomponentes se incluyen.
-      // El servidor reconstruye TODOS los subcomponentes desde el catálogo y
-      // luego aplica el filtro: sólo los ids listados quedan is_included=true.
-      // Un id que no exista en los _components del producto se ignora en silencio.
-      const includedIds = raw.included_component_ids ?? null;
-
       // La observación también se asigna DESPUÉS del recálculo: `notes` no está
       // en la lista de overrides de recalcQuotationItem y se descartaría en
       // silencio. Acá no hace falta comprobar propiedad: es texto del propio
       // cliente sobre su propia línea, ya acotado por el esquema.
       snapItem.notes = raw.notes ?? null;
 
-      // Aplicar el filtro de subcomponentes incluidos.
-      // La regla §7.12: el servidor ignora cualquier costo/margen del cuerpo.
-      const rawComponents: QuotationItemComponent[] = (snapItem as any)._components ?? [];
-      const filteredComponents: QuotationItemComponent[] = includedIds !== null
-        ? rawComponents.map((c) => ({
-            ...c,
-            is_included: c.id !== undefined
-              // Si la fila ya tiene id (cargada de DB): comprobar si está en la lista.
-              ? (includedIds as string[]).includes(c.id!)
-              // Para filas nuevas (recién creadas), se incluyen todas por defecto
-              // a menos que included_component_ids venga explícitamente vacío.
-              : true,
-          }))
-        : rawComponents;
+      // SUBC — Qué filas de la receta quiere el cliente.
+      //
+      // El servidor reconstruye la receta ENTERA desde el catálogo vigente
+      // (§7.12) y recién después aplica el interruptor de cada fila. La fila se
+      // identifica por una clave DE CONTENIDO, no por `id`: cuando el cliente
+      // eligió, esas filas todavía no existían en `quotation_item_components` y
+      // por lo tanto no tenían id. El filtro anterior comparaba justamente
+      // contra ese id inexistente, caía siempre en «incluir todo», y por eso se
+      // le cobraba al cliente lo que había destildado.
+      //
+      // Una fila que el cliente NUNCA VIO se cobra —el precio real es el del
+      // catálogo vigente— y se REPORTA en `added`, para avisarle. Cobrarla
+      // callado quedó descartado expresamente por el dueño.
+      //
+      // El precio sale de nuevo DESPUÉS del filtro (dentro de la función), que
+      // es lo único que hace que el interruptor valga dinero.
+      const aplicado = applyClientComponentSelection(
+        snapItem as any,
+        raw.component_selection ?? null,
+      );
+      snapItem = aplicado.item;
 
-      (snapItem as any)._components = filteredComponents;
-
-      // El precio se vuelve a sacar DESPUÉS del filtro, que es lo único que hace
-      // que el interruptor del cliente valga dinero. Antes el subtotal salía del
-      // motor legado, que no mira los subcomponentes: destildar una fila la
-      // apagaba en pantalla y el total no se movía un centavo.
-      snapItem = repriceItemFromComponents(snapItem as any);
+      if (aplicado.added.length > 0 || aplicado.missing.length > 0) {
+        cambiosDeCatalogo.push({
+          item: snapItem.product_name,
+          added: aplicado.added,
+          missing: aplicado.missing,
+        });
+      }
 
       quotationItems.push(snapItem);
     }
@@ -350,12 +360,25 @@ export async function POST(request: Request) {
       })),
     });
 
+    // 10. El aviso. Nunca se le factura callado al cliente un monto distinto
+    //     del que aceptó: si el catálogo cambió entre que armó el carrito y
+    //     envió, la cotización queda con el precio REAL y acá se dice que
+    //     cambió. `price_notice` es `null` cuando no hay nada que avisar.
+    const priceNotice = buildPriceNotice(acceptedTotal, totals.total, cambiosDeCatalogo);
+    if (priceNotice) {
+      console.warn(
+        `[client/quotations] ${number}: el total cambió respecto del aceptado`,
+        JSON.stringify(priceNotice),
+      );
+    }
+
     return NextResponse.json({
       success: true,
       quotationId: quotation.id,
       number,
       total: totals.total,
       whatsappUrl,
+      price_notice: priceNotice,
     });
   } catch (error: unknown) {
     return serverError("client/quotations:unhandled", error);
