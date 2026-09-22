@@ -878,9 +878,17 @@ export default function CotizadorPage() {
                               Legado: cuando has_design === false. */}
                           {(() => {
                             const comps = item._components;
-                            const needsArt = comps && comps.length > 0
-                              ? comps.every((c) => c.source_kind !== 'design' || !c.is_included)
-                              : item.has_design === false;
+                            let needsArt: boolean;
+                            if (comps && comps.length > 0) {
+                              // SUBC: solo mostrar si el ítem TIENE un componente de diseño
+                              // y ese componente está desmarcado.
+                              const designComps = comps.filter((c) => c.source_kind === 'design');
+                              needsArt = designComps.length > 0 && designComps.every((c) => !c.is_included);
+                            } else {
+                              // Legado: mostrar si has_design fue explícitamente desactivado
+                              // y el producto tenía precio de diseño.
+                              needsArt = item.has_design === false && (item.design_price ?? 0) > 0;
+                            }
                             if (!needsArt) return null;
                             return (
                             <div style={{ margin: "0 1.25rem 0.5rem", marginLeft: "1rem", padding: 8, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--surface-divider)' }}>
