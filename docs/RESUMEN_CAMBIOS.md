@@ -4,6 +4,29 @@ A continuación se resumen las grandes etapas de desarrollo implementadas en Cot
 
 ---
 
+## 🧩 Todos los Subcomponentes son Opcionales (SUBC)
+*(Implementado el 21 de Septiembre de 2026)*
+
+Se reestructuró por completo el modelo de componentes de las cotizaciones para que los clientes tengan control granular sobre cada uno de los subcomponentes que conforman un producto (materiales, mano de obra, producción, otros).
+
+> [!TIP]
+> **Control Granular y Transparente**
+> - Ahora los clientes pueden ver exactamente de qué está compuesto un producto (precios de venta, nunca costos) y elegir qué componentes incluir o excluir de su compra.
+> - La UI agrupa dinámicamente los subcomponentes bajo categorías claras: MATERIALES, MANO DE OBRA, PRODUCCIÓN, OTROS.
+
+> [!IMPORTANT]
+> **Nuevo Motor de Cotización y Base de Datos**
+> - Se creó la tabla `quotation_item_components` para almacenar cada subcomponente asociado a un ítem de cotización, persistiendo su estado de inclusión (`is_included`), costo, margen y alcance.
+> - El motor de cálculo (`pricing.ts` y `calculations.ts`) fue reescrito para soportar esta nueva estructura, manteniendo **compatibilidad total hacia atrás** con cotizaciones antiguas (fallback al sistema legado de tres filas fijas).
+> - La API valida estrictamente que el cliente solo envíe qué componentes desea incluir, calculando siempre los precios en el servidor de forma segura.
+
+> [!NOTE]
+> **Mejoras UX Adicionales**
+> - El campo de descripción libre u observación ("Notas") fue movido al inicio de cada ítem, por encima de los componentes, dándole mayor visibilidad.
+> - La interfaz de administrador (`/dashboard/cotizaciones/[id]`) fue actualizada para soportar la carga, edición y guardado de esta nueva estructura dinámica, comportándose idénticamente a la vista del cliente pero mostrando márgenes y costos.
+
+---
+
 ## 🎨 Rediseño UX/UI del Flujo de Cotización (Inspiración AliExpress)
 *(Implementado el 14 de Septiembre de 2026)*
 

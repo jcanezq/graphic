@@ -132,9 +132,13 @@ Catálogos normalizados; cotizaciones como **instantánea** (*snapshot*).
    columna viaja por el mapper único y por el RPC. Los valores que empiezan con `http` son
    heredados y **ya no resuelven**. Ver §6.4. Copia nombre, costos y precios del
    momento de cotizar, para que un cambio posterior en el catálogo no altere una cotización
-   histórica. Incluye las nueve columnas de componentes (mano de obra, diseño y transporte, cada
-   uno con cantidad, costo, margen y alcance) y, desde el 2026-09-15, **`notes`**: la observación
-   libre de esa línea.
+   histórica. Incluye (por retrocompatibilidad) las nueve columnas de componentes legacy (mano de obra,
+   diseño y transporte) y la columna **`notes`** (observación libre de esa línea).
+
+7. **`quotation_item_components`** (SUBC) — detalle granular dinámico de la cotización. Guarda el estado
+   de cada componente (materiales, mano de obra, producción, otros) en el momento de la cotización,
+   incluyendo su `is_included`, `unit_cost`, `margin_percent`, `scope` y `label`. Reemplaza el modelo
+   legado de tres componentes fijos, permitiendo encender y apagar a nivel subcomponente.
 
 ### Vistas
 
