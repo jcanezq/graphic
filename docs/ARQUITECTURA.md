@@ -1,6 +1,6 @@
 # Arquitectura del Sistema CotiGrafix
 
-> **Actualizado: 2026-09-18**, verificado contra el código en `8ed5a61`. Cada afirmación de este
+> **Actualizado: 2026-09-23**, verificado contra el código en `3b5496f`. Cada afirmación de este
 > documento se comprobó ejecutando o leyendo el archivo que se cita. **Si algo acá no coincide con
 > el código, el código manda y este documento está vencido: corregilo.**
 
@@ -246,9 +246,9 @@ aparte. Marcarla es lo que permite al cliente quitar ese costo de su cotización
 
 ### 4.4 Alcance de los componentes
 
-Cada componente tiene un `scope`: `'unit'` (se multiplica por la cantidad) u `'order'` (se cobra
-una vez por cotización). Los valores heredados son `labor: 'unit'`, `design: 'order'`,
-`transport: 'order'`.
+`scope: 'unit'` se multiplica por la cantidad del ítem; `'order'` se cobra una vez. Diseño y
+transporte son `'order'`. Vale igual para los tres componentes heredados y para cada fila de receta
+(§4.6).
 
 ### 4.5 Recálculo de una línea
 
@@ -263,14 +263,31 @@ componentes.
 
 ---
 
+### 4.6 La receta en la cotización
+
+Al cotizar, los subcomponentes del catálogo —materiales, mano de obra e indirectos— se **copian** a
+`quotation_item_components`, una fila cada uno, con su interruptor `is_included`. Se copia y no se
+referencia: la cotización es una foto y no puede cambiar si mañana sube un material.
+
+**Con receta, el precio es la suma de las filas incluidas y la línea base NO se emite.** Sin receta
+la base sobrevive y es todo lo que hay — hoy son 107 de 118 productos, que se cotizan por
+`manual_unit_cost`. Si se destilda todo, se emite una fila en cero: el ítem sigue en el documento y
+no cobra nada.
+
+Dos funciones en `pricing.ts`, no una: `buildItemLines` para los ítems sin receta y
+`buildItemLinesFromComponents` para los que la tienen.
+
+> La identidad de cada fila y el aviso cuando el catálogo cambió: **§7.15**.
+
 ## 5. Flujo de cotización
 
 ### 5.1 Cliente
 
 1. **Pantalla principal** (`app/page.tsx`): catálogo + panel lateral derecho con los ítems
    agregados (miniatura, descripción, precio y selector de cantidad).
-2. **«Ver mi cotización»** lleva a **`/cotizar`**, donde el cliente edita cantidades, activa o
-   desactiva componentes opcionales, **escribe observaciones por ítem** y completa sus datos.
+2. **«Ver mi cotización»** lleva a **`/cotizar`**, donde el cliente edita cantidades, **activa o
+   desactiva cada subcomponente de la receta** (§4.6), escribe la **Descripción** del ítem y
+   completa sus datos.
 3. El borrador vive en `localStorage` bajo la clave `cotigrafic_quote_items`, y se escribe
    siempre por `persistItems` / `persistQuote`, que además emiten el evento
    `cotigrafic_cart_updated` que sincroniza el contador del carrito.
@@ -281,9 +298,10 @@ componentes.
 5. **El documento se verifica solo.** En cuanto el RUC o el DNI queda completo (8 u 11 dígitos),
    se consulta una única vez por número, con 600 ms de espera. Si falla, **calla**: el usuario no
    pidió nada y puede escribir el nombre a mano. El botón «Consultar» sí reporta el error.
-6. **Si desmarca el diseño, adjunta su arte ahí mismo** — sólo con sesión iniciada, porque las
-   políticas del bucket exigen que la carpeta sea su `uid`. El archivo va directo a `client-art`
-   desde el navegador y en el borrador queda **la ruta**, no una URL.
+6. **Si el ítem TIENE diseño y lo desmarca, adjunta su arte ahí mismo** — sólo con sesión
+   iniciada, porque las políticas del bucket exigen que la carpeta sea su `uid`. El archivo va
+   directo a `client-art` desde el navegador y en el borrador queda **la ruta**, no una URL. En un
+   producto sin diseño en la receta el pedido de arte **no aparece**: pedirlo ahí no tenía sentido.
 7. Se guarda por `POST /api/client/quotations` y la pantalla **navega a la página de entrega**,
    `/mis-cotizaciones/<id>` (§5.4).
 
@@ -631,7 +649,7 @@ contar las filas antes y después de guardar.
 ### 7.12 El servidor reconstruye los ítems del cliente: lo que no se asigna, se pierde
 Todo campo nuevo que venga del cliente se asigna **después** de reconstruir el ítem.
 `recalcQuotationItem` descarta en silencio lo que no esté en su lista de `overrides`, y la llamada
-usa `as any`.
+usa `as any` (§4.5).
 
 ### 7.13 Una ruta probada sólo con el administrador no está probada
 Con RLS atraviesa políticas que para los demás son paredes. Se prueba con sesión de cliente, y ese
@@ -661,6 +679,7 @@ en una operación aritmética, el cliente pasa a fijar su precio.
 | Cotizador | **unificado**: el administrador usa el circuito público; `cotizaciones/nueva` sólo redirige |
 | Portada | carrusel de banners con titular editable; **sin banners no se dibuja nada** (§5.5) |
 | Ida y vuelta del administrador | cotiza en el circuito público y vuelve por el enlace «Panel» (§5.2) |
+| Receta en la cotización | cada subcomponente se copia y se puede apagar (§4.6); **101 pruebas** |
 | `company-assets` | **cerrado** a escritura de no administradores, comprobado por contraste (§6.7) |
 | Entrega | página propia con PDF, correo y WhatsApp (§5.4) |
 | Correo | **escrito y sin probar** — falta `RESEND_API_KEY` y `RESEND_FROM` con dominio verificado |
@@ -706,6 +725,8 @@ en una operación aritmética, el cliente pasa a fijar su precio.
 | **`company_settings` es del administrador; el membrete se lee con el rol de servicio** | §6.5 |
 | **No hay registro: un usuario nace con Google o a mano, y es cliente por omisión** | §6.6 |
 | **Una ruta probada sólo con el administrador no está probada** | §7.13 |
+| **Con receta el precio es la suma de sus filas; la base sólo sobrevive sin receta** | §4.6 |
+| **Una fila sin `id` se identifica por su contenido, y el precio que cambió se avisa** | §7.15 |
 | **Una ruta con el rol de servicio declara `force-dynamic`, o el build la ejecuta** | §7.14 |
 | **La portada es el carrusel; el titular es texto, no parte de la imagen** | §5.5 |
 | **Una política de RLS se suma: agregar una restrictiva no cierra nada** | §6.7 |
