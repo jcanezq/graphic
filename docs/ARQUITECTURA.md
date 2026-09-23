@@ -584,267 +584,136 @@ deja sólo las nuevas.
 Cada una nació de un defecto real. Romperlas vuelve a traerlo.
 
 ### 7.1 El cliente nunca ve costo ni margen
-Es una decisión del dueño, no una preferencia de diseño. El catálogo está unificado en
-`CatalogBrowser`, compartido por las dos pantallas, y la diferencia se expresa **con la bandera
-`showCost`**. Si alguna vez la única forma de compartir un componente parece ser exponer el costo,
-**la respuesta es la bandera, no la excepción**.
+Decisión del dueño, no preferencia de diseño. El catálogo es **un solo** componente
+(`CatalogBrowser`) y la diferencia se expresa con la bandera `showCost`. Si compartir un componente
+parece exigir exponer el costo, la respuesta es la bandera, **no la excepción**.
 
 ### 7.2 Una sola fuente de verdad por cálculo
-El precio llegó a calcularse de **cinco maneras distintas** en este proyecto, y la cotización a
-guardarse por dos caminos que no coincidían. Hoy:
 
 | Cálculo | Función única |
 |---|---|
 | Precio de catálogo | `buildCatalogPricing` (`calculations.ts:116`) |
 | Precio de una línea | `calcUnitPrice` / `recalcQuotationItem` |
 | **Persistencia de un ítem** | **`toQuotationItemRow`** (`lib/quotation-item-row.ts`) |
-| Resumen de costos del formulario | `buildCatalogPricing` — tenía su propia aritmética hasta el 2026-09-15 |
 
-**Agregar una columna a `quotation_items` = tocar sólo `quotation-item-row.ts`.** Los cinco
-caminos de guardado pasan por ahí: la API del cliente, la nueva cotización del administrador,
-Duplicar, Nueva versión y la edición de `[id]`.
+Agregar una columna a `quotation_items` = tocar **sólo** `quotation-item-row.ts`. Los cinco caminos
+de guardado pasan por ahí.
 
-> **Excepción que hay que recordar:** el camino de `[id]` entrega la fila al RPC
-> `replace_quotation_items`, que **enumera sus columnas a mano en SQL**. Una columna nueva necesita
-> *también* una migración que actualice esa función, o se pierde en silencio al editar.
+> **Excepción:** el camino de `[id]` entrega la fila al RPC `replace_quotation_items`, que enumera
+> sus columnas **a mano en SQL**. Una columna nueva necesita *también* una migración que actualice
+> esa función, o se pierde en silencio al editar.
 
 ### 7.3 El catálogo oculta lo que no tiene precio, y el criterio es `unit_price`
-Se ocultan los ítems con `unit_price = 0`, que con la fórmula de markup equivale exactamente a
-«no tiene costo cargado». Al administrador se le informa cuántos quedaron ocultos.
-
-> **No uses `manual_unit_cost`**: sólo lo tienen los materiales; en un Producto o un Servicio es
-> `NULL` porque su costo se calcula. **No uses `base_unit_price`**: vale 0 para un servicio cuyo
-> costo es todo mano de obra (§4.2). Las dos cosas se intentaron y las dos ocultaron el catálogo.
+`unit_price = 0` equivale exactamente a «sin costo cargado». **No uses `manual_unit_cost`** —sólo lo
+tienen los materiales— **ni `base_unit_price`**, que vale 0 en un servicio de pura mano de obra.
+Las dos se intentaron y las dos ocultaron el catálogo.
 
 ### 7.4 Elegir dos veces el mismo producto agrega dos líneas
-Es deliberado: evita crear productos casi duplicados que sólo difieren en color o acabado — la
-diferencia se escribe en la observación de cada línea. Para conseguir más unidades idénticas está
-el selector de cantidad.
-
-Por eso cada línea lleva un **`row_key`** propio, generado al agregarla. **Es un dato de
-presentación y no se guarda en la base**: da identidad a la línea para React, de modo que borrar
-una no arrastre la observación de otra. Lo mismo vale para `image_url` en el ítem del
-administrador: **si el mapper de persistencia pasara a copiar el ítem con *spread*, estos campos
-harían fallar el guardado con `42703`**.
+Deliberado: evita productos casi duplicados que sólo difieren en color o acabado. Cada línea lleva
+un `row_key` propio, **de presentación, que no se guarda en la base**. Si el mapper copiara el ítem
+con *spread*, `row_key` e `image_url` harían fallar el guardado con `42703`.
 
 ### 7.5 NINGUNA imagen pasa por el optimizador de Next
-Se sirven todas directo de Supabase Storage, con `<img>`, nunca con `next/image`. La razón está
-escrita en `ProductThumbnail.tsx`: el costo del plan Pro de Vercel, la cláusula comercial del plan
-Hobby y una vulnerabilidad del optimizador de Next 14.
+Todas se sirven con `<img>` desde Supabase Storage. Motivo en `ProductThumbnail.tsx`: costo del plan
+Pro de Vercel, cláusula comercial del plan Hobby y un CVE del optimizador de Next 14.
 
-**La regla estuvo aplicada a medias durante semanas** —las pantallas públicas la respetaban y tres
-del administrador no— y eso consumía cuota y mantenía abierta la superficie del CVE sin que nadie
-lo viera. Se cerró el 2026-09-16.
+**El control es la pestaña Red, no el `grep`:** ninguna petición a `/_next/image`; todas a
+`…supabase.co/storage/…`.
 
-**El control no es el `grep`, es la pestaña Red del navegador:** ninguna petición debe ir a
-`/_next/image`. Todas deben venir de `…supabase.co/storage/…`.
+> Al traducir un `<Image>`: `fill` → `position:absolute; inset:0; width:100%; height:100%` con el
+> padre en `position:relative`; `sizes` se elimina; `alt` se conserva siempre.
 
-> Al traducir un `<Image>` a `<img>`: `fill` no existe —se reemplaza por `position:absolute;
-> inset:0; width:100%; height:100%` con el contenedor en `position:relative`— y `sizes` se elimina.
-> `alt` se conserva siempre.
+### 7.6 Un ícono de lucide NO llena su caja
+El margen dentro del `viewBox` de 24 **no es configurable**: subir `size` agranda la caja, no el
+trazo, y pasados los 46 px el `<svg>` no entra en el botón y `flex` lo deforma.
 
-### 7.6 Un ícono de lucide NO llena su caja: cuando el ícono es el control, se dibuja a mano
-Los íconos de `lucide-react` dejan margen dentro de su `viewBox` de 24, y **ese margen no es
-configurable**. Subir `size` agranda la caja, no el dibujo, y el techo llega antes del objetivo:
-por encima de 46 px el `<svg>` no entra en el botón y `flex` lo deforma.
-
-| Ícono | Ancho del dibujo | Alto del dibujo |
+| Ícono | Ancho del dibujo | Alto |
 |---|---|---|
-| `Plus` (de 5 a 19) | 58 % | 58 % |
-| `ChevronLeft` (`m15 18-6-6 6-6`) | **25 %** | 50 % |
+| `Plus` | 58 % | 58 % |
+| `ChevronLeft` | **25 %** | 50 % |
 
-**La regla:** cuando el ícono **es** el contenido del control —no un adorno junto a un texto— hay
-que mirar cuánto de su caja ocupa el trazo, y si es poco, dibujarlo con un `<svg>` propio. Dos
-lugares lo hacen y son el modelo a copiar: el `+` de `ProductCard.tsx:110-121` (cruz de 2 a 22, el
-83 %) y las flechas del carrusel en `HeroCarousel.tsx` (chevron de y=3 a y=21, el 75 %).
-
-**Costó dos vueltas la segunda vez.** Al reportarse que las flechas «se ven apenas», la primera
-corrección atacó el grosor del trazo —una mejora real— sin preguntarse cuánto de la caja ocupaba el
-dibujo, que es lo que esta misma sección ya explicaba para el `+`. El dato útil para decidir:
-**el trazo real de un ícono de lucide es `strokeWidth × size / 24`**, y el tamaño aparente es esa
-proporción de la tabla multiplicada por `size`.
+Trazo real = **`strokeWidth × size / 24`**. **Cuando el ícono ES el control** —no un adorno junto a
+un texto— se dibuja con un `<svg>` propio: modelos en `ProductCard.tsx:110-121` y `HeroCarousel.tsx`.
 
 ### 7.7 Una migración escrita no es una migración aplicada
-El archivo `.sql` no cambia nada hasta `supabase db push`. Se comprueba con
-`supabase migration list --linked`: la migración tiene que aparecer en **las dos** columnas,
-`local` y `remote`.
+El `.sql` no cambia nada hasta `supabase db push`. `supabase migration list --linked` tiene que
+mostrarla en **las dos** columnas, `local` y `remote`.
 
 ### 7.8 Verificar el artefacto que el usuario está mirando
 Un build local no prueba nada sobre un sitio publicado, y el fuente no prueba nada sobre lo que
-entrega el servidor. Para comprobar qué está corriendo de verdad:
+entrega el servidor:
 
 ```bash
 curl -s http://localhost:3000/_next/static/chunks/app/page.js | grep -c '<lo que buscás>'
 ```
 
-**Corolario: antes de sospechar del código, contá cuántos servidores hay vivos.** El 2026-09-17 se
-diagnosticaron tres veces seguidas defectos inexistentes —un botón que «no aparecía», flechas que
-«no cambiaban»— porque había **cuatro `next dev` corriendo a la vez**. Cada intento de «reiniciar
-para limpiar la caché» levantaba uno nuevo: Next encuentra el 3000 ocupado, avisa
-`Port 3000 is in use, trying 3001` y **deja vivo al viejo**, que sigue sirviendo código de hace
-horas. Peor: los cuatro compartían el mismo `.next`, pisándose las compilaciones.
-
-El chequeo cuesta un vistazo a la terminal —que el servidor diga `Local: http://localhost:3000`— y
-la salida es `taskkill /F /IM node.exe`, `rmdir /s /q .next` y levantar uno solo.
+**Y contá los servidores vivos antes de sospechar del código.** Cuando el puerto está ocupado Next
+avisa `Port 3000 is in use, trying 3001` y **deja vivo al viejo**, que sigue sirviendo código de
+hace horas; además varios `next dev` comparten el mismo `.next`. Salida: `taskkill /F /IM node.exe`,
+`rmdir /s /q .next`, levantar uno solo.
 
 ### 7.9 Nunca pongas CSS ni JavaScript como texto dentro del JSX
-React **escapa** el texto que renderiza, y `<style>` y `<script>` son **RAWTEXT** para el
-navegador: dentro de ellos las entidades **no se decodifican**. Las dos reglas juntas convierten un
-`>`, un `<` o un `&` en dos defectos a la vez.
+React **escapa** el texto, y `<style>`/`<script>` son **RAWTEXT**: dentro de ellos las entidades no
+se decodifican. Un `>` produce **dos** defectos a la vez: error de hidratación en la raíz —React
+compara `>` contra `&gt;`— y la regla CSS descartada por inválida.
 
-Pasó, y costó encontrarlo: un `<style>` dentro de `app/page.tsx` con el selector
-`.catalog-layout > *` llegaba al navegador como `.catalog-layout &gt; *`. Consecuencias:
-
-1. **Error de hidratación en la raíz** —React compara `>` contra `&gt;`—, y la página entera se
-   volvía a renderizar en el cliente.
-2. **La regla CSS quedaba inválida y el navegador la descartaba** — y era justamente la que impide
-   que la fila de chips empuje el panel del carrito fuera de la pantalla.
-
-**El CSS va en `globals.css`.** Si alguna vez parece imprescindible generarlo en el componente,
-`dangerouslySetInnerHTML` evita el escapado — pero deja la mina puesta para el siguiente.
+**El CSS va en `globals.css`.**
 
 ### 7.10 Una regla de negocio vive en CADA capa que la valida
-No alcanza con arreglarla donde se guarda. El «11 dígitos» del documento estaba escrito **tres
-veces** —en la pantalla del administrador, en la del cliente y en el esquema Zod del servidor— y
-arreglar las dos del navegador dejó la tercera esperando en el peor lugar: el formulario aceptaba
-un DNI, RENIEC devolvía el nombre, y el guardado lo rechazaba al final.
+El «11 dígitos» del documento estaba escrito **tres veces** —dos pantallas y el esquema Zod del
+servidor—: arreglar las del navegador dejó la tercera rechazando al final del guardado.
 
-**Cuando cambies una regla así, el `grep` no va sobre el nombre del campo: va sobre la regla
-misma** (`\d{11}`, en aquel caso). Y revisará tres capas: navegador, servidor y base.
+**El `grep` va sobre la regla, no sobre el campo** (`\d{11}`), y revisa navegador, servidor y base.
 
 ### 7.11 Un formulario que borra y reinserta debe reinsertar TODO lo que cargó
+`CatalogFormPage` borra todas las filas de un artículo y reinserta las que tiene en memoria. La suma
+de sus cajones de carga tiene que cubrir **todos** los valores de la columna que los discrimina: una
+fila con `kind='design'` no caía en ninguno y **desaparecía sin ningún error**, con su costo.
 
-`CatalogFormPage` guarda los costos de un artículo así: **borra todas** sus filas y **reinserta**
-las que tiene en memoria. Es un patrón legítimo, pero tiene una condición que no está escrita en
-ninguna parte del código: **todo lo que se borra tiene que haberse cargado antes.**
-
-Se rompió exactamente ahí. El filtro de carga repartía las filas en dos cajones —`'production'` y
-`'other'`— y una fila con `kind = 'design'` **no caía en ninguno**: no llegaba al formulario, y el
-guardado la borraba de la base. **No se degradaba: desaparecía**, con su costo, y el componente
-dejaba de existir en las cotizaciones futuras de ese artículo. Sin ningún error.
-
-**La regla:** cuando un formulario use borrar-y-reinsertar, la suma de sus cajones de carga tiene
-que cubrir **todos** los valores posibles de la columna que los discrimina. Si mañana se agrega un
-`kind` nuevo, hay que agregarlo al filtro **en el mismo commit**.
-
-**El control barato:** después de guardar, contar las filas. Si salieron menos de las que entraron
-y nadie borró nada a mano, el filtro de carga tiene un agujero.
+**Control barato:** contar las filas antes y después de guardar.
 
 ### 7.12 El servidor reconstruye los ítems del cliente: lo que no se asigna, se pierde
+`POST /api/client/quotations` toma del cuerpo **sólo** la cantidad y los interruptores, y reconstruye
+el ítem desde el catálogo. Por eso el cliente no puede falsear un precio.
 
-`POST /api/client/quotations` **no confía en el cuerpo de la petición**. De cada línea toma
-únicamente la **cantidad** y los **tres interruptores** de componentes, y vuelve a construir el
-ítem desde el catálogo con `createQuotationItemFromProduct` (`route.ts:113-131`). Por eso el
-cliente no puede falsear un precio.
+**Todo campo nuevo que venga del cliente hay que asignarlo explícitamente DESPUÉS de reconstruir.**
+Dos formas de perderlo en silencio:
 
-**La consecuencia, que hay que tener presente al agregar cualquier campo:** todo lo que venga del
-cliente y deba persistir hay que **asignarlo explícitamente después** de esa reconstrucción. Pasó
-con la ruta del arte; volverá a pasar con lo próximo.
-
-Y hay dos maneras de equivocarse, las dos silenciosas:
-
-1. **Pasarlo por `recalcQuotationItem`.** Su lista de `overrides` es cerrada y la llamada usa
-   `as any`: un campo que no esté en la lista **se descarta sin que el compilador diga nada**.
-   Ver §4.5.
-2. **Aceptarlo sin comprobar de quién es.** El arte se guarda como `<uid>/<archivo>`, y el servidor
-   **verifica que ese `uid` sea el de la sesión** antes de aceptarlo
-   (`route.ts:137-139`). Sin esa línea, alguien podría adjuntar a su propia cotización la ruta del
-   archivo de otro: no podría leerlo —`/api/art` compara con la sesión— pero **el administrador
-   sí**, y lo abriría creyendo que es el arte de ese pedido.
-
-> **Ante una ruta ajena o vencida se descarta en silencio y la cotización se guarda igual.** Es
-> deliberado y es comercial: una ruta ajena es un intento, una ruta vieja de una pestaña abierta
-> hace rato es un accidente, y en los dos casos guardar el pedido sin el arte es mejor que perder
-> la venta.
+1. **Pasarlo por `recalcQuotationItem`** — su lista de `overrides` es cerrada y la llamada usa
+   `as any`: lo que no esté en la lista se descarta sin que el compilador diga nada (§4.5).
+2. **Aceptarlo sin comprobar de quién es** — el arte se guarda como `<uid>/<archivo>` y el servidor
+   verifica que ese `uid` sea el de la sesión. Una ruta ajena o vencida se descarta en silencio y la
+   cotización se guarda igual: perder el arte es mejor que perder la venta.
 
 ### 7.13 Una ruta probada sólo con el administrador no está probada
-
-En una aplicación con RLS **el administrador atraviesa políticas que para todos los demás son
-paredes**, y eso lo convierte en el peor usuario posible para verificar nada. El PDF del cliente
-estuvo roto mientras el del administrador salía perfecto, y la ruta de correo nació con el mismo
-defecto por copiar el patrón del PDF dando por sentado que funcionaba.
-
-**Toda ruta que un cliente pueda tocar se prueba con una sesión de cliente**, y ese caso se escribe
-en el spec. Cuando el defecto aparezca, vale además §7.8: **mirar el cuerpo que devuelve la ruta**
-antes de armar una hipótesis. Acá decía `Settings not found`, y esas dos palabras eran la causa
-entera.
+Con RLS, el administrador atraviesa políticas que para todos los demás son paredes. **Toda ruta que
+un cliente pueda tocar se prueba con una sesión de cliente**, y ese caso se escribe en el spec.
 
 ### 7.14 Una ruta que usa el rol de servicio declara `force-dynamic`
+Sin esa señal Next ejecuta el handler **durante el build**. Falla de dos maneras y la segunda es
+peor: donde no está la clave el build revienta —el CI, que no debe tenerla—, y **donde sí está,
+congela la respuesta en la compilación**: cambiar un dato no se ve hasta el próximo despliegue.
 
-Next adelanta trabajo al compilar. Si una ruta de API no tiene ninguna señal de que su respuesta
-dependa de la petición, **la ejecuta durante el build**, guarda el resultado y en producción sirve
-esa copia sin volver a ejecutarla.
-
-Para una ruta que va a la base con `createAdminClient()` eso falla de dos maneras, y **la segunda
-es peor que la primera**:
-
-1. **Donde no está la clave, el build revienta.** El CI no tiene `SUPABASE_SERVICE_ROLE_KEY` —ni
-   debe tenerla, es la llave maestra— así que la ejecución en tiempo de compilación muere con
-   `Error occurred prerendering page`.
-2. **Donde sí está la clave, el dato queda congelado en la compilación.** Cambiar el teléfono de la
-   empresa en Configuración no cambiaría nada hasta el próximo despliegue, y el síntoma sería un
-   número viejo sin ningún error a la vista.
-
-`/api/public/products` lo declaraba desde siempre y **nadie sabía para qué**;
-`/api/public/settings` nació sin eso y lo delató el CI (`45c1e2c`). Sin este arreglo habríamos
-corregido el número de relleno del WhatsApp para reemplazarlo por un número congelado: el botón
-seguiría mal, pero de una forma mucho más difícil de encontrar.
-
-> **El corolario es lo que más vale: un build local NO prueba que el build del CI pase.** Tu
-> máquina tiene `.env.local` con secretos que el CI no tiene, y esa diferencia es deliberada. El
-> fallo se reproduce en un comando:
->
-> ```
-> SUPABASE_SERVICE_ROLE_KEY="" npm run build
-> ```
->
-> Es la misma idea de §7.8 y §7.13: **probar en las condiciones equivocadas da un verde que no
-> vale.**
+**Un build local NO prueba que el del CI pase.** Se reproduce con
+`SUPABASE_SERVICE_ROLE_KEY="" npm run build`.
 
 ### 7.15 Una fila que todavía no existe no se identifica por su `id`
+El servidor reconstruye la receta desde el catálogo en cada pedido, así que al decidir qué se cobra
+esas filas **no tienen `id`** —nace al insertarlas—. Un filtro que compare contra ese id cae
+**siempre** en «incluir todo», sin fallar y sin avisar.
 
-El cliente destildaba un subcomponente en `/cotizar`, veía bajar el total, aceptaba — **y la
-cotización guardada se lo cobraba igual**. La cuarta aparición del mismo defecto: el cliente
-acepta un número y se le factura otro.
-
-La causa de fondo es §7.12 llevada a su consecuencia. El servidor **reconstruye la receta entera
-desde el catálogo** en cada pedido, así que en el momento de decidir qué se cobra, esas filas
-**no tienen `id`**: el id de `quotation_item_components` nace recién al insertarlas, después de
-guardar. El filtro que había comparaba contra ese id inexistente
-(`c.id !== undefined ? incluidos.includes(c.id) : true`) y por lo tanto caía **siempre** en el
-`true`. No filtraba nada, y no fallaba: se cobraba todo, en silencio. Para peor, `/cotizar` ni
-siquiera mandaba qué filas había apagado, así que había dos causas encadenadas y arreglar una
-sola no habría movido un centavo.
-
-**La identidad es una clave de contenido, `categoría:source_kind:etiqueta`**, y la calcula una
-sola función (`src/lib/component-selection.ts`) que llaman los dos lados: el catálogo público al
-publicarla y el servidor al reconstruir el ítem. **`sort_order` no sirve para esto**: numera, no
-identifica. Si alguien agrega un material a la receta entre que el cliente carga la página y
-envía, las posiciones de abajo se corren y el cliente termina excluyendo la fila equivocada —
-con el agravante de que el total le cerraría de casualidad si las dos filas valieran parecido.
-Ni el costo ni la cantidad entran en la clave, a propósito: subir el precio del canto no lo
-convierte en otro canto.
-
-**Colisión**: dos filas de la misma receta con la misma categoría y etiqueta —dos «Vinil» de
-proveedores distintos— comparten clave base, y la segunda aparición lleva `#2`. O sea que el
-desempate es posicional, pero **sólo entre las filas que colisionan**. Es una degradación acotada
-y declarada: si entre la carga y el envío se agrega o se borra una de las homónimas, los sufijos
-se corren entre ellas, el dinero cambia y **sale el aviso**. La alternativa —tratar la clave como
-grupo y apagar todas las homónimas— se descartó: destildar un «Vinil» apagaría los dos.
-
-**El cliente manda la lista COMPLETA de filas que vio, cada una con su interruptor**, no sólo las
-incluidas. Sin las apagadas el servidor no puede distinguir «esto lo destildó» de «esto apareció
-después y él nunca lo vio», que es exactamente la diferencia entre no cobrarlo y cobrarlo
-avisando.
-
-> **Nunca se le factura callado al cliente un monto distinto del que aceptó.** Si el catálogo
-> cambió, **el servidor recalcula con el catálogo vigente** —la cotización queda con el precio
-> real, no con el viejo— **y la respuesta lo dice** (`price_notice`), con un cartel que corta el
-> paso a la confirmación. Cobrarlo en silencio quedó descartado expresamente por el dueño.
-
-El total que el cliente aceptó viaja en `accepted_total` **y sólo se compara**. No participa de
-ninguna operación aritmética, y esa es la línea que no se cruza: si alguna vez entra en una suma
-o en un producto, el cliente pasa a fijar su propio precio y §7.12 dejó de valer.
+- **La identidad es de contenido:** `categoría:source_kind:etiqueta`, calculada por una sola función
+  (`lib/component-selection.ts`) que usan el navegador y el servidor. **`sort_order` numera, no
+  identifica**: una fila agregada a la receta corre las posiciones de abajo.
+- **Colisión:** dos filas con la misma clave llevan `#2`. El desempate es posicional **sólo entre
+  homónimas**, y si cambia una de ellas el dinero cambia y **sale el aviso**.
+- **El cliente manda la lista COMPLETA** con su interruptor, no sólo las incluidas: sin las apagadas
+  no se distingue «lo destildó» de «apareció después y nunca lo vio».
+- **Nunca se le factura callado un monto distinto del que aceptó.** Si el catálogo cambió, el
+  servidor recalcula con el vigente y lo dice (`price_notice`), con un cartel que corta el paso a la
+  confirmación.
+- **`accepted_total` sólo se compara.** Si alguna vez entra en una suma o un producto, el cliente
+  pasa a fijar su propio precio y §7.12 dejó de valer.
 
 ---
 
