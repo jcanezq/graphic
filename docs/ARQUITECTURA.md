@@ -117,16 +117,22 @@ Catálogos normalizados; cotizaciones como **instantánea** (*snapshot*).
    > `products.manual_unit_cost`. Si ves documentación o código que hable de una tabla
    > `materials`, está desactualizado.
 
-3. **`categories`** — categorización visual.
+3. **`categories`** — categorización visual. Incluye `is_active` para activar/desactivar y `UNIQUE(slug)`.
+   No se elimina nunca; solo se desactiva.
 
-4. **Tablas de desglose de costos**, todas 1→N contra `products`:
+4. **`units`** — catálogo normalizado de unidades de medida (`code`, `label`, `sort_order`, `is_active`).
+   `products.unit` referencia a `units.code` mediante FK con `ON UPDATE RESTRICT ON DELETE RESTRICT`.
+   **`quotation_items.unit` y `quotation_item_components.unit` NO llevan FK**: son fotos fijas (instantáneas)
+   y deben conservar el texto original de la unidad aunque en el catálogo se desactive o cambie su etiqueta.
+
+5. **Tablas de desglose de costos**, todas 1→N contra `products`:
    - `product_materials` — qué materiales lleva y en qué cantidad
    - `product_labor` — mano de obra (horas × tarifa)
    - `product_indirect_costs` — indirectos, discriminados por `kind`
 
-5. **`quotations`** — cabecera: cliente, estado (Kanban), validez, notas, subtotal, IGV y total.
+6. **`quotations`** — cabecera: cliente, estado (Kanban), validez, notas, subtotal, IGV y total.
 
-6. **`quotation_items`** — **instantánea** de cada línea. **`client_design_url` ya no guarda una
+7. **`quotation_items`** — **instantánea** de cada línea. **`client_design_url` ya no guarda una
    URL: guarda la RUTA del arte dentro del bucket privado `client-art`** (`<uid>/<archivo>`). El
    nombre miente por historia, igual que `clients.ruc`; se documenta y no se renombra, porque la
    columna viaja por el mapper único y por el RPC. Los valores que empiezan con `http` son
@@ -135,7 +141,7 @@ Catálogos normalizados; cotizaciones como **instantánea** (*snapshot*).
    histórica. Incluye (por retrocompatibilidad) las nueve columnas de componentes legacy (mano de obra,
    diseño y transporte) y la columna **`notes`** (observación libre de esa línea).
 
-7. **`quotation_item_components`** (SUBC) — detalle granular dinámico de la cotización. Guarda el estado
+8. **`quotation_item_components`** (SUBC) — detalle granular dinámico de la cotización. Guarda el estado
    de cada componente (materiales, mano de obra, producción, otros) en el momento de la cotización,
    incluyendo su `is_included`, `unit_cost`, `margin_percent`, `scope` y `label`. Reemplaza el modelo
    legado de tres componentes fijos, permitiendo encender y apagar a nivel subcomponente.
@@ -668,6 +674,26 @@ las incluidas.
 **Nunca se le factura callado un monto distinto del que aceptó:** si el catálogo cambió, el servidor
 recalcula con el vigente y lo avisa (`price_notice`). `accepted_total` **sólo se compara**; si entra
 en una operación aritmética, el cliente pasa a fijar su precio.
+
+### 7.16 Ni las categorías ni las unidades se eliminan: solo se desactivan
+Decisión de diseño para evitar inconsistencias históricas e integridad referencial rota. No existe
+botón ni política de `DELETE` para `categories` ni para `units`. Lo que existe es `is_active` para
+activar o desactivar. La base de datos lo impone explícitamente (`REVOKE DELETE ...` y políticas RLS
+únicamente para `INSERT` y `UPDATE`). Una categoría o unidad inactiva no aparece en los selectores
+para nuevos productos ni en los filtros del catálogo público, pero los productos existentes que ya
+la tengan la muestran con la marca `(inactiva)` y se pueden seguir editando y guardando.
+
+### 7.17 El código de unidades y el slug de categorías no se editan tras su creación
+`units.code` y `categories.slug` son identificadores estables: el código es referenciado por la FK
+de `products.unit` y el slug viaja en URLs y banners. Modificarlos rompería enlaces existentes o
+forzaría cascadas complejas. La base de datos lo garantiza revocando el `UPDATE` general sobre ambas
+tablas y otorgando `GRANT UPDATE` únicamente sobre las columnas editables (`label`, `sort_order`,
+`is_active` en `units`; `name`, `color`, `icon`, `sort_order`, `is_active` en `categories`).
+
+### 7.18 Las fotos fijas (instantáneas de cotización) no llevan FK
+`quotation_items.unit` y `quotation_item_components.unit` preservan el texto exacto capturado en el
+momento de cotizar. No llevan llave foránea a `units` para que la cotización histórica jamás se altere
+o se rompa si una unidad cambia de etiqueta o se desactiva en el catálogo maestro.
 
 ---
 

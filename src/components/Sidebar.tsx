@@ -11,6 +11,8 @@ import {
   Users,
   Layers,
   Briefcase,
+  Tags,
+  Ruler,
 } from "lucide-react";
 
 const navItems = [
@@ -38,6 +40,16 @@ const navItems = [
     label: "Servicios",
     href: "/dashboard/servicios",
     icon: Briefcase,
+  },
+  {
+    label: "Categorías",
+    href: "/dashboard/categorias",
+    icon: Tags,
+  },
+  {
+    label: "Unidades",
+    href: "/dashboard/unidades",
+    icon: Ruler,
   },
   {
     label: "Clientes",
