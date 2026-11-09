@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Upload, Image as ImageIcon, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
 import { UseFormRegister, Control, useWatch, UseFormSetValue } from "react-hook-form";
 import type { ProductFormValues } from "@/lib/validations/product";
-import type { Category } from "@/types";
+import type { Category, Unit } from "@/types";
+import { filterSelectableCategories, filterSelectableUnits } from "@/lib/maintainers";
 
 interface Props {
   register: UseFormRegister<ProductFormValues>;
@@ -15,26 +16,57 @@ interface Props {
   fixedType?: "Producto" | "Servicio" | "Material";
 }
 
-const UNITS = [
-  { value: "m²", label: "Metro cuadrado (m²)" },
-  { value: "unidad", label: "Unidad" },
-  { value: "kit", label: "Kit" },
-  { value: "servicio", label: "Servicio" },
-  { value: "ml", label: "Metro lineal (ml)" },
-  { value: "metro", label: "Metro" },
-  { value: "hora-técnico / visita", label: "hora-técnico / visita" },
-  { value: "m² de vehículo", label: "m² de vehículo" },
-  { value: "m² instalado", label: "m² instalado" },
-  { value: "m² de mueble/tabique", label: "m² de mueble/tabique" },
+const DEFAULT_INITIAL_UNITS: Unit[] = [
+  { id: "seed-1", code: "m²", label: "Metro cuadrado (m²)", sort_order: 1, is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-2", code: "unidad", label: "Unidad", sort_order: 2, is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-3", code: "kit", label: "Kit", sort_order: 3, is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-4", code: "servicio", label: "Servicio", sort_order: 4, is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-5", code: "ml", label: "Metro lineal (ml)", sort_order: 5, is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-6", code: "metro", label: "Metro", sort_order: 6, is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-7", code: "hora-técnico / visita", label: "hora-técnico / visita", sort_order: 7, is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-8", code: "m² de vehículo", label: "m² de vehículo", sort_order: 8, is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-9", code: "m² instalado", label: "m² instalado", sort_order: 9, is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-10", code: "m² de mueble/tabique", label: "m² de mueble/tabique", sort_order: 10, is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-11", code: "m lineal", label: "Metro lineal", sort_order: 11, is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-12", code: "juego", label: "Juego", sort_order: 12, is_active: true, created_at: "", updated_at: "" },
 ];
 
 export function BasicInfoSection({ register, control, setValue, categories, errors, fixedType }: Props) {
   const [supabase] = useState(() => createClient());
   const { showToast } = useToast();
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [units, setUnits] = useState<Unit[]>(DEFAULT_INITIAL_UNITS);
+
+  useEffect(() => {
+    let isMounted = true;
+    supabase
+      .from("units")
+      .select("*")
+      .order("sort_order")
+      .then(({ data }) => {
+        if (isMounted && data && data.length > 0) {
+          setUnits(data as Unit[]);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [supabase]);
 
   const useManualCost = useWatch({ control, name: "useManualCost" });
   const imageUrl = useWatch({ control, name: "image_url" });
+  const currentUnit = useWatch({ control, name: "unit" });
+  const currentCategoryId = useWatch({ control, name: "category_id" });
+
+  const selectableCategories = useMemo(
+    () => filterSelectableCategories(categories, currentCategoryId),
+    [categories, currentCategoryId]
+  );
+
+  const selectableUnits = useMemo(
+    () => filterSelectableUnits(units, currentUnit),
+    [units, currentUnit]
+  );
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files || e.target.files.length === 0 || !setValue) return;
@@ -140,8 +172,8 @@ export function BasicInfoSection({ register, control, setValue, categories, erro
         <div className="form-group">
           <label>Unidad de medida</label>
           <select {...register("unit")}>
-            {UNITS.map((u) => (
-              <option key={u.value} value={u.value}>{u.label}</option>
+            {selectableUnits.map((u) => (
+              <option key={u.code} value={u.code}>{u.displayLabel}</option>
             ))}
           </select>
         </div>
@@ -168,8 +200,8 @@ export function BasicInfoSection({ register, control, setValue, categories, erro
           <label>Categoría</label>
           <select {...register("category_id")}>
             <option value="">Sin categoría</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+            {selectableCategories.map((c) => (
+              <option key={c.id} value={c.id}>{c.displayLabel}</option>
             ))}
           </select>
         </div>

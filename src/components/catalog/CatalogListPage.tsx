@@ -33,7 +33,7 @@ export default function CatalogListPage({ type, queryKey, basePath, labels }: Ca
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("*").order("sort_order");
+      const { data } = await supabase.from("categories").select("*").is("deleted_at", null).order("sort_order");
       return (data as Category[]) || [];
     }
   });

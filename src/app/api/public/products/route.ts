@@ -24,7 +24,7 @@ export async function GET() {
 
     const [settingsRes, categoriesRes, productsRes] = await Promise.all([
       supabase.from("company_settings").select("company_name, phone, igv_rate, logo_url").limit(1).single(),
-      supabase.from("categories").select("id, name, slug, color").order("sort_order"),
+      supabase.from("categories").select("id, name, slug, color").is("deleted_at", null).eq("is_active", true).order("sort_order"),
       supabase.from("products").select("*").eq("is_active", true).order("name"),
     ]);
 

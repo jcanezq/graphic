@@ -8,7 +8,8 @@ type Tables<T extends keyof Database['public']['Tables']> = Database['public']['
 
 export type Category = Tables<'categories'>;
 export type Client = Tables<'clients'>;
-export type ProductUnit = 'm²' | 'unidad' | 'kit' | 'servicio' | 'ml' | 'metro' | 'hora-técnico / visita' | 'm² de vehículo' | 'm² instalado' | 'm² de mueble/tabique';
+export type Unit = Tables<'units'>;
+export type ProductUnit = string;
 export type Material = Database['public']['Tables']['materials_deprecated']['Row'];
 export type MaterialInsert = Database['public']['Tables']['materials_deprecated']['Insert'];
 export type MaterialUpdate = Database['public']['Tables']['materials_deprecated']['Update'];
