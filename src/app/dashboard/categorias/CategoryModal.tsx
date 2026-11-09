@@ -297,3 +297,4 @@ export default function CategoryModal({ isOpen, onClose, category, onSuccess }: 
     </div>
   );
 }
+

@@ -138,3 +138,4 @@ describe("Mantenedores: filterSelectableUnits", () => {
     expect(custom?.displayLabel).toBe("ciento (inactiva)");
   });
 });
+

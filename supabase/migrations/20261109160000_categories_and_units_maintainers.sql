@@ -127,3 +127,4 @@ GRANT SELECT, INSERT ON TABLE public.units TO authenticated;
 REVOKE DELETE ON TABLE public.units FROM authenticated;
 REVOKE UPDATE ON TABLE public.units FROM authenticated;
 GRANT UPDATE (label, sort_order, is_active) ON TABLE public.units TO authenticated;
+
