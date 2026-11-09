@@ -30,6 +30,23 @@ BEGIN
   END IF;
 END $$;
 
+-- Seed de categorías existentes (garantiza datos en supabase db reset local)
+INSERT INTO public.categories (id, name, slug, color, icon, sort_order, is_active)
+VALUES
+  ('20b05f2a-16cc-466d-afa4-10d8b8d29f32', 'Exhibidores', 'exhibidores', '#f59e0b', null, 1, true),
+  ('5f18cca6-51c9-4027-a05b-e39aa8eb5506', 'Instalación de Vinil Profesional', 'vinil-profesional', '#10b981', null, 2, true),
+  ('1811da22-b6eb-4a91-ab0f-fe53b8424462', 'Laminado Vehicular', 'laminado-vehicular', '#3b82f6', null, 3, true),
+  ('fca5e418-51e7-4c40-944f-b70cd7c7d143', 'Láminas de Vidrio', 'laminas-vidrio', '#8b5cf6', null, 4, true),
+  ('f292d379-06c1-48a8-8a0d-640bffbc2821', 'Melamine & Drywall', 'melamine-drywall', '#6366f1', null, 5, true),
+  ('137bfae3-b5ad-44eb-89ec-bd3644b4d56f', 'Pizarras Adhesivas', 'pizarras-adhesivas', '#ec4899', null, 6, true),
+  ('3cd52567-74c6-4c30-81bb-970e4ac5d533', 'Publicidad Impresa', 'publicidad-impresa', '#ef4444', null, 7, true),
+  ('61f78997-85dc-4351-a771-32f7a3145f63', 'Revestimiento Adhesivos', 'revestimiento-adhesivos', '#14b8a6', null, 8, true),
+  ('65b9bbfa-3c65-486f-888b-4a4fe2ad131e', 'Señaléticas y Letreros', 'senaleticas-letreros', '#f97316', null, 9, true),
+  ('3e36acdd-2bcc-48dc-bbd7-d1360e70101c', 'Vinil Decorativo', 'vinil-decorativo', '#a855f7', null, 10, true)
+ON CONFLICT (slug) DO UPDATE
+  SET is_active = true
+  WHERE public.categories.deleted_at IS NULL;
+
 -- RLS y permisos endurecidos en categories (sin DELETE, UPDATE sólo en campos editables)
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 
