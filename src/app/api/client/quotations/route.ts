@@ -215,7 +215,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 6. Alta de cliente en el CRM — SOLO alta, nunca actualización.
+    // 6. Alta de cliente en el CRM — SOLO alta, nunca sobreescritura.
     //
     // Antes esto era un upsert por `name`, con el cliente admin (service role, sin RLS):
     // mandar el nombre de un cliente existente SOBREESCRIBÍA su teléfono, correo, RUC y
@@ -223,19 +223,39 @@ export async function POST(request: Request) {
     // `ignoreDuplicates` convierte la colisión en no-op: los datos de un cliente ya
     // registrado solo los cambia un administrador desde el panel.
     const resolvedEmail = client_email?.trim() || user.email || null;
-    const { error: clientError } = await adminClient.from("clients").upsert(
-      {
-        name: client_name.trim(),
-        ruc: client_ruc?.trim() || null,
-        address: client_address?.trim() || null,
-        phone: client_phone.trim(),
-        email: resolvedEmail,
-      },
-      { onConflict: "name", ignoreDuplicates: true }
-    );
-    if (clientError) {
-      // No es fatal: la cotización guarda su propio snapshot de client_* y es lo que vale.
-      console.error("[client/quotations] no se pudo registrar el cliente:", clientError);
+    const cleanRuc = client_ruc?.trim() || null;
+    const cleanName = client_name.trim();
+
+    // Si viene con RUC/DNI, verificar primero si ya existe un cliente con ese documento
+    // para no crear duplicados cuando el nombre tiene variaciones (ej: "Juan Pérez" vs "JUAN PEREZ S.A.")
+    let existingByDoc = null;
+    if (cleanRuc) {
+      const { data: byDoc } = await adminClient
+        .from("clients")
+        .select("id, name")
+        .eq("ruc", cleanRuc)
+        .is("deleted_at", null)
+        .limit(1);
+      if (byDoc && byDoc.length > 0) {
+        existingByDoc = byDoc[0];
+      }
+    }
+
+    if (!existingByDoc) {
+      const { error: clientError } = await adminClient.from("clients").upsert(
+        {
+          name: cleanName,
+          ruc: cleanRuc,
+          address: client_address?.trim() || null,
+          phone: client_phone.trim(),
+          email: resolvedEmail,
+        },
+        { onConflict: "name", ignoreDuplicates: true }
+      );
+      if (clientError) {
+        // No es fatal: la cotización guarda su propio snapshot de client_* y es lo que vale.
+        console.error("[client/quotations] no se pudo registrar el cliente:", clientError);
+      }
     }
 
     // 7. Insert quotation into database

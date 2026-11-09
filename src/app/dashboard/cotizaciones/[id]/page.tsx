@@ -213,16 +213,35 @@ export default function QuotationDetailPage() {
         throw new Error("Nombre del cliente es obligatorio");
       }
 
-      await supabase.from("clients").upsert(
-        {
-          name: clientName.trim(),
-          ruc: clientRuc || null,
-          address: clientAddress || null,
-          phone: clientPhone || null,
-          email: clientEmail || null,
-        },
-        { onConflict: "name" }
-      );
+      const cleanName = clientName.trim();
+      const cleanRuc = clientRuc?.trim() || null;
+
+      // Si viene con RUC/DNI, no duplicar cliente si ya existe uno registrado con ese documento
+      let existingClient = null;
+      if (cleanRuc) {
+        const { data: byDoc } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("ruc", cleanRuc)
+          .is("deleted_at", null)
+          .limit(1);
+        if (byDoc && byDoc.length > 0) {
+          existingClient = byDoc[0];
+        }
+      }
+
+      if (!existingClient) {
+        await supabase.from("clients").upsert(
+          {
+            name: cleanName,
+            ruc: cleanRuc,
+            address: clientAddress || null,
+            phone: clientPhone || null,
+            email: clientEmail || null,
+          },
+          { onConflict: "name" }
+        );
+      }
 
       const { error } = await supabase
         .from("quotations")

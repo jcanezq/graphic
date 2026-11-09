@@ -54,22 +54,48 @@ export default function ClientDetailActions({ client, quotes, ltv, totalAmount, 
       showToast("El nombre es obligatorio", "error");
       return;
     }
+
+    const trimmedRuc = ruc.trim();
+    if (trimmedRuc) {
+      const { data: existing, error: searchError } = await supabase
+        .from("clients")
+        .select("id, name")
+        .eq("ruc", trimmedRuc)
+        .is("deleted_at", null)
+        .neq("id", client.id)
+        .limit(1);
+
+      if (searchError) {
+        showToast("Error al verificar RUC/DNI", "error");
+        return;
+      }
+
+      if (existing && existing.length > 0) {
+        showToast(`Ya existe otro cliente con este RUC / DNI: "${existing[0].name}"`, "error");
+        return;
+      }
+    }
+
     setSaving(true);
     const { error } = await supabase
       .from("clients")
       .update({
         name: name.trim(),
-        ruc: ruc || null,
-        phone: phone || null,
-        email: email || null,
-        address: address || null,
-        notes: notes || null,
+        ruc: trimmedRuc || null,
+        phone: phone?.trim() || null,
+        email: email?.trim() || null,
+        address: address?.trim() || null,
+        notes: notes?.trim() || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", client.id);
 
     if (error) {
-      showToast("Error al guardar: " + error.message, "error");
+      if (error.code === "23505" || error.message?.toLowerCase().includes("ruc")) {
+        showToast("Ya existe otro cliente con este RUC / DNI", "error");
+      } else {
+        showToast("Error al guardar: " + error.message, "error");
+      }
     } else {
       showToast("Cliente actualizado");
       setEditing(false);

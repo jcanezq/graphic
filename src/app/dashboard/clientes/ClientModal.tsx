@@ -59,19 +59,20 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
         return;
       }
 
-      const { data: existing, error: searchError } = await supabase
+      let query = supabase
         .from("clients")
-        .select("id")
+        .select("id, name")
         .eq("ruc", doc)
-        .is("deleted_at", null)
-        .limit(1);
+        .is("deleted_at", null);
+
+      if (client?.id) {
+        query = query.neq("id", client.id);
+      }
+
+      const { data: existing, error: searchError } = await query.limit(1);
 
       if (!searchError && existing && existing.length > 0) {
-        if (!client || client.id !== existing[0].id) {
-          setRucError("Ya existe un cliente con este RUC / DNI");
-        } else {
-          setRucError("");
-        }
+        setRucError(`Ya existe un cliente con este RUC / DNI: "${existing[0].name}"`);
       } else {
         setRucError("");
       }
@@ -79,7 +80,7 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
 
     const debounceTimer = setTimeout(() => {
       checkRuc();
-    }, 400);
+    }, 300);
 
     return () => clearTimeout(debounceTimer);
   }, [ruc, client, isOpen, supabase]);
@@ -108,20 +109,27 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       showToast("El nombre es obligatorio", "error");
       return;
     }
     
     setSaving(true);
+    const trimmedRuc = ruc.trim();
 
-    if (ruc && ruc.trim()) {
-      const { data: existing, error: searchError } = await supabase
+    if (trimmedRuc) {
+      let query = supabase
         .from("clients")
-        .select("id")
-        .eq("ruc", ruc.trim())
-        .is("deleted_at", null)
-        .limit(1);
+        .select("id, name")
+        .eq("ruc", trimmedRuc)
+        .is("deleted_at", null);
+
+      if (client?.id) {
+        query = query.neq("id", client.id);
+      }
+
+      const { data: existing, error: searchError } = await query.limit(1);
 
       if (searchError) {
         showToast("Error al verificar RUC/DNI", "error");
@@ -130,21 +138,21 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
       }
 
       if (existing && existing.length > 0) {
-        if (!client || client.id !== existing[0].id) {
-          showToast("Ya existe un cliente con este RUC / DNI", "error");
-          setSaving(false);
-          return;
-        }
+        const msg = `Ya existe un cliente con este RUC / DNI: "${existing[0].name}"`;
+        showToast(msg, "error");
+        setRucError(msg);
+        setSaving(false);
+        return;
       }
     }
     
     const payload = {
-      name: name.trim(),
-      ruc: ruc || null,
-      phone: phone || null,
-      email: email || null,
-      address: address || null,
-      notes: notes || null,
+      name: trimmedName,
+      ruc: trimmedRuc || null,
+      phone: phone?.trim() || null,
+      email: email?.trim() || null,
+      address: address?.trim() || null,
+      notes: notes?.trim() || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -156,7 +164,12 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
         .eq("id", client.id);
 
       if (error) {
-        showToast("Error al actualizar: " + error.message, "error");
+        if (error.code === "23505" || error.message?.toLowerCase().includes("ruc")) {
+          showToast("Ya existe un cliente con este RUC / DNI", "error");
+          setRucError("Ya existe un cliente con este RUC / DNI");
+        } else {
+          showToast("Error al actualizar: " + error.message, "error");
+        }
       } else {
         showToast("Cliente actualizado exitosamente");
         if (onSuccess) onSuccess();
@@ -170,7 +183,12 @@ export default function ClientModal({ isOpen, onClose, client, onSuccess }: Prop
         .insert([payload]);
 
       if (error) {
-        showToast("Error al crear: " + error.message, "error");
+        if (error.code === "23505" || error.message?.toLowerCase().includes("ruc")) {
+          showToast("Ya existe un cliente con este RUC / DNI", "error");
+          setRucError("Ya existe un cliente con este RUC / DNI");
+        } else {
+          showToast("Error al crear: " + error.message, "error");
+        }
       } else {
         showToast("Cliente creado exitosamente");
         if (onSuccess) onSuccess();

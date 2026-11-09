@@ -695,6 +695,17 @@ tablas y otorgando `GRANT UPDATE` únicamente sobre las columnas editables (`lab
 momento de cotizar. No llevan llave foránea a `units` para que la cotización histórica jamás se altere
 o se rompa si una unidad cambia de etiqueta o se desactiva en el catálogo maestro.
 
+### 7.19 Unicidad de DNI / RUC en clientes activos
+No se permite el ingreso ni la duplicación de dos clientes con el mismo número de DNI o RUC.
+Se garantiza en dos niveles:
+1. **Base de datos**: índice único parcial (`idx_clients_unique_active_ruc`) sobre `TRIM(ruc)`
+   para registros activos (`deleted_at IS NULL AND ruc IS NOT NULL AND TRIM(ruc) != ''`).
+   Permite valores nulos (clientes sin documento), pero prohíbe colisiones.
+2. **Aplicación**: validación anticipada con debounce y bloqueo en `ClientModal.tsx` y `ClientDetailActions.tsx`,
+   además de búsqueda previa por documento en `/api/client/quotations` y en la edición de cotizaciones,
+   impidiendo que variaciones en la escritura del nombre (ej: "Juan Pérez" vs "JUAN PEREZ S.A.") generen
+   registros duplicados con el mismo RUC.
+
 ---
 
 ## 8. Estado y pendientes conocidos
