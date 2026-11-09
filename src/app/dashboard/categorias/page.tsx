@@ -14,7 +14,7 @@ export default async function CategoriesPage() {
       .from("categories")
       .select("*")
       .is("deleted_at", null)
-      .order("sort_order", { ascending: true }),
+      .order("name", { ascending: true }),
     supabase
       .from("products")
       .select("id, category_id")

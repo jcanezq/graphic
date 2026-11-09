@@ -24,7 +24,6 @@ export type Database = {
           is_active: boolean
           name: string
           slug: string
-          sort_order: number | null
         }
         Insert: {
           color?: string | null
@@ -35,7 +34,6 @@ export type Database = {
           is_active?: boolean
           name: string
           slug: string
-          sort_order?: number | null
         }
         Update: {
           color?: string | null
@@ -46,7 +44,6 @@ export type Database = {
           is_active?: boolean
           name?: string
           slug?: string
-          sort_order?: number | null
         }
         Relationships: []
       }
@@ -602,7 +599,6 @@ export type Database = {
           id: string
           is_active: boolean
           label: string
-          sort_order: number | null
           updated_at: string
         }
         Insert: {
@@ -611,7 +607,6 @@ export type Database = {
           id?: string
           is_active?: boolean
           label: string
-          sort_order?: number | null
           updated_at?: string
         }
         Update: {
@@ -620,7 +615,6 @@ export type Database = {
           id?: string
           is_active?: boolean
           label?: string
-          sort_order?: number | null
           updated_at?: string
         }
         Relationships: []

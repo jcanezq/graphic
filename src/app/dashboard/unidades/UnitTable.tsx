@@ -123,7 +123,6 @@ export default function UnitTable({ initialUnits }: Props) {
                 <tr>
                   <th>Código</th>
                   <th>Etiqueta descriptiva</th>
-                  <th style={{ textAlign: "center" }}>Orden</th>
                   <th style={{ textAlign: "center" }}>Productos</th>
                   <th style={{ textAlign: "center" }}>Estado</th>
                   <th style={{ textAlign: "right" }}>Acciones</th>
@@ -137,9 +136,6 @@ export default function UnitTable({ initialUnits }: Props) {
                     </td>
                     <td className="primary">
                       <span>{unit.label}</span>
-                    </td>
-                    <td style={{ textAlign: "center", fontSize: "0.85rem" }}>
-                      {unit.sort_order ?? 0}
                     </td>
                     <td style={{ textAlign: "center" }}>
                       <span

@@ -29,7 +29,6 @@ export default function CategoryModal({ isOpen, onClose, category, onSuccess }: 
   const [slug, setSlug] = useState("");
   const [color, setColor] = useState("#3b82f6");
   const [icon, setIcon] = useState("");
-  const [sortOrder, setSortOrder] = useState<number>(1);
   const [isActive, setIsActive] = useState(true);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
@@ -39,7 +38,6 @@ export default function CategoryModal({ isOpen, onClose, category, onSuccess }: 
       setSlug(category.slug || "");
       setColor(category.color || "#3b82f6");
       setIcon(category.icon || "");
-      setSortOrder(category.sort_order ?? 1);
       setIsActive(category.is_active ?? true);
       setSlugManuallyEdited(true);
     } else {
@@ -47,7 +45,6 @@ export default function CategoryModal({ isOpen, onClose, category, onSuccess }: 
       setSlug("");
       setColor("#3b82f6");
       setIcon("");
-      setSortOrder(1);
       setIsActive(true);
       setSlugManuallyEdited(false);
     }
@@ -95,14 +92,13 @@ export default function CategoryModal({ isOpen, onClose, category, onSuccess }: 
 
     try {
       if (category) {
-        // UPDATE: sólo columnas editables según grant de BD: name, color, icon, sort_order, is_active
+        // UPDATE: sólo columnas editables según grant de BD: name, color, icon, is_active
         const { error } = await supabase
           .from("categories")
           .update({
             name: trimmedName,
             color: color || null,
             icon: icon.trim() || null,
-            sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
             is_active: isActive,
           })
           .eq("id", category.id);
@@ -132,7 +128,6 @@ export default function CategoryModal({ isOpen, onClose, category, onSuccess }: 
               slug: finalSlug,
               color: color || null,
               icon: icon.trim() || null,
-              sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
               is_active: isActive,
             },
           ]);
@@ -206,7 +201,7 @@ export default function CategoryModal({ isOpen, onClose, category, onSuccess }: 
             </span>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem" }}>
             <div>
               <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.4rem" }}>
                 Color identificador
@@ -235,20 +230,6 @@ export default function CategoryModal({ isOpen, onClose, category, onSuccess }: 
                   style={{ flex: 1, fontFamily: "var(--font-mono)" }}
                 />
               </div>
-            </div>
-
-            <div>
-              <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.4rem" }}>
-                Orden de presentación
-              </label>
-              <input
-                type="number"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)}
-                className="form-input"
-                style={{ width: "100%" }}
-                min={0}
-              />
             </div>
           </div>
 

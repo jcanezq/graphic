@@ -13,7 +13,7 @@ export default async function UnitsPage() {
     supabase
       .from("units")
       .select("*")
-      .order("sort_order", { ascending: true }),
+      .order("label", { ascending: true }),
     supabase
       .from("products")
       .select("id, unit")

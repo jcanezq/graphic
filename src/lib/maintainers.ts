@@ -83,7 +83,6 @@ export function filterSelectableUnits(
       id: "legacy-unknown",
       code: currentUnitCode,
       label: currentUnitCode,
-      sort_order: 9999,
       is_active: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

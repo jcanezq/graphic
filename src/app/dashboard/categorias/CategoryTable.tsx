@@ -123,7 +123,6 @@ export default function CategoryTable({ initialCategories }: Props) {
                 <tr>
                   <th>Nombre</th>
                   <th>Slug</th>
-                  <th style={{ textAlign: "center" }}>Orden</th>
                   <th style={{ textAlign: "center" }}>Productos</th>
                   <th style={{ textAlign: "center" }}>Estado</th>
                   <th style={{ textAlign: "right" }}>Acciones</th>
@@ -153,9 +152,6 @@ export default function CategoryTable({ initialCategories }: Props) {
                     </td>
                     <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
                       {cat.slug}
-                    </td>
-                    <td style={{ textAlign: "center", fontSize: "0.85rem" }}>
-                      {cat.sort_order ?? 0}
                     </td>
                     <td style={{ textAlign: "center" }}>
                       <span

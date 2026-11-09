@@ -120,7 +120,7 @@ Catálogos normalizados; cotizaciones como **instantánea** (*snapshot*).
 3. **`categories`** — categorización visual. Incluye `is_active` para activar/desactivar y `UNIQUE(slug)`.
    No se elimina nunca; solo se desactiva.
 
-4. **`units`** — catálogo normalizado de unidades de medida (`code`, `label`, `sort_order`, `is_active`).
+4. **`units`** — catálogo normalizado de unidades de medida (`code`, `label`, `is_active`, ordenadas alfabéticamente).
    `products.unit` referencia a `units.code` mediante FK con `ON UPDATE RESTRICT ON DELETE RESTRICT`.
    **`quotation_items.unit` y `quotation_item_components.unit` NO llevan FK**: son fotos fijas (instantáneas)
    y deben conservar el texto original de la unidad aunque en el catálogo se desactive o cambie su etiqueta.
@@ -687,8 +687,8 @@ la tengan la muestran con la marca `(inactiva)` y se pueden seguir editando y gu
 `units.code` y `categories.slug` son identificadores estables: el código es referenciado por la FK
 de `products.unit` y el slug viaja en URLs y banners. Modificarlos rompería enlaces existentes o
 forzaría cascadas complejas. La base de datos lo garantiza revocando el `UPDATE` general sobre ambas
-tablas y otorgando `GRANT UPDATE` únicamente sobre las columnas editables (`label`, `sort_order`,
-`is_active` en `units`; `name`, `color`, `icon`, `sort_order`, `is_active` en `categories`).
+tablas y otorgando `GRANT UPDATE` únicamente sobre las columnas editables (`label`,
+`is_active` en `units`; `name`, `color`, `icon`, `is_active` en `categories`). Se ordenan alfabéticamente.
 
 ### 7.18 Las fotos fijas (instantáneas de cotización) no llevan FK
 `quotation_items.unit` y `quotation_item_components.unit` preservan el texto exacto capturado en el

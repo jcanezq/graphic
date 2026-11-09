@@ -17,18 +17,18 @@ interface Props {
 }
 
 const DEFAULT_INITIAL_UNITS: Unit[] = [
-  { id: "seed-1", code: "m²", label: "Metro cuadrado (m²)", sort_order: 1, is_active: true, created_at: "", updated_at: "" },
-  { id: "seed-2", code: "unidad", label: "Unidad", sort_order: 2, is_active: true, created_at: "", updated_at: "" },
-  { id: "seed-3", code: "kit", label: "Kit", sort_order: 3, is_active: true, created_at: "", updated_at: "" },
-  { id: "seed-4", code: "servicio", label: "Servicio", sort_order: 4, is_active: true, created_at: "", updated_at: "" },
-  { id: "seed-5", code: "ml", label: "Metro lineal (ml)", sort_order: 5, is_active: true, created_at: "", updated_at: "" },
-  { id: "seed-6", code: "metro", label: "Metro", sort_order: 6, is_active: true, created_at: "", updated_at: "" },
-  { id: "seed-7", code: "hora-técnico / visita", label: "hora-técnico / visita", sort_order: 7, is_active: true, created_at: "", updated_at: "" },
-  { id: "seed-8", code: "m² de vehículo", label: "m² de vehículo", sort_order: 8, is_active: true, created_at: "", updated_at: "" },
-  { id: "seed-9", code: "m² instalado", label: "m² instalado", sort_order: 9, is_active: true, created_at: "", updated_at: "" },
-  { id: "seed-10", code: "m² de mueble/tabique", label: "m² de mueble/tabique", sort_order: 10, is_active: true, created_at: "", updated_at: "" },
-  { id: "seed-11", code: "m lineal", label: "Metro lineal", sort_order: 11, is_active: true, created_at: "", updated_at: "" },
-  { id: "seed-12", code: "juego", label: "Juego", sort_order: 12, is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-1", code: "m²", label: "Metro cuadrado (m²)", is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-2", code: "unidad", label: "Unidad", is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-3", code: "kit", label: "Kit", is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-4", code: "servicio", label: "Servicio", is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-5", code: "ml", label: "Metro lineal (ml)", is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-6", code: "metro", label: "Metro", is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-7", code: "hora-técnico / visita", label: "hora-técnico / visita", is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-8", code: "m² de vehículo", label: "m² de vehículo", is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-9", code: "m² instalado", label: "m² instalado", is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-10", code: "m² de mueble/tabique", label: "m² de mueble/tabique", is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-11", code: "m lineal", label: "Metro lineal", is_active: true, created_at: "", updated_at: "" },
+  { id: "seed-12", code: "juego", label: "Juego", is_active: true, created_at: "", updated_at: "" },
 ];
 
 export function BasicInfoSection({ register, control, setValue, categories, errors, fixedType }: Props) {
@@ -42,7 +42,7 @@ export function BasicInfoSection({ register, control, setValue, categories, erro
     supabase
       .from("units")
       .select("*")
-      .order("sort_order")
+      .order("label")
       .then(({ data }) => {
         if (isMounted && data && data.length > 0) {
           setUnits(data as Unit[]);

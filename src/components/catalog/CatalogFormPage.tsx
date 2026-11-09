@@ -78,7 +78,7 @@ export default function CatalogFormPage({ type, basePath, labels }: CatalogFormP
   }, [supabase]);
 
   const fetchCategories = useCallback(async () => {
-    const { data } = await supabase.from("categories").select("*").is("deleted_at", null).order("sort_order");
+    const { data } = await supabase.from("categories").select("*").is("deleted_at", null).order("name");
     setCategories((data as Category[]) || []);
   }, [supabase]);
 

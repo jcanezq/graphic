@@ -26,19 +26,16 @@ export default function UnitModal({ isOpen, onClose, unit, onSuccess }: Props) {
   const [saving, setSaving] = useState(false);
   const [code, setCode] = useState("");
   const [label, setLabel] = useState("");
-  const [sortOrder, setSortOrder] = useState<number>(1);
   const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
     if (unit) {
       setCode(unit.code || "");
       setLabel(unit.label || "");
-      setSortOrder(unit.sort_order ?? 1);
       setIsActive(unit.is_active ?? true);
     } else {
       setCode("");
       setLabel("");
-      setSortOrder(1);
       setIsActive(true);
     }
   }, [unit, isOpen]);
@@ -76,12 +73,11 @@ export default function UnitModal({ isOpen, onClose, unit, onSuccess }: Props) {
 
     try {
       if (unit) {
-        // UPDATE: sólo columnas editables según grant de BD: label, sort_order, is_active (code NO se edita)
+        // UPDATE: sólo columnas editables según grant de BD: label, is_active (code NO se edita)
         const { error } = await supabase
           .from("units")
           .update({
             label: trimmedLabel,
-            sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
             is_active: isActive,
           })
           .eq("id", unit.id);
@@ -109,7 +105,6 @@ export default function UnitModal({ isOpen, onClose, unit, onSuccess }: Props) {
             {
               code: trimmedCode,
               label: trimmedLabel,
-              sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
               is_active: isActive,
             },
           ]);
@@ -181,20 +176,6 @@ export default function UnitModal({ isOpen, onClose, unit, onSuccess }: Props) {
             <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem", display: "block" }}>
               Nombre descriptivo que se mostrará en los selectores y listas.
             </span>
-          </div>
-
-          <div>
-            <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.4rem" }}>
-              Orden de presentación
-            </label>
-            <input
-              type="number"
-              value={sortOrder}
-              onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)}
-              className="form-input"
-              style={{ width: "100%" }}
-              min={0}
-            />
           </div>
 
           <div style={{ paddingTop: "0.5rem", borderTop: "1px solid var(--surface-divider)" }}>
