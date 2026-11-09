@@ -45,3 +45,4 @@ WHERE id IN (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_unique_active_ruc
 ON public.clients (TRIM(ruc))
 WHERE deleted_at IS NULL AND ruc IS NOT NULL AND TRIM(ruc) != '';
+
