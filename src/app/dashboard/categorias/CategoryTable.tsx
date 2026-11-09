@@ -84,7 +84,7 @@ export default function CategoryTable({ initialCategories }: Props) {
           <Search size={18} />
           <input
             type="text"
-            placeholder="Buscar por nombre o slug..."
+            placeholder="Buscar categoría..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -122,7 +122,6 @@ export default function CategoryTable({ initialCategories }: Props) {
               <thead>
                 <tr>
                   <th>Nombre</th>
-                  <th>Slug</th>
                   <th style={{ textAlign: "center" }}>Productos</th>
                   <th style={{ textAlign: "center" }}>Estado</th>
                   <th style={{ textAlign: "right" }}>Acciones</th>
@@ -149,9 +148,6 @@ export default function CategoryTable({ initialCategories }: Props) {
                         )}
                         <span style={{ fontWeight: 600 }}>{cat.name}</span>
                       </div>
-                    </td>
-                    <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                      {cat.slug}
                     </td>
                     <td style={{ textAlign: "center" }}>
                       <span
